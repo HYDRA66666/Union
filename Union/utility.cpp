@@ -1,0 +1,139 @@
+﻿#include "pch.h"
+#include "utility.h"
+
+namespace HYDRA15::Union::assistant
+{
+    std::string operator*(std::string str, size_t count) {
+        std::string result;
+        result.reserve(str.size() * count);
+        for (size_t i = 0; i < count; ++i) {
+            result += str;
+        }
+        return result;
+    }
+
+    std::string strip_front(const std::string& str, std::function<bool(char)> is_valid)
+    {
+        std::string res = str;
+        size_t pos = 0;
+        while (pos < res.size())
+        {
+            if (is_valid(res[pos]))
+                break;
+            pos++;
+        }
+        res.erase(0, pos);
+        return res;
+    }
+
+    std::string strip_back(const std::string& str, std::function<bool(char)> is_valid)
+    {
+        std::string res = str;
+        size_t pos = res.size() - 1;
+        while (pos > 0)
+        {
+            if (is_valid(res[pos]))
+                break;
+            pos--;
+        }
+        res.erase(pos + 1);
+        return res;
+    }
+
+    std::string strip(const std::string& str, std::function<bool(char)> is_valid)
+    {
+        return strip_back(strip_front(str, is_valid), is_valid);
+    }
+
+    std::string strip_all(const std::string& str, std::function<bool(char)> is_valid)
+    {
+        std::string res;
+        res.reserve(str.size());
+
+        for (char c : str)
+            if (is_valid(c))
+                res.push_back(c);
+
+        res.shrink_to_fit();
+        return res; 
+    }
+
+    std::string strip_color(const std::string& str)
+    {
+        std::string res;
+        res.reserve(str.size());
+
+        for (size_t i = 0; i < str.size(); i++)
+        {
+            if (str[i] == '\033' && i + 1 < str.size() && str[i + 1] == '[') // 发现 ANSI 转义序列起始
+            {
+                // 查找 'm' 结尾
+                size_t j = i + 2;
+                while (j < str.size() && str[j] != 'm')
+                    j++;
+                if (j < str.size() && str[j] == 'm') {
+                    // 找到完整的 ANSI 颜色代码，跳过整个序列 (从 \033 到 m)
+                    i = j;
+                    continue;
+                }
+            }
+            // 将可保留的字符复制到 res 中
+            res.push_back(str[i]);
+        }
+
+        return res;
+    }
+
+    void check_content(const std::string& str, std::function<bool(char)> is_valid)
+    {
+        for (const auto& c : str)
+            if (!is_valid(c))
+                throw exceptions::assistant::UtilityInvalidChar();
+    }
+
+    std::string hex_heap(const unsigned char* pBegin, unsigned int size, const std::string& title, unsigned int preLine)
+    {
+        std::string str = std::format("   -------- {} --------   \n", title);
+        str.reserve((preLine * 0x4 + 0x20) * (size / preLine + 1) + 0x100 + title.size());
+
+        // 打印表头
+        str += "          ";
+        for (unsigned int i = 0; i < preLine; i++)
+            str += std::format("{:02X} ", i);
+        str += "\n\n";
+
+        // 打印数据
+        std::string dataStr, charStr;
+        dataStr.reserve(preLine * 3);
+        charStr.reserve(preLine);
+        for (unsigned int i = 0; i < size; i++)
+        {
+            if (i % preLine == 0)   // 行头地址
+                str += std::format("{:08X}  ", i);
+
+            dataStr += std::format("{:02X} ", pBegin[i]);
+            if (pBegin[i] >= 0x20 && pBegin[i] <= 0x7E)
+                charStr += pBegin[i];
+            else
+                charStr += ' ';
+
+            if ((i + 1) % preLine == 0)
+            {
+                str += std::format("{}  |{}| \n", dataStr, charStr);
+                dataStr.clear();
+                charStr.clear();
+            }
+
+            if (i == size - 1 && (i + 1) % preLine != 0)  // 最后一行对齐
+            {
+                dataStr += std::string("   ") * (preLine - i % preLine - 1);
+                charStr += std::string(" ") * (preLine - i % preLine - 1);
+                str += std::format("{}  |{}| \n", dataStr, charStr);
+                dataStr.clear();
+                charStr.clear();
+            }
+        }
+
+        return str;
+    }
+}
