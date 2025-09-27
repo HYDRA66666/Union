@@ -25,5 +25,5 @@
 namespace HYDRA15::Union::framewotk
 {
     static_string libName = "HYDRA15.Union";
-    static_string version = "build - 0.0.1 - 20250927 - lib";
+    static_string version = "preview 0.0.1.20250927 lib";
 }
