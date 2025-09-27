@@ -20,10 +20,3 @@
 // 启用栈跟踪支持
 // 启用可能会影响安全性和性能
 #define LIB_IEXPT_STACKTRACE_ENABLE 
-
-// 版本号
-namespace HYDRA15::Union::framewotk
-{
-    static_string libName = "HYDRA15.Union";
-    static_string version = "preview-0.0.1-lib";
-}
