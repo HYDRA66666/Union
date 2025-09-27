@@ -20,10 +20,8 @@ namespace HYDRA15::Union::secretary
             instance.update_bottom(id, str);
             instance.flush();
         }
-        catch (referee::iExceptionBase& e)
+        catch (referee::iExceptionBase&)
         {
-            if (e.libID == framework::libID::system)
-                throw e;
             return false;
         }
         return true;
@@ -35,10 +33,8 @@ namespace HYDRA15::Union::secretary
         {
             get_instance().remove_bottom(id);
         }
-        catch (referee::iExceptionBase& e)
+        catch (referee::iExceptionBase&)
         {
-            if (e.libID == framework::libID::system)
-                throw e;
             return false;
         }
         return true;
