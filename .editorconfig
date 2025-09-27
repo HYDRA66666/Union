@@ -1,15 +1,11 @@
-﻿root = true
+root = true
 
 # All files
 [*]
 indent_style = space
+charset = utf-8-bom
 
 # Xml files
 [*.xml]
 indent_size = 2
 
-[*.cpp]
-charset = utf-8-bom
-
-[*.h]
-charset = utf-8-bom
