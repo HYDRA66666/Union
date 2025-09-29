@@ -27,7 +27,7 @@ namespace HYDRA15::Union::archivist
         return ct.regist(name, constructor);
     }
 
-    void factory::unregist(std::string name)
+    bool factory::unregist(std::string name)
     {
         std::unique_lock ulk(smt);
         return ct.unregist(name);

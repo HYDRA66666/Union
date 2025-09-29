@@ -256,7 +256,7 @@ namespace HYDRA15::Union::secretary
         std::lock_guard lk(btmMsgTabLock);
         try
         {
-            return btmMsgTab.regist({time_point::clock::now(), forceDisplay, neverExpire, std::string() });
+            return btmMsgTab.regist(btmmsg_ctrlblock{time_point::clock::now(), forceDisplay, neverExpire, std::string() });
         }
         catch(exceptions::archivist& e)
         {
