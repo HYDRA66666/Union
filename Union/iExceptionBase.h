@@ -2,6 +2,8 @@
 #include "pch.h"
 #include "framework.h"
 
+#include "astring.h"
+
 namespace HYDRA15::Union::referee
 {
 	// 异常处理的基础

@@ -4,7 +4,8 @@
 
 
 // 常用类型定义
-#define static_string static constexpr std::string_view
+#include "astring.h"
+#define static_string static constexpr HYDRA15::Union::framework::astring
 #define static_uint static constexpr unsigned int
 
 

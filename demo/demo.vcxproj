@@ -21,8 +21,8 @@
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
-    <ProjectGuid>{9f06e26e-bab1-4d3b-b302-7e3f932edd68}</ProjectGuid>
-    <RootNamespace>Union</RootNamespace>
+    <ProjectGuid>{d414f72c-b2b2-49e5-b889-0e0fc50f8301}</ProjectGuid>
+    <RootNamespace>demo</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -40,13 +40,13 @@
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
-    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v143</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
@@ -70,11 +70,9 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <IncludePath>$(SolutionDir);$(SolutionDir)pch\;$(IncludePath)</IncludePath>
-  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>$(SolutionDir);$(SolutionDir)pch\;$(IncludePath)</IncludePath>
+    <ExecutablePath>$(ExecutablePath)</ExecutablePath>
+    <ExternalIncludePath>$(SolutionDir)pch\;$(SolutionDir);$(ExternalIncludePath)</ExternalIncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -108,8 +106,6 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp23</LanguageStandard>
-      <LanguageStandard_C>stdc17</LanguageStandard_C>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -126,9 +122,6 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
-      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
-      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -136,59 +129,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ProjectReference Include="..\pch\pch.vcxproj">
-      <Project>{e61892c1-e794-454f-a2ac-f93e4b4400c8}</Project>
+    <ClCompile Include="main.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Union\Union.vcxproj">
+      <Project>{9f06e26e-bab1-4d3b-b302-7e3f932edd68}</Project>
     </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="archivist_exception.h" />
-    <ClInclude Include="archivist_interfaces.h" />
-    <ClInclude Include="assistant_exception.h" />
-    <ClInclude Include="astring.h" />
-    <ClInclude Include="background.h" />
-    <ClInclude Include="basic_mailbox.h" />
-    <ClInclude Include="basic_mailrouter.h" />
-    <ClInclude Include="basic_mailsender.h" />
-    <ClInclude Include="basic_remote_agent.h" />
-    <ClInclude Include="concepts.h" />
-    <ClInclude Include="datetime.h" />
-    <ClInclude Include="expressman_exception.h" />
-    <ClInclude Include="expressman_interfaces.h" />
-    <ClInclude Include="factory.h" />
-    <ClInclude Include="framework.h" />
-    <ClInclude Include="iExceptionBase.h" />
-    <ClInclude Include="labourer_exception.h" />
-    <ClInclude Include="libID.h" />
-    <ClInclude Include="log.h" />
-    <ClInclude Include="logger.h" />
-    <ClInclude Include="PrintCenter.h" />
-    <ClInclude Include="progress.h" />
-    <ClInclude Include="registry.h" />
-    <ClInclude Include="secretary_exception.h" />
-    <ClInclude Include="shared_container_base.h" />
-    <ClInclude Include="ThreadLake.h" />
-    <ClInclude Include="utility.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="archivist_exception.cpp" />
-    <ClCompile Include="archivist_interfaces.cpp" />
-    <ClCompile Include="assistant_exception.cpp" />
-    <ClCompile Include="astring.cpp" />
-    <ClCompile Include="background.cpp" />
-    <ClCompile Include="datetime.cpp" />
-    <ClCompile Include="expressman_exception.cpp" />
-    <ClCompile Include="expressman_interfaces.cpp" />
-    <ClCompile Include="factory.cpp" />
-    <ClCompile Include="iExceptionBase.cpp" />
-    <ClCompile Include="labourer_exception.cpp" />
-    <ClCompile Include="log.cpp" />
-    <ClCompile Include="logger.cpp" />
-    <ClCompile Include="PrintCenter.cpp" />
-    <ClCompile Include="progress.cpp" />
-    <ClCompile Include="registry.cpp" />
-    <ClCompile Include="secretary_exception.cpp" />
-    <ClCompile Include="ThreadLake.cpp" />
-    <ClCompile Include="utility.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

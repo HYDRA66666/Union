@@ -102,6 +102,12 @@
     <ClInclude Include="utility.h">
       <Filter>assistant</Filter>
     </ClInclude>
+    <ClInclude Include="astring.h">
+      <Filter>framework</Filter>
+    </ClInclude>
+    <ClInclude Include="logger.h">
+      <Filter>secretary</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="archivist_exception.cpp">
@@ -154,6 +160,12 @@
     </ClCompile>
     <ClCompile Include="utility.cpp">
       <Filter>assistant</Filter>
+    </ClCompile>
+    <ClCompile Include="astring.cpp">
+      <Filter>framework</Filter>
+    </ClCompile>
+    <ClCompile Include="logger.cpp">
+      <Filter>secretary</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
