@@ -150,8 +150,11 @@
     <ClInclude Include="basic_mailrouter.h" />
     <ClInclude Include="basic_mailsender.h" />
     <ClInclude Include="basic_remote_agent.h" />
+    <ClInclude Include="commander_ostreambuf.h" />
     <ClInclude Include="concepts.h" />
     <ClInclude Include="datetime.h" />
+    <ClInclude Include="deposit.h" />
+    <ClInclude Include="entrust.h" />
     <ClInclude Include="expressman_exception.h" />
     <ClInclude Include="expressman_interfaces.h" />
     <ClInclude Include="factory.h" />

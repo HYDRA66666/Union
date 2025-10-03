@@ -25,6 +25,9 @@
     <Filter Include="secretary">
       <UniqueIdentifier>{c8a6a01b-75fb-43f1-b847-2020421927f4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="commander">
+      <UniqueIdentifier>{b0da66aa-8484-4451-aa24-4d9c05bc1da5}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="archivist_exception.h">
@@ -107,6 +110,15 @@
     </ClInclude>
     <ClInclude Include="logger.h">
       <Filter>secretary</Filter>
+    </ClInclude>
+    <ClInclude Include="deposit.h">
+      <Filter>commander</Filter>
+    </ClInclude>
+    <ClInclude Include="entrust.h">
+      <Filter>commander</Filter>
+    </ClInclude>
+    <ClInclude Include="commander_ostreambuf.h">
+      <Filter>commander</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
