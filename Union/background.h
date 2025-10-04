@@ -28,6 +28,7 @@ namespace HYDRA15::Union::labourer
                 working,
                 finishing
             }thread_state = state::undefined;
+            std::chrono::steady_clock::time_point workStartTime;
         };
 
         class thread_ctrlblk

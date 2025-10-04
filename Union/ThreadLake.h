@@ -104,7 +104,8 @@ namespace HYDRA15::Union::labourer
             return pkgedTask->get_future();
         }
 
-
+        // 迭代器访问每一个线程信息
+        using background::iterator;
 
     };
 }

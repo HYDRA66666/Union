@@ -66,6 +66,8 @@ namespace HYDRA15::Union::secretary
             static constexpr milliseconds btmExpireTimeout = milliseconds(30000);
             
         }cfg;
+        std::function<bool(char)> is_valid_with_ansi = [](char c) {return (c > 0x20 && c < 0x7F) || c == 0x1B; };
+
 
         // 辅助函数
     private:

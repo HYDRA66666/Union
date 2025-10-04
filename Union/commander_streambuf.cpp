@@ -1,5 +1,5 @@
 ﻿#include "pch.h"
-#include "commander_ostreambuf.h"
+#include "commander_streambuf.h"
 
 namespace HYDRA15::Union::commander
 {
@@ -93,9 +93,78 @@ namespace HYDRA15::Union::commander
         }
     }
 
+    bool istreambuf::refill()
+    {
+        if (eof_) return false;
 
+        buffer_ = std::move(getline_callback());
+        if (buffer_.empty()) {
+            // 假设返回空字符串表示输入结束（EOF）
+            eof_ = true;
+            return false;
+        }
 
+        // 将整行 + 换行符存入 buffer_
+        // 注意：即使原输入无 '\n'，我们也添加一个，以模拟标准输入行为
+        buffer_ += '\n';
 
+        // 设置 get area: [begin, end)
+        char* beg = &buffer_[0];
+        char* end = beg + buffer_.size();
+        setg(beg, beg, end);
 
+        return true;
+    }
+
+    istreambuf::istreambuf(std::function<std::string()> callback)
+        : getline_callback(std::move(callback))
+    {
+        setg(nullptr, nullptr, nullptr); // 初始化 get area
+    }
+
+    int istreambuf::underflow()
+    {
+        if (gptr() < egptr()) {
+            return traits_type::to_int_type(*gptr());
+        }
+        if (!refill()) {
+            return traits_type::eof();
+        }
+        return traits_type::to_int_type(*gptr());
+    }
+
+    std::streamsize istreambuf::xsgetn(char* s, std::streamsize count)
+    {
+        std::streamsize total = 0;
+
+        while (total < count) {
+            // 当前缓冲区中可用字符数
+            std::streamsize avail = egptr() - gptr();
+            if (avail > 0) {
+                std::streamsize to_copy = std::min(avail, count - total);
+                std::copy(gptr(), gptr() + to_copy, s + total);
+                gbump(static_cast<int>(to_copy)); // 移动 get 指针
+                total += to_copy;
+            }
+            else {
+                // 缓冲区为空，尝试 refill
+                if (!refill()) {
+                    // EOF：返回已读取的字节数（可能为 0）
+                    break;
+                }
+                // refill 成功后，下一轮循环会复制数据
+            }
+        }
+
+        return total;
+    }
+
+    std::streamsize istreambuf::showmanyc()
+    {
+        if (gptr() < egptr()) {
+            return egptr() - gptr();
+        }
+        return eof_ ? -1 : 0; // -1 表示 EOF
+    }
 
 }

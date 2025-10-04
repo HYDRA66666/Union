@@ -117,7 +117,7 @@
     <ClInclude Include="entrust.h">
       <Filter>commander</Filter>
     </ClInclude>
-    <ClInclude Include="commander_ostreambuf.h">
+    <ClInclude Include="commander_streambuf.h">
       <Filter>commander</Filter>
     </ClInclude>
     <ClInclude Include="Command.h">
@@ -125,6 +125,9 @@
     </ClInclude>
     <ClInclude Include="commander_exception.h">
       <Filter>exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="GlobalThreadLake.h">
+      <Filter>commander</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -191,7 +194,10 @@
     <ClCompile Include="commander_exception.cpp">
       <Filter>exceptions</Filter>
     </ClCompile>
-    <ClCompile Include="commander_ostreambuf.cpp">
+    <ClCompile Include="commander_streambuf.cpp">
+      <Filter>commander</Filter>
+    </ClCompile>
+    <ClCompile Include="GlobalThreadLake.cpp">
       <Filter>commander</Filter>
     </ClCompile>
   </ItemGroup>

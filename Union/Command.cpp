@@ -12,8 +12,18 @@ namespace HYDRA15::Union::commander
             pCmdOutBuf = new ostreambuf();
             pSysOutBuf = std::cout.rdbuf(pCmdOutBuf);
             std::ostream* psos = pSysOutStream = new std::ostream(pSysOutBuf);
-            secretary::PrintCenter::get_instance().redirect([psos](const std::string& str) { *psos << str; });
+            sysprint = [psos](const std::string& str) { *psos << str; };
+            secretary::PrintCenter::get_instance().redirect(sysprint);
         }
+
+        // 重定向输入
+        //{
+        //    pCmdInBuf = new istreambuf([this]() {return this->getline(); });
+        //    pSysInBuf = std::cin.rdbuf(pCmdInBuf);
+        //    std::istream* psis = pSysInStream = new std::istream(pSysInBuf);
+        //    sysgetline = [psis]() { std::string res; std::getline(*psis, res); return res; };
+        //}
+        sysgetline = []() { std::string res; std::getline(std::cin, res); return res; };
 
         // 启动后台线程
         start();
@@ -34,6 +44,14 @@ namespace HYDRA15::Union::commander
             secretary::PrintCenter::get_instance().redirect([](const std::string& str) {std::cout << str; });
         }
 
+        // 恢复输入
+        //{
+        //    std::cin.rdbuf(pSysInBuf);
+        //    delete pSysInStream;
+        //    delete pCmdInBuf;
+        //    sysgetline = []() { std::string res; std::getline(std::cin, res); return res; };
+        //}
+
         // 按任意键退出
         secretary::PrintCenter::println(vslz.onExit.data());
     }
@@ -42,6 +60,36 @@ namespace HYDRA15::Union::commander
     {
         static Command instance;
         return instance;
+    }
+
+    //std::string Command::getline()
+    //{
+    //    std::unique_lock lg(inputMutex);
+    //    inputting = true;
+    //    while(currentInputLine.empty())
+    //        inputCv.wait(lg);
+    //    inputting = false;
+    //    return std::move(currentInputLine);
+    //}
+
+    //std::string Command::getline(std::string promt)
+    //{
+    //    secretary::PrintCenter::get_instance().set_stick_btm(promt);
+    //    return getline();
+    //}
+
+    std::string Command::getline()
+    {
+        std::string res;
+        std::getline(std::cin, res);
+        return res;
+    }
+
+    std::string Command::getline(const std::string& promt)
+    {
+        secretary::PrintCenter::get_instance().set_stick_btm(promt);
+        secretary::PrintCenter::get_instance().flush();
+        return getline();
     }
 
     void Command::regist(const std::string& cmd, bool async, const command_handler& handler)
@@ -70,7 +118,7 @@ namespace HYDRA15::Union::commander
         auto [async, cmdHandler] = cmdRegistry.fecth(cmd);
 
         if (async)
-            threadpool.submit(std::bind(cmdHandler, args));
+            globalthreadpool.submit(std::bind(cmdHandler, args));
         else
             cmdHandler(args);
     }
@@ -82,12 +130,16 @@ namespace HYDRA15::Union::commander
             secretary::PrintCenter::get_instance().set_stick_btm(vslz.prompt.data());
             secretary::PrintCenter::get_instance().flush();
 
-            std::cin.getline(inBuf, sizeof(inBuf));
-            std::string cmdline = inBuf;
-            clear_inbuf();
-
+            std::string cmdline = sysgetline();
             if(cmdline.empty())
                 continue;
+            //if(inputting)
+            //{
+            //    std::lock_guard lg(inputMutex);
+            //    currentInputLine = cmdline;
+            //    inputCv.notify_all();
+            //    continue;
+            //}
 
             try
             {
@@ -102,12 +154,6 @@ namespace HYDRA15::Union::commander
                 lgr.error(std::format(vslz.unknownExptDuringExcute.data(), cmdline));
             }
         }
-    }
-
-    void Command::clear_inbuf()
-    {
-        for(auto& c : inBuf)
-            c = 0;
     }
 
     void Command::regist_command(const std::string& cmd, bool async, const command_handler& handler)

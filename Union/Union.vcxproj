@@ -152,7 +152,7 @@
     <ClInclude Include="basic_remote_agent.h" />
     <ClInclude Include="Command.h" />
     <ClInclude Include="commander_exception.h" />
-    <ClInclude Include="commander_ostreambuf.h" />
+    <ClInclude Include="commander_streambuf.h" />
     <ClInclude Include="concepts.h" />
     <ClInclude Include="datetime.h" />
     <ClInclude Include="deposit.h" />
@@ -161,6 +161,7 @@
     <ClInclude Include="expressman_interfaces.h" />
     <ClInclude Include="factory.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="GlobalThreadLake.h" />
     <ClInclude Include="iExceptionBase.h" />
     <ClInclude Include="labourer_exception.h" />
     <ClInclude Include="libID.h" />
@@ -182,11 +183,12 @@
     <ClCompile Include="background.cpp" />
     <ClCompile Include="Command.cpp" />
     <ClCompile Include="commander_exception.cpp" />
-    <ClCompile Include="commander_ostreambuf.cpp" />
+    <ClCompile Include="commander_streambuf.cpp" />
     <ClCompile Include="datetime.cpp" />
     <ClCompile Include="expressman_exception.cpp" />
     <ClCompile Include="expressman_interfaces.cpp" />
     <ClCompile Include="factory.cpp" />
+    <ClCompile Include="GlobalThreadLake.cpp" />
     <ClCompile Include="iExceptionBase.cpp" />
     <ClCompile Include="labourer_exception.cpp" />
     <ClCompile Include="log.cpp" />

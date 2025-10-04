@@ -99,7 +99,7 @@ namespace HYDRA15::Union::secretary
 
         std::string str;
         for (auto& msg : *pRollMsgLstBack)
-            str.append(assistant::strip(msg, [](char c) {return (c > 0x20 && c < 0x7F) || c == 0x1B; }) + '\n');
+            str.append(assistant::strip(msg, is_valid_with_ansi) + "\n");
         pRollMsgLstBack->clear();
 
         return str;
@@ -132,7 +132,7 @@ namespace HYDRA15::Union::secretary
                 str.append("\n");
             else
                 first = false;
-            str.append(assistant::strip(i.msg, [](char c) {return (c > 0x20 && c < 0x7F) || c == 0x1B; }));
+            str.append(assistant::strip(i.msg, is_valid_with_ansi));
             lastBtmLines++;
         }
         if (more > 0)
