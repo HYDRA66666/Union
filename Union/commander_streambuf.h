@@ -3,6 +3,9 @@
 #include "framework.h"
 
 #include "PrintCenter.h"
+#include "log.h"
+
+#include "commander_exception.h"
 
 namespace HYDRA15::Union::commander
 {
@@ -36,6 +39,7 @@ namespace HYDRA15::Union::commander
     private:
         std::string buffer_;   // 使用 std::string 作为缓冲区（自动管理内存）
         bool eof_ = false;     // 是否已到逻辑 EOF
+        const std::thread::id allowedThrid_; // 仅允许特定线程访问（默认允许所有线程）
 
         // 回调函数：用于获取一行输入
         std::function<std::string()> getline_callback;
@@ -45,7 +49,7 @@ namespace HYDRA15::Union::commander
 
     public:
         // 构造时传入回调
-        explicit istreambuf(std::function<std::string()> callback);
+        explicit istreambuf(std::function<std::string()> callback, std::thread::id allowedThrid = std::thread::id());
 
         // 重写 underflow：单字符读取时调用
         int underflow() override;

@@ -21,6 +21,7 @@ namespace HYDRA15::Union::exceptions
     }
 
     make(CommandUnknownExpt);
+    make(CommandAsyncInputNotAllowed);
 
 #undef make
 

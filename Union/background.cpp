@@ -30,15 +30,24 @@ namespace HYDRA15::Union::labourer
     {
         threads.resize(bkgThrCount);
         for (auto& i : threads)
+        {
             i.thread = std::make_shared<std::thread>(&background::work_shell, this, std::ref(i.info));
-        for (auto& item : threads)
-            item.thread->detach();
+            i.thread_id = i.thread->get_id();
+        }
     }
 
     background::background()
         :background(1)
     {
+
     }
+
+    background::~background()
+    {
+        for (auto& i : threads)
+            i.thread->detach();
+    }
+
 
     background::iterator::iterator(list_iter iter)
         :it(iter)
@@ -60,6 +69,11 @@ namespace HYDRA15::Union::labourer
     background::thread_info& background::iterator::operator*() const
     {
         return it->info;
+    }
+
+    std::thread::id background::iterator::get_id() const
+    {
+        return it->thread_id;
     }
 
     background::iterator background::begin()

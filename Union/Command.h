@@ -37,7 +37,7 @@ namespace HYDRA15::Union::commander
         static struct visualize
         {
             static_string prompt = "> ";
-            static_string onExit = "Press any key to exit...";
+            static_string onExit = "Press enter to exit...";
             static_string unknownExptDuringExcute = "Unknown exception occured during excuting command > {}";
         }vslz;
 
@@ -58,9 +58,9 @@ namespace HYDRA15::Union::commander
         ostreambuf* pCmdOutBuf = nullptr;
         std::ostream* pSysOutStream = nullptr;
 
-        //std::streambuf* pSysInBuf = nullptr;
-        //istreambuf* pCmdInBuf = nullptr;
-        //std::istream* pSysInStream = nullptr;
+        std::streambuf* pSysInBuf = nullptr;
+        istreambuf* pCmdInBuf = nullptr;
+        std::istream* pSysInStream = nullptr;
 
     //private:
     //    bool inputting = false;
@@ -85,6 +85,7 @@ namespace HYDRA15::Union::commander
         // 指令注册与使用
     private:
         archivist::basic_registry<std::string, std::pair<bool, command_handler>> cmdRegistry;
+        mutable std::shared_mutex cmdRegMutex; 
     public:
         void regist(const std::string& cmd, bool async, const command_handler& handler);
         bool unregist(const std::string& cmd);
@@ -95,6 +96,7 @@ namespace HYDRA15::Union::commander
     private:
         bool working = true;
         virtual void work(background::thread_info& info) override;
+        static void handler_shell(const command_handler& handler, const std::list<std::string>& args);
 
         /***************************** 快捷命令 *****************************/
     public:

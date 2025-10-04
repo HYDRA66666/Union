@@ -95,6 +95,13 @@ namespace HYDRA15::Union::commander
 
     bool istreambuf::refill()
     {
+        if (allowedThrid_ != std::thread::id() && allowedThrid_ != std::this_thread::get_id())
+        {
+            auto e = exceptions::commander::CommandAsyncInputNotAllowed();
+            secretary::log::error("Command", e.what());
+            throw e;
+        }
+
         if (eof_) return false;
 
         buffer_ = std::move(getline_callback());
@@ -116,14 +123,21 @@ namespace HYDRA15::Union::commander
         return true;
     }
 
-    istreambuf::istreambuf(std::function<std::string()> callback)
-        : getline_callback(std::move(callback))
+    istreambuf::istreambuf(std::function<std::string()> callback, std::thread::id allowedThrid)
+        : getline_callback(std::move(callback)), allowedThrid_(allowedThrid)
     {
         setg(nullptr, nullptr, nullptr); // 初始化 get area
     }
 
     int istreambuf::underflow()
     {
+        if(allowedThrid_!=std::thread::id() && allowedThrid_!=std::this_thread::get_id())
+        {
+            auto e = exceptions::commander::CommandAsyncInputNotAllowed();
+            secretary::log::error("Command", e.what());
+            throw e;
+        }
+
         if (gptr() < egptr()) {
             return traits_type::to_int_type(*gptr());
         }
@@ -135,6 +149,12 @@ namespace HYDRA15::Union::commander
 
     std::streamsize istreambuf::xsgetn(char* s, std::streamsize count)
     {
+        if (allowedThrid_ != std::thread::id() && allowedThrid_ != std::this_thread::get_id())
+        {
+            auto e = exceptions::commander::CommandAsyncInputNotAllowed();
+            secretary::log::error("Command", e.what());
+            throw e;
+        }
         std::streamsize total = 0;
 
         while (total < count) {
@@ -161,6 +181,13 @@ namespace HYDRA15::Union::commander
 
     std::streamsize istreambuf::showmanyc()
     {
+        if (allowedThrid_ != std::thread::id() && allowedThrid_ != std::this_thread::get_id())
+        {
+            auto e = exceptions::commander::CommandAsyncInputNotAllowed();
+            secretary::log::error("Command", e.what());
+            throw e;
+        }
+
         if (gptr() < egptr()) {
             return egptr() - gptr();
         }

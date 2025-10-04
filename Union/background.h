@@ -35,6 +35,7 @@ namespace HYDRA15::Union::labourer
         {
         public:
             std::shared_ptr<std::thread> thread; // 线程对象
+            std::thread::id thread_id; // 线程ID
             thread_info info; // 线程信息
         };
 
@@ -56,7 +57,7 @@ namespace HYDRA15::Union::labourer
         background(unsigned int bkgThrCount);
         background(background&&) = delete;
         background();
-        virtual ~background() = default;
+        virtual ~background();
         background(const background&) = delete;
         background& operator=(const background&) = delete;
 
@@ -71,6 +72,7 @@ namespace HYDRA15::Union::labourer
             iterator& operator++();
             bool operator!=(const iterator& other) const;
             thread_info& operator*() const;
+            std::thread::id get_id() const;
         };
 
         iterator begin();

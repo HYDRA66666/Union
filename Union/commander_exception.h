@@ -17,6 +17,7 @@ namespace HYDRA15::Union::exceptions
             // Command
             static_uint CommandUnknownExpt = 0xA00;
             static_uint CommandNoSuchCommand = 0xA01;
+            static_uint CommandAsyncInputNotAllowed = 0xA02;
             
         }iExptCodes;
 
@@ -28,6 +29,7 @@ namespace HYDRA15::Union::exceptions
             // Command
             static_string CommandUnknownExpt = "Unknown Command Exception";
             static_string CommandNoSuchCommand = "No such command > {}";
+            static_string CommandAsyncInputNotAllowed = "Asynchronous command cannot perform input operations";
         }vslz;
     public:
         commander(
@@ -43,6 +45,7 @@ namespace HYDRA15::Union::exceptions
         // Command
         static commander CommandUnknownExpt() noexcept;
         static commander NoSuchCommand(const std::string& cmdline) noexcept;
+        static commander CommandAsyncInputNotAllowed() noexcept;
 
 
     };

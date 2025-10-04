@@ -106,6 +106,7 @@ namespace HYDRA15::Union::labourer
 
         // 迭代器访问每一个线程信息
         using background::iterator;
-
+        using background::begin;
+        using background::end;
     };
 }
