@@ -13,7 +13,7 @@ namespace HYDRA15::Union::secretary
             title,                                                                  \
             content                                                                 \
         );                                                                          \
-        lib_default_print(str);                                                     \
+        union_default_print(str);                                                   \
         return str;                                                                 \
     }
 

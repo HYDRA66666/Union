@@ -83,15 +83,17 @@ namespace HYDRA15::Union::secretary
         std::condition_variable sleepcv;
         std::mutex systemLock;
         bool working = true;
+        bool forceRefresh = false;
         time_point lastRefresh = time_point::clock::now();
         virtual void work(background::thread_info&) override;
 
         // 高级接口
     public:
         void flush();  // 刷新
+        void lock();   // 锁定，防止刷新
+        void unlock(); // 解锁，允许刷新
         void redirect(std::function<void(const std::string&)> printFunc);
         void fredirect(std::function<void(const std::string&)> fprintFunc);
-
 
         /***************************** 滚动消息相关 *****************************/
         // 类型定义
@@ -132,13 +134,12 @@ namespace HYDRA15::Union::secretary
         size_t lastBtmLines = 0;
 
         // 接口
-    protected:
-        void set_stick_btm(const std::string& str = std::string());
     public:
         ID new_bottom(bool forceDisplay = false, bool neverExpire = false);
         void update_bottom(ID id, const std::string& content);
         bool check_bottom(ID id);
         void remove_bottom(ID id);
+        void set_stick_btm(const std::string& str = std::string());
 
 
         /***************************** 写入文件相关 *****************************/

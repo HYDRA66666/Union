@@ -14,7 +14,7 @@ namespace HYDRA15::Union::referee
     using iException_code = unsigned int;
 	class iExceptionBase :public std::exception
 	{
-		static_string baseWhatStrFormat = "iException: {0} ( 0x{1:08X} : 0x{2:08X} )\n";
+		static_string baseWhatStrFormat = "iException: {0} ( 0x{1:08X} : 0x{2:08X} )";
 
 	protected:
 		// what字符串缓存
@@ -36,7 +36,7 @@ namespace HYDRA15::Union::referee
 
 
 		// 启用栈跟踪支持
-#ifdef LIB_IEXPT_STACKTRACE_ENABLE
+#ifdef UNION_IEXPT_STACKTRACE_ENABLE
 	private:
 		static_string baseStackTraceFormat = "Stack Trace: \n{0}";
     protected:

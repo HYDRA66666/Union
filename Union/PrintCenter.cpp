@@ -152,7 +152,7 @@ namespace HYDRA15::Union::secretary
                 str.append("\n");
             else
                 first = false;
-            str.append(assistant::strip(stickBtmMsg, [](char c) {return (c > 0x20 && c < 0x7F) || c == 0x1B; }));
+            str.append(stickBtmMsg);
             lastBtmLines++;
         }
 
@@ -194,9 +194,11 @@ namespace HYDRA15::Union::secretary
                 pRollMsgLstFront->empty() && pRollMsgLstBack->empty() && // 滚动消息为空
                 pFMsgLstBack->empty() && pFMsgLstFront->empty() && // 文件消息为空
                 (time_point::clock::now() - lastRefresh < cfg.refreshInterval) && // 未到刷新时间
-                (print || printFile)// 输出接口有效
+                !forceRefresh   // 未被强制刷新
                 )
                 sleepcv.wait_for(lg, cfg.refreshInterval);
+
+            forceRefresh = false;
 
             // 清除底部消息
             if (print)
@@ -208,7 +210,7 @@ namespace HYDRA15::Union::secretary
                     print(print_rolling_msg());
 
             // 输出底部消息
-            if (btmMsgTab.size() > 0)
+            if (btmMsgTab.size() > 0 || !stickBtmMsg.empty())
                 if (print)
                     print(print_bottom_msg());
 
@@ -224,18 +226,27 @@ namespace HYDRA15::Union::secretary
 
     void PrintCenter::flush()
     {
+        forceRefresh = true;
         sleepcv.notify_all();
+    }
+
+    void PrintCenter::lock()
+    {
+        systemLock.lock();
+    }
+
+    void PrintCenter::unlock()
+    {
+        systemLock.unlock();
     }
 
     void PrintCenter::redirect(std::function<void(const std::string&)> printFunc)
     {
-        std::unique_lock ul(systemLock);
         print = printFunc;
     }
 
     void PrintCenter::fredirect(std::function<void(const std::string&)> fprintFunc)
     {
-        std::unique_lock ul(systemLock);
         printFile = fprintFunc;
     }
 
@@ -248,6 +259,7 @@ namespace HYDRA15::Union::secretary
 
     void PrintCenter::set_stick_btm(const std::string& str)
     {
+        std::lock_guard lk(btmMsgTabLock);
         stickBtmMsg = str;
     }
 

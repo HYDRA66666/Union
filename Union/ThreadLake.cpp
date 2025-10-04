@@ -32,7 +32,7 @@ namespace HYDRA15::Union::labourer
 
     }
 
-    ThreadLake::ThreadLake(int threadCount, size_t tskQueMaxSize)
+    ThreadLake::ThreadLake(unsigned int threadCount, size_t tskQueMaxSize)
         : background(threadCount), tskQueMaxSize(tskQueMaxSize)
     {
         working = true;

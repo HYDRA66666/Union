@@ -120,6 +120,12 @@
     <ClInclude Include="commander_ostreambuf.h">
       <Filter>commander</Filter>
     </ClInclude>
+    <ClInclude Include="Command.h">
+      <Filter>commander</Filter>
+    </ClInclude>
+    <ClInclude Include="commander_exception.h">
+      <Filter>exceptions</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="archivist_exception.cpp">
@@ -178,6 +184,15 @@
     </ClCompile>
     <ClCompile Include="logger.cpp">
       <Filter>secretary</Filter>
+    </ClCompile>
+    <ClCompile Include="Command.cpp">
+      <Filter>commander</Filter>
+    </ClCompile>
+    <ClCompile Include="commander_exception.cpp">
+      <Filter>exceptions</Filter>
+    </ClCompile>
+    <ClCompile Include="commander_ostreambuf.cpp">
+      <Filter>commander</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

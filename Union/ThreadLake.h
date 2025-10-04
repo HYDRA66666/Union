@@ -37,7 +37,7 @@ namespace HYDRA15::Union::labourer
 
         //接口
     public:
-        ThreadLake(int threadCount, size_t tskQueMaxSize = 0);
+        ThreadLake(unsigned int threadCount, size_t tskQueMaxSize = 0);
         ThreadLake() = delete;
         ThreadLake(const ThreadLake&) = delete;
         ThreadLake(ThreadLake&&) = delete;

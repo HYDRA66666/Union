@@ -119,6 +119,7 @@ namespace HYDRA15::Union::archivist
             pair p;
             while ((p = tab.try_emplace(find_next_key(), std::forward<Val>(value))).second)
                 return p.first->first;
+            throw exceptions::archivist::RegistryTabletFull();
         }
 
         // 懒注册：不传入值，注册机分配键和默认值

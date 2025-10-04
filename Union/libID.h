@@ -20,6 +20,7 @@ namespace HYDRA15::Union::framework
         static_uint expressman = 0xA04;
         static_uint secretary = 0xA05;
         static_uint assistant = 0xA06;
+        static_uint commander = 0xA07;
 
     }libID;
 }
