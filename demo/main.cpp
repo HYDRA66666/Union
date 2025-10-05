@@ -23,6 +23,10 @@ int main()
         std::cout << "Echo: " << a << std::endl;
         });
 
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    //cmd.regist("", false, [](const std::list<std::string>& args) {
+    //    std::cout << "Unknown command. Type 'echo' or 'echoasyc' or 'echocin'." << std::endl;
+    //    });
+
+    std::this_thread::sleep_for(std::chrono::seconds(5));
 
 }

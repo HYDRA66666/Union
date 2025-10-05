@@ -111,12 +111,6 @@
     <ClInclude Include="logger.h">
       <Filter>secretary</Filter>
     </ClInclude>
-    <ClInclude Include="deposit.h">
-      <Filter>commander</Filter>
-    </ClInclude>
-    <ClInclude Include="entrust.h">
-      <Filter>commander</Filter>
-    </ClInclude>
     <ClInclude Include="commander_streambuf.h">
       <Filter>commander</Filter>
     </ClInclude>

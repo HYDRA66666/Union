@@ -15,7 +15,7 @@
 namespace HYDRA15::Union::commander
 {
     // 接管 std 输入、输出，处理指令、调用处理函数
-    // 程序需要在启动初期注册指令和对应的处理函数
+    // 程序需要在启动初期注册指令和对应的处理函数，指令为空的处理函数为默认处理函数
     // 处理函数不得有返回值，输入为参数列表，列表的首项一致为命令本身
     // 指令处理函数可以是同步的也可以是异步的，但是有与控制台交互的指令必须是同步的
     class Command :protected labourer::background
@@ -26,13 +26,12 @@ namespace HYDRA15::Union::commander
         Command();
         Command(const Command&) = delete;
         Command(Command&&) = delete;
-        secretary::logger lgr{ "Commander" };
 
     public:
         ~Command();
         static Command& get_instance();
 
-        // 常量字符串
+        // 配置
     private:
         static struct visualize
         {
@@ -40,9 +39,6 @@ namespace HYDRA15::Union::commander
             static_string onExit = "Press enter to exit...";
             static_string unknownExptDuringExcute = "Unknown exception occured during excuting command > {}";
         }vslz;
-
-        // 配置
-    private:
         static struct config
         {
 
@@ -50,7 +46,16 @@ namespace HYDRA15::Union::commander
         std::function<void(const std::string&)> sysprint;
         std::function<std::string()> sysgetline;
 
+        // 日志
+    private:
+        secretary::logger lgr{ "Commander" };
 
+        // 严格析构
+        // 如果启用，析构时等待后台线程结束，可能会要求用户按回车
+    private:
+        bool strictDestruct = false;
+    public:
+        void set_strict_destruct(bool sd);
 
         /***************************** 输入输出 *****************************/
     private:
@@ -62,16 +67,28 @@ namespace HYDRA15::Union::commander
         istreambuf* pCmdInBuf = nullptr;
         std::istream* pSysInStream = nullptr;
 
-    //private:
-    //    bool inputting = false;
-    //    std::string currentInputLine;
-    //    std::mutex inputMutex;
-    //    std::condition_variable inputCv;
     public:
         static std::string getline();
         static std::string getline(const std::string& promt);
-    //    std::string getline();
-    //    std::string getline(std::string promt);
+
+        // 异步输入，解决析构等待的问题
+    private:
+        class async_input :labourer::background
+        {
+        private:
+            std::string line;
+            std::mutex inputMutex;
+            virtual void work(background::thread_info& info) override;
+        public:
+            bool working = true;
+            std::condition_variable inputCv;
+            std::condition_variable highPriorityCv;
+            using labourer::background::start;
+            std::string get_line();
+            std::string get_line_high_priority();
+            void notify_all();
+        }asyncInput;
+        friend class async_input;
 
         /***************************** 指令处理 *****************************/
         // 指令处理函数类型
@@ -101,6 +118,7 @@ namespace HYDRA15::Union::commander
         /***************************** 快捷命令 *****************************/
     public:
         static void regist_command(const std::string& cmd, bool async, const command_handler& handler);
+        static void regist_default_command(bool async, const command_handler& handler);
     };
     
 }

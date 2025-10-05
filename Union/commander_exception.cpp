@@ -30,4 +30,9 @@ namespace HYDRA15::Union::exceptions
         return commander(std::format(vslz.CommandNoSuchCommand.data(), cmdline), iExptCodes.CommandNoSuchCommand);
     }
 
+    commander commander::EntrustNotInitFaild(int code) noexcept
+    {
+        return commander(std::format(vslz.EntrustNotInitFaild.data(), code), iExptCodes.EntrustNotInitFaild);
+    }
+
 }

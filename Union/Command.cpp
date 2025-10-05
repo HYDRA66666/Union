@@ -20,12 +20,14 @@ namespace HYDRA15::Union::commander
         {
             pCmdInBuf = new istreambuf([this]() {return getline(); }, this->begin().get_id());
             pSysInBuf = std::cin.rdbuf(pCmdInBuf);
+            std::cin.exceptions(std::ios::badbit | std::ios::failbit);
             std::istream* psis = pSysInStream = new std::istream(pSysInBuf);
             sysgetline = [psis]() { std::string res; std::getline(*psis, res); return res; };
         }
         //sysgetline = []() { std::string res; std::getline(std::cin, res); return res; };
 
         // 启动后台线程
+        asyncInput.start();
         start();
     }
 
@@ -33,9 +35,10 @@ namespace HYDRA15::Union::commander
     {
         // 停止后台线程
         working = false;
-        // 按任意键退出
-        secretary::PrintCenter::println(vslz.onExit.data());
-        wait_for_end();
+        
+        // 结束输入
+        asyncInput.working = false;
+        asyncInput.notify_all();
 
         // 恢复输出
         {
@@ -79,11 +82,16 @@ namespace HYDRA15::Union::commander
     //    return getline();
     //}
 
+    void Command::set_strict_destruct(bool sd)
+    {
+        strictDestruct = sd;
+    }
+
     std::string Command::getline()
     {
         if(std::this_thread::get_id() != Command::get_instance().begin().get_id())
             throw exceptions::commander::CommandAsyncInputNotAllowed();
-        return Command::get_instance().sysgetline();
+        return Command::get_instance().asyncInput.get_line_high_priority();
     }
 
     std::string Command::getline(const std::string& promt)
@@ -117,17 +125,22 @@ namespace HYDRA15::Union::commander
     {
         std::list<std::string> args = assistant::split_by(cmdline, " ");
         std::string cmd = args.front();
-
-        if(!cmdRegistry.contains(cmd))
-        {
-            lgr.error(exceptions::commander::NoSuchCommand(cmdline).what());
-            return;
-        }
-
         std::pair<bool, command_handler> cmdHandler;
+
+        if(cmdRegistry.contains(cmd))
         {
             std::shared_lock sl(cmdRegMutex);
             cmdHandler = cmdRegistry.fecth(cmd);
+        }
+        else if(cmdRegistry.contains(std::string()))
+        {
+            std::shared_lock sl(cmdRegMutex);
+            cmdHandler = cmdRegistry.fecth(std::string());
+        }
+        else
+        {
+            lgr.error(exceptions::commander::NoSuchCommand(cmdline).what());
+            return;
         }
 
         if (cmdHandler.first)
@@ -143,7 +156,7 @@ namespace HYDRA15::Union::commander
             secretary::PrintCenter::get_instance().set_stick_btm(vslz.prompt.data());
             secretary::PrintCenter::get_instance().flush();
 
-            std::string cmdline = sysgetline();
+            std::string cmdline = asyncInput.get_line();
             if(cmdline.empty())
                 continue;
             //if(inputting)
@@ -177,5 +190,42 @@ namespace HYDRA15::Union::commander
     void Command::regist_command(const std::string& cmd, bool async, const command_handler& handler)
     {
         get_instance().regist(cmd, async, handler);
+    }
+    void Command::regist_default_command(bool async, const command_handler& handler)
+    {
+        get_instance().regist(std::string(), async, handler);
+    }
+
+    void Command::async_input::work(background::thread_info& info)
+    {
+        Command& cmd = Command::get_instance();
+        while (true)
+        {
+            std::string ln = cmd.sysgetline();
+            std::lock_guard lg(inputMutex);
+            line = ln;
+            notify_all();
+        }
+    }
+    std::string Command::async_input::get_line()
+    {
+        std::unique_lock ul(inputMutex);
+        while(line.empty() && working)
+            inputCv.wait(ul);
+        return std::move(line);
+    }
+
+    std::string Command::async_input::get_line_high_priority()
+    {
+        std::unique_lock ul(inputMutex);
+        while (line.empty() && working)
+            highPriorityCv.wait(ul);
+        return std::move(line);
+    }
+
+    void Command::async_input::notify_all()
+    {
+        highPriorityCv.notify_all();
+        inputCv.notify_all();
     }
 }

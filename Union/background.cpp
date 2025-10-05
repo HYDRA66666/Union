@@ -9,6 +9,7 @@ namespace HYDRA15::Union::labourer
         // 等待所有线程准备就绪
         checkpoint.arrive_and_wait();
         // 执行工作
+        info.workStartTime = std::chrono::steady_clock::now();
         work(info);
         info.thread_state = thread_info::state::finishing;
         // 等待所有线程完成工作

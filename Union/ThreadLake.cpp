@@ -24,6 +24,7 @@ namespace HYDRA15::Union::labourer
 
             // 执行任务
             info.thread_state = background::thread_info::state::working;
+            info.workStartTime = std::chrono::steady_clock::now();
             if (taskPkg.content)
                 taskPkg.content();
             if (taskPkg.callback)

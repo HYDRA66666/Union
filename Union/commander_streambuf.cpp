@@ -96,11 +96,8 @@ namespace HYDRA15::Union::commander
     bool istreambuf::refill()
     {
         if (allowedThrid_ != std::thread::id() && allowedThrid_ != std::this_thread::get_id())
-        {
-            auto e = exceptions::commander::CommandAsyncInputNotAllowed();
-            secretary::log::error("Command", e.what());
-            throw e;
-        }
+            throw exceptions::commander::CommandAsyncInputNotAllowed();
+
 
         if (eof_) return false;
 
@@ -132,11 +129,7 @@ namespace HYDRA15::Union::commander
     int istreambuf::underflow()
     {
         if(allowedThrid_!=std::thread::id() && allowedThrid_!=std::this_thread::get_id())
-        {
-            auto e = exceptions::commander::CommandAsyncInputNotAllowed();
-            secretary::log::error("Command", e.what());
-            throw e;
-        }
+            throw exceptions::commander::CommandAsyncInputNotAllowed();
 
         if (gptr() < egptr()) {
             return traits_type::to_int_type(*gptr());
@@ -150,11 +143,8 @@ namespace HYDRA15::Union::commander
     std::streamsize istreambuf::xsgetn(char* s, std::streamsize count)
     {
         if (allowedThrid_ != std::thread::id() && allowedThrid_ != std::this_thread::get_id())
-        {
-            auto e = exceptions::commander::CommandAsyncInputNotAllowed();
-            secretary::log::error("Command", e.what());
-            throw e;
-        }
+            throw exceptions::commander::CommandAsyncInputNotAllowed();
+
         std::streamsize total = 0;
 
         while (total < count) {
@@ -182,11 +172,7 @@ namespace HYDRA15::Union::commander
     std::streamsize istreambuf::showmanyc()
     {
         if (allowedThrid_ != std::thread::id() && allowedThrid_ != std::this_thread::get_id())
-        {
-            auto e = exceptions::commander::CommandAsyncInputNotAllowed();
-            secretary::log::error("Command", e.what());
-            throw e;
-        }
+            throw exceptions::commander::CommandAsyncInputNotAllowed();
 
         if (gptr() < egptr()) {
             return egptr() - gptr();

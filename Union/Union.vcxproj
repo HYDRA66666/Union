@@ -155,8 +155,6 @@
     <ClInclude Include="commander_streambuf.h" />
     <ClInclude Include="concepts.h" />
     <ClInclude Include="datetime.h" />
-    <ClInclude Include="deposit.h" />
-    <ClInclude Include="entrust.h" />
     <ClInclude Include="expressman_exception.h" />
     <ClInclude Include="expressman_interfaces.h" />
     <ClInclude Include="factory.h" />
