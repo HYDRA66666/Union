@@ -78,14 +78,15 @@ namespace HYDRA15::Union::commander
         private:
             std::string line;
             std::mutex inputMutex;
+            std::condition_variable inputCv;
+            bool working = true;
+            unsigned int waiting = 0;
+
             virtual void work(background::thread_info& info) override;
         public:
-            bool working = true;
-            std::condition_variable inputCv;
-            std::condition_variable highPriorityCv;
-            using labourer::background::start;
             std::string get_line();
-            std::string get_line_high_priority();
+            using labourer::background::start;
+            void stop();
             void notify_all();
         }asyncInput;
         friend class async_input;
@@ -102,12 +103,15 @@ namespace HYDRA15::Union::commander
         // 指令注册与使用
     private:
         archivist::basic_registry<std::string, std::pair<bool, command_handler>> cmdRegistry;
-        mutable std::shared_mutex cmdRegMutex; 
+        mutable std::shared_mutex cmdRegMutex;
+        std::queue<std::string> cmdQueue;
+        mutable std::shared_mutex cmdQueMutex; 
+        mutable std::condition_variable_any cmdQueCv;
     public:
         void regist(const std::string& cmd, bool async, const command_handler& handler);
         bool unregist(const std::string& cmd);
         bool contains(const std::string& cmd) const;
-        void excute(const std::string& cmdline);
+
 
         // 指令处理
     private:
@@ -119,6 +123,7 @@ namespace HYDRA15::Union::commander
     public:
         static void regist_command(const std::string& cmd, bool async, const command_handler& handler);
         static void regist_default_command(bool async, const command_handler& handler);
+        static void excute(const std::string& cmdline);
     };
     
 }

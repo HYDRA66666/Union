@@ -37,7 +37,7 @@ namespace HYDRA15::Union::commander
         working = false;
         
         // 结束输入
-        asyncInput.working = false;
+        asyncInput.stop();
         asyncInput.notify_all();
 
         // 恢复输出
@@ -91,7 +91,7 @@ namespace HYDRA15::Union::commander
     {
         if(std::this_thread::get_id() != Command::get_instance().begin().get_id())
             throw exceptions::commander::CommandAsyncInputNotAllowed();
-        return Command::get_instance().asyncInput.get_line_high_priority();
+        return Command::get_instance().asyncInput.get_line();
     }
 
     std::string Command::getline(const std::string& promt)
@@ -121,53 +121,45 @@ namespace HYDRA15::Union::commander
         return cmdRegistry.contains(cmd);
     }
 
-    void Command::excute(const std::string& cmdline)
-    {
-        std::list<std::string> args = assistant::split_by(cmdline, " ");
-        std::string cmd = args.front();
-        std::pair<bool, command_handler> cmdHandler;
-
-        if(cmdRegistry.contains(cmd))
-        {
-            std::shared_lock sl(cmdRegMutex);
-            cmdHandler = cmdRegistry.fecth(cmd);
-        }
-        else if(cmdRegistry.contains(std::string()))
-        {
-            std::shared_lock sl(cmdRegMutex);
-            cmdHandler = cmdRegistry.fecth(std::string());
-        }
-        else
-        {
-            lgr.error(exceptions::commander::NoSuchCommand(cmdline).what());
-            return;
-        }
-
-        if (cmdHandler.first)
-            globalthreadpool.submit(std::bind(handler_shell, cmdHandler.second, args));
-        else
-            handler_shell(cmdHandler.second, args);
-    }
-
     void Command::work(background::thread_info& info)
     {
-        while (working)
+        while (working || ![this]() {std::unique_lock ul(cmdQueMutex); return cmdQueue.empty(); }())
         {
-            secretary::PrintCenter::get_instance().set_stick_btm(vslz.prompt.data());
-            secretary::PrintCenter::get_instance().flush();
+            std::string cmdline;
 
-            std::string cmdline = asyncInput.get_line();
+            {
+                std::unique_lock ul(cmdQueMutex);
+                while (working && cmdQueue.empty())
+                    cmdQueCv.wait(ul);
+                if (!working)
+                    continue;
+                cmdline = cmdQueue.front();
+                cmdQueue.pop();
+            }
             if(cmdline.empty())
                 continue;
-            //if(inputting)
-            //{
-            //    std::lock_guard lg(inputMutex);
-            //    currentInputLine = cmdline;
-            //    inputCv.notify_all();
-            //    continue;
-            //}
 
-            excute(cmdline);
+            std::list<std::string> args = assistant::split_by(cmdline, " ");
+            std::string cmd = args.front();
+            std::pair<bool, command_handler> cmdHandler;
+
+            {
+                std::shared_lock sl(cmdRegMutex);
+                if (cmdRegistry.contains(cmd))
+                    cmdHandler = cmdRegistry.fecth(cmd);
+                else if (cmdRegistry.contains(std::string()))
+                    cmdHandler = cmdRegistry.fecth(std::string());
+                else
+                {
+                    lgr.error(exceptions::commander::NoSuchCommand(cmdline).what());
+                    continue;
+                }
+            }
+
+            if (cmdHandler.first)
+                globalthreadpool.submit(std::bind(handler_shell, cmdHandler.second, args));
+            else
+                handler_shell(cmdHandler.second, args);
         }
     }
 
@@ -196,36 +188,52 @@ namespace HYDRA15::Union::commander
         get_instance().regist(std::string(), async, handler);
     }
 
+    void Command::excute(const std::string& cmdline)
+    {
+        Command& cmd = get_instance();
+        std::unique_lock ul(cmd.cmdQueMutex);
+        cmd.cmdQueue.push(cmdline);
+    }
+
     void Command::async_input::work(background::thread_info& info)
     {
         Command& cmd = Command::get_instance();
+        secretary::PrintCenter& pc = secretary::PrintCenter::get_instance();
         while (true)
         {
+            pc.set_stick_btm(cmd.vslz.prompt.data());
+            pc.flush();
             std::string ln = cmd.sysgetline();
-            std::lock_guard lg(inputMutex);
+
+            std::unique_lock ul(inputMutex);
             line = ln;
-            notify_all();
+            if (waiting > 0)
+                inputCv.notify_all();
+            else
+            {
+                std::unique_lock ul(cmd.cmdQueMutex);
+                cmd.cmdQueue.push(std::move(line));
+                cmd.cmdQueCv.notify_all();
+            }
         }
     }
     std::string Command::async_input::get_line()
     {
         std::unique_lock ul(inputMutex);
+        waiting++;
         while(line.empty() && working)
             inputCv.wait(ul);
+        waiting--;
         return std::move(line);
     }
 
-    std::string Command::async_input::get_line_high_priority()
+    void Command::async_input::stop()
     {
-        std::unique_lock ul(inputMutex);
-        while (line.empty() && working)
-            highPriorityCv.wait(ul);
-        return std::move(line);
+        working = false;
     }
 
     void Command::async_input::notify_all()
     {
-        highPriorityCv.notify_all();
         inputCv.notify_all();
     }
 }

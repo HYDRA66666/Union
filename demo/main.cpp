@@ -27,6 +27,6 @@ int main()
     //    std::cout << "Unknown command. Type 'echo' or 'echoasyc' or 'echocin'." << std::endl;
     //    });
 
-    std::this_thread::sleep_for(std::chrono::seconds(5));
+    std::this_thread::sleep_for(std::chrono::seconds(100));
 
 }
