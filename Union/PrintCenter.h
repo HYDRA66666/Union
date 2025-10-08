@@ -84,14 +84,15 @@ namespace HYDRA15::Union::secretary
     private:
         std::condition_variable sleepcv;
         std::mutex systemLock;
-        bool working = true;
-        bool forceRefresh = false;
+        std::atomic<bool> working = true;
+        std::atomic<bool> forceRefresh = false;
         time_point lastRefresh = time_point::clock::now();
         virtual void work(background::thread_info&) override;
 
         // 高级接口
     public:
         void flush();  // 刷新
+        void sync_flush();  // 同步刷新，后台线程刷新完成后才会返回
         void lock();   // 锁定，防止刷新
         void unlock(); // 解锁，允许刷新
         void redirect(std::function<void(const std::string&)> printFunc);

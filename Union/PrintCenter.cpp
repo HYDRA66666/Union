@@ -181,9 +181,9 @@ namespace HYDRA15::Union::secretary
     {
         while (
             working || // 工作中
-            !pRollMsgLstBack->empty() || !pRollMsgLstFront->empty() || // 滚动消息不为空
-            btmMsgTab.size() > 0 || // 底部消息不为空
-            !pFMsgLstBack->empty() || !pFMsgLstFront->empty() // 文件消息不为空
+            ((!pRollMsgLstBack->empty() || !pRollMsgLstFront->empty()) && print) || // 滚动消息不为空且可打印
+            (btmMsgTab.size() > 0 && print) || // 底部消息不为空且可打印
+            ((!pFMsgLstBack->empty() || !pFMsgLstFront->empty()) && printFile) // 文件消息不为空且可打印
             )
         {
             std::unique_lock lg(systemLock);
@@ -191,14 +191,12 @@ namespace HYDRA15::Union::secretary
             // 无工作，等待
             while (
                 working && // 工作中
-                pRollMsgLstFront->empty() && pRollMsgLstBack->empty() && // 滚动消息为空
-                pFMsgLstBack->empty() && pFMsgLstFront->empty() && // 文件消息为空
+                ((pRollMsgLstFront->empty() && pRollMsgLstBack->empty()) || !print) && // 滚动消息为空
+                ((pFMsgLstBack->empty() && pFMsgLstFront->empty()) || !printFile) && // 文件消息为空
                 (time_point::clock::now() - lastRefresh < cfg.refreshInterval) && // 未到刷新时间
                 !forceRefresh   // 未被强制刷新
                 )
                 sleepcv.wait_for(lg, cfg.refreshInterval);
-
-            forceRefresh = false;
 
             // 清除底部消息
             if (print)
@@ -221,13 +219,27 @@ namespace HYDRA15::Union::secretary
 
             // 计时
             lastRefresh = time_point::clock::now();
+
+            // 通知等待
+            forceRefresh = false;
+            sleepcv.notify_all();
         }
     }
 
     void PrintCenter::flush()
     {
+        std::unique_lock ul(systemLock);
         forceRefresh = true;
         sleepcv.notify_all();
+    }
+
+    void PrintCenter::sync_flush()
+    {
+        std::unique_lock ul(systemLock);
+        forceRefresh = true;
+        sleepcv.notify_all();
+        while (forceRefresh)
+            sleepcv.wait(ul);
     }
 
     void PrintCenter::lock()
