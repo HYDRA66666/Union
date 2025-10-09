@@ -125,7 +125,7 @@ namespace HYDRA15::Union::commander
     {
         while (working || ![this]() {std::unique_lock ul(cmdQueMutex); return cmdQueue.empty(); }())
         {
-            std::string cmdline;
+            std::list<std::string> args;
 
             {
                 std::unique_lock ul(cmdQueMutex);
@@ -133,13 +133,12 @@ namespace HYDRA15::Union::commander
                     cmdQueCv.wait(ul);
                 if (!working)
                     continue;
-                cmdline = cmdQueue.front();
+                args = cmdQueue.front();
                 cmdQueue.pop();
             }
-            if(cmdline.empty())
+            if(args.empty())
                 continue;
 
-            std::list<std::string> args = assistant::split_by(cmdline, " ");
             std::string cmd = args.front();
             std::pair<bool, command_handler> cmdHandler;
 
@@ -151,7 +150,7 @@ namespace HYDRA15::Union::commander
                     cmdHandler = cmdRegistry.fecth(std::string());
                 else
                 {
-                    lgr.error(exceptions::commander::NoSuchCommand(cmdline).what());
+                    lgr.error(exceptions::commander::NoSuchCommand(cmd).what());
                     continue;
                 }
             }
@@ -190,9 +189,15 @@ namespace HYDRA15::Union::commander
 
     void Command::excute(const std::string& cmdline)
     {
+        excute(assistant::split_by(cmdline, " "));
+    }
+
+    void Command::excute(const std::list<std::string>& cmdline)
+    {
         Command& cmd = get_instance();
         std::unique_lock ul(cmd.cmdQueMutex);
         cmd.cmdQueue.push(cmdline);
+        cmd.cmdQueCv.notify_all();
     }
 
     void Command::async_input::work(background::thread_info& info)
@@ -206,15 +211,14 @@ namespace HYDRA15::Union::commander
             std::string ln = cmd.sysgetline();
 
             std::unique_lock ul(inputMutex);
-            line = ln;
+            
             if (waiting > 0)
-                inputCv.notify_all();
-            else
             {
-                std::unique_lock ul(cmd.cmdQueMutex);
-                cmd.cmdQueue.push(std::move(line));
-                cmd.cmdQueCv.notify_all();
+                line = ln;
+                inputCv.notify_all();
             }
+            else
+                Command::excute(ln);
         }
     }
     std::string Command::async_input::get_line()

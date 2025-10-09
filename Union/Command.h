@@ -104,7 +104,7 @@ namespace HYDRA15::Union::commander
     private:
         archivist::basic_registry<std::string, std::pair<bool, command_handler>> cmdRegistry;
         mutable std::shared_mutex cmdRegMutex;
-        std::queue<std::string> cmdQueue;
+        std::queue <std::list<std::string>> cmdQueue;
         mutable std::shared_mutex cmdQueMutex; 
         mutable std::condition_variable_any cmdQueCv;
     public:
@@ -124,6 +124,7 @@ namespace HYDRA15::Union::commander
         static void regist_command(const std::string& cmd, bool async, const command_handler& handler);
         static void regist_default_command(bool async, const command_handler& handler);
         static void excute(const std::string& cmdline);
+        static void excute(const std::list<std::string>& cmdline);
     };
     
 }

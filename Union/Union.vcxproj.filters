@@ -51,9 +51,6 @@
     <ClInclude Include="basic_mailsender.h">
       <Filter>expressman</Filter>
     </ClInclude>
-    <ClInclude Include="basic_remote_agent.h">
-      <Filter>expressman</Filter>
-    </ClInclude>
     <ClInclude Include="concepts.h">
       <Filter>framework</Filter>
     </ClInclude>

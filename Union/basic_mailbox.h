@@ -22,11 +22,11 @@ namespace HYDRA15::Union::expressman
         basic_mailbox(basic_mailbox&&) = delete;
         virtual ~basic_mailbox() = default;
 
-        virtual bool post(const std::shared_ptr<const postable<A>>& pkg) override
+        virtual unsigned int post(const std::shared_ptr<const postable<A>>& pkg) override
         {
             std::unique_lock ul(lk);
             lst.push_back(pkg);
-            return true;
+            return 1;
         }
 
         std::shared_ptr<const postable<A>> fetch()

@@ -39,7 +39,7 @@ namespace HYDRA15::Union::expressman
     class collector
     {
     public:
-        virtual bool post(const std::shared_ptr<const postable<A>>& pkg) = 0;    
+        virtual unsigned int post(const std::shared_ptr<const postable<A>>& pkg) = 0;    
 
         virtual ~collector() = default;
     };

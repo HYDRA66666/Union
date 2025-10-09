@@ -151,7 +151,6 @@
     <ClInclude Include="basic_mailbox.h" />
     <ClInclude Include="basic_mailrouter.h" />
     <ClInclude Include="basic_mailsender.h" />
-    <ClInclude Include="basic_remote_agent.h" />
     <ClInclude Include="Command.h" />
     <ClInclude Include="commander_exception.h" />
     <ClInclude Include="commander_streambuf.h" />
