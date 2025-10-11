@@ -2,6 +2,53 @@
 
 namespace HYDRA15::Union::secretary
 {
+    std::string ScanCenter::getline(std::string promt, unsigned long long id)
+    {
+        return getline_async(promt, id).get();
+    }
+
+    std::future<std::string> ScanCenter::getline_async(std::string promt, unsigned long long id)
+    {
+        ScanCenter& inst = ScanCenter::get_instance();
+        std::unique_lock ul(inst.queueLock);
+
+        // 检查输入列表中是否有想要的
+        for(auto it = inst.setlineQueue.begin();it!=inst.setlineQueue.end();it++)
+            if (it->id == id)
+            {
+                std::promise<std::string> prms;
+                prms.set_value(it->line);
+                inst.setlineQueue.erase(it);
+                return std::move(prms.get_future());
+            }
+
+        // 没有，则入队
+        inst.getlineQueue.emplace_back(id, promt);
+        std::future<std::string> fut = inst.getlineQueue.back().prms.get_future();
+        PrintCenter::set_stick_btm(inst.getlineQueue.front().promt);
+        return fut;
+    }
+
+    void ScanCenter::setline(std::string line, unsigned long long id)
+    {
+        ScanCenter& inst = ScanCenter::get_instance();
+        std::unique_lock ul(inst.queueLock);
+
+        // 检查等待列表中有没有目标
+        for(auto it = inst.getlineQueue.begin();it!=inst.getlineQueue.end();it++)
+            if (it->id == id)
+            {
+                it->prms.set_value(line);
+                inst.getlineQueue.erase(it);
+                return;
+            }
+
+        // 没有，则入队
+        inst.setlineQueue.emplace_back(id, line);
+        return;
+    }
+
+
     ScanCenter::ScanCenter(bool waitForSignal)
         :labourer::background(1)
     {
@@ -10,25 +57,6 @@ namespace HYDRA15::Union::secretary
             working = true;
             labourer::background::start();
         }
-    }
-
-    std::string ScanCenter::getline(std::string promt)
-    {
-        ScanCenter& inst = ScanCenter::get_instance();
-        std::unique_lock ul(inst.inputMutex);
-        PrintCenter::get_instance().set_stick_btm(promt);
-        PrintCenter::get_instance().sync_flush();
-        std::unique_lock lul(inst.inputLineMutex);
-        inst.isWaiting = true;
-        while (inst.line.empty())
-            inst.inputcv.wait(lul);
-        inst.isWaiting = false;
-        return std::move(inst.line);
-    }
-
-    std::string ScanCenter::getline()
-    {
-        return getline(vslz.promt.data());
     }
 
 
@@ -47,21 +75,27 @@ namespace HYDRA15::Union::secretary
     {
         while (true)
         {
-            std::string ln = sysgetline();
-            PrintCenter::get_instance().set_stick_btm(defaultPromt);
-            PrintCenter::get_instance().sync_flush();
-            if (isWaiting)
             {
-                std::unique_lock ul(inputLineMutex);
-                line = ln;
-                inputcv.notify_all();
+                std::unique_lock ul(queueLock);
+                if (!getlineQueue.empty())
+                    PrintCenter::set_stick_btm(getlineQueue.front().promt);
+                else
+                    PrintCenter::set_stick_btm(defaultPromt);
             }
-            else if (sysassign)
-                std::thread(sysassign, ln).detach();
-            else
+            std::string ln = sysgetline();
             {
-                std::unique_lock ul(inputLineMutex);
-                line = ln;
+                std::unique_lock ul(queueLock);
+                if (!getlineQueue.empty())
+                {
+                    getlineQueue.front().prms.set_value(ln);
+                    getlineQueue.pop_front();
+                    continue;
+                }
+            }
+            if (sysassign)
+            {
+                std::thread(sysassign, ln).detach();
+                continue;
             }
         }
     }
@@ -86,6 +120,26 @@ namespace HYDRA15::Union::secretary
     void ScanCenter::set_assign(std::function<void(const std::string&)> a)
     {
         sysassign = a;
+    }
+
+    bool ScanCenter::getline_request::operator==(unsigned long long i)
+    {
+        return id == i;
+    }
+
+    bool ScanCenter::getline_request::operator==(const getline_request& oth)
+    {
+        return id == oth.id;
+    }
+
+    bool ScanCenter::putline_request::operator==(unsigned long long i)
+    {
+        return id == i;
+    }
+
+    bool ScanCenter::putline_request::operator==(const putline_request& oth)
+    {
+        return id = oth.id;
     }
 
 }

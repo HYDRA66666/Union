@@ -40,6 +40,12 @@ namespace HYDRA15::Union::secretary
         return true;
     }
 
+    void PrintCenter::set_stick_btm(const std::string& str)
+    {
+        get_instance().stick_btm(str);
+        get_instance().sync_flush();
+    }
+
     size_t PrintCenter::fprint(const std::string& str)
     {
         PrintCenter& instance = PrintCenter::get_instance();
@@ -269,7 +275,7 @@ namespace HYDRA15::Union::secretary
         return rollMsgCount++;
     }
 
-    void PrintCenter::set_stick_btm(const std::string& str)
+    void PrintCenter::stick_btm(const std::string& str)
     {
         std::lock_guard lk(btmMsgTabLock);
         stickBtmMsg = str;

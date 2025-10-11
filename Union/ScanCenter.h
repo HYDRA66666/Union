@@ -20,8 +20,9 @@ namespace HYDRA15::Union::secretary
     {
         /***************************** 快速接口 *****************************/
     public:
-        static std::string getline(std::string promt);
-        static std::string getline();
+        static std::string getline(std::string promt = vslz.promt.data(), unsigned long long id = 0);
+        static std::future<std::string> getline_async(std::string promt = vslz.promt.data(), unsigned long long id = 0);
+        static void setline(std::string line, unsigned long long id = 0);    // 伪输入
 
         /***************************** 公有单例 *****************************/
     private:
@@ -45,31 +46,42 @@ namespace HYDRA15::Union::secretary
 
         virtual void work(thread_info& info) override;
 
-    private:    // 用于重定向输入
+    private:    
+        // 用于重定向输入
         std::function<std::string()> sysgetline = []() {std::string line; std::getline(std::cin, line); return line; };
+        std::string defaultPromt = " > ";
+        // 当没有后台线程等待时，输入会自动路由到此处
+        std::function<void(const std::string&)> sysassign = nullptr;  
+
     public:
         void set_getline(std::function<std::string()> g);
-
-    private:    // 用于设置默认提示词
-        std::string defaultPromt;
-    public:
         void set_defaultPromt(const std::string& promt);
+        void set_assign(std::function<void(const std::string&)> a);
 
     public:
         void start();
 
         /***************************** 输入管理 *****************************/
     private:
-        std::string line;
-        std::shared_mutex inputMutex;
-        std::shared_mutex inputLineMutex;
-        std::condition_variable_any inputcv;
-        std::atomic<bool> isWaiting;
+        struct getline_request
+        {
+            unsigned long long id;  // 标记线程的id，推荐使用线程id，如果需要伪输入的话可以自行指定
+            std::string promt;
+            std::promise<std::string> prms;
+            bool operator==(unsigned long long i);
+            bool operator==(const getline_request& oth);
+        };
+        struct putline_request
+        {
+            unsigned long long id;
+            std::string line;
+            bool operator==(unsigned long long i);
+            bool operator==(const putline_request& oth);
+        };
+        std::list<getline_request> getlineQueue;
+        std::list<putline_request> setlineQueue;
+        std::shared_mutex queueLock;
 
-        std::function<void(const std::string&)> sysassign = nullptr;  // 当没有后台线程等待时，输入会自动路由到此处
-
-    public:
-        void set_assign(std::function<void(const std::string&)> a);
 
     };
 }

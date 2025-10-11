@@ -32,6 +32,7 @@ namespace HYDRA15::Union::secretary
         static unsigned long long set(const std::string& str, bool forceDisplay = false, bool neverExpire = false);
         static bool update(unsigned long long id, const std::string& str);
         static bool remove(unsigned long long id);
+        static void set_stick_btm(const std::string& str);
         static size_t fprint(const std::string& str);
         PrintCenter& operator<<(const std::string& content);    // 快速输出，滚动消息+文件+刷新
 
@@ -142,7 +143,7 @@ namespace HYDRA15::Union::secretary
         void update_bottom(ID id, const std::string& content);
         bool check_bottom(ID id);
         void remove_bottom(ID id);
-        void set_stick_btm(const std::string& str = std::string());
+        void stick_btm(const std::string& str = std::string());
 
 
         /***************************** 写入文件相关 *****************************/
