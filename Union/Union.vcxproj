@@ -160,7 +160,6 @@
     <ClInclude Include="expressman_interfaces.h" />
     <ClInclude Include="factory.h" />
     <ClInclude Include="framework.h" />
-    <ClInclude Include="GlobalThreadLake.h" />
     <ClInclude Include="iExceptionBase.h" />
     <ClInclude Include="labourer_exception.h" />
     <ClInclude Include="libID.h" />
@@ -187,7 +186,6 @@
     <ClCompile Include="expressman_exception.cpp" />
     <ClCompile Include="expressman_interfaces.cpp" />
     <ClCompile Include="factory.cpp" />
-    <ClCompile Include="GlobalThreadLake.cpp" />
     <ClCompile Include="iExceptionBase.cpp" />
     <ClCompile Include="labourer_exception.cpp" />
     <ClCompile Include="log.cpp" />

@@ -37,7 +37,7 @@ namespace HYDRA15::Union::secretary
     };
 
 #ifndef UNION_CREATE_LOGGER
-#define UNION_CREATE_LOGGER() logger{__func__}
+#define UNION_CREATE_LOGGER() HYDRA15::Union::secretary::logger{__func__}
 #endif // !UNION_CREATE_LOGGER
 
 }

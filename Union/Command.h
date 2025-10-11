@@ -9,7 +9,6 @@
 #include "utility.h"
 #include "commander_exception.h"
 #include "logger.h"
-#include "GlobalThreadLake.h"
 #include "commander_streambuf.h"
 
 namespace HYDRA15::Union::commander
@@ -37,6 +36,7 @@ namespace HYDRA15::Union::commander
         {
             static_string prompt = "> ";
             static_string onExit = "Press enter to exit...";
+            static_string threadpoolNotDefined = "No thread pool specified; falling back to synchronous execution.";
             static_string unknownExptDuringExcute = "Unknown exception occured during excuting command > {}";
         }vslz;
         static struct config
@@ -52,10 +52,14 @@ namespace HYDRA15::Union::commander
 
         // 严格析构
         // 如果启用，析构时等待后台线程结束，可能会要求用户按回车
+    //private:
+    //    bool strictDestruct = false;
+    //public:
+    //    void set_strict_destruct(bool sd);
+
+        // 系统锁
     private:
-        bool strictDestruct = false;
-    public:
-        void set_strict_destruct(bool sd);
+        std::mutex syslock;
 
         /***************************** 输入输出 *****************************/
     private:
@@ -98,7 +102,9 @@ namespace HYDRA15::Union::commander
 
         // 线程池相关
     private:
-        GlobalThreadLake& globalthreadpool = GlobalThreadLake::get_instance();
+        std::shared_ptr<labourer::ThreadLake> pthreadpool = nullptr;
+    public:
+        void threadpool(std::shared_ptr<labourer::ThreadLake> p);
 
         // 指令注册与使用
     private:
@@ -125,6 +131,8 @@ namespace HYDRA15::Union::commander
         static void regist_default_command(bool async, const command_handler& handler);
         static void excute(const std::string& cmdline);
         static void excute(const std::list<std::string>& cmdline);
+        static void sync_excute(const std::string& cmdline);
+        static void sync_excute(const std::list<std::string>& cmdline);
     };
     
 }

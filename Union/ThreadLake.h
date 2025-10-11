@@ -41,7 +41,7 @@ namespace HYDRA15::Union::labourer
         ThreadLake() = delete;
         ThreadLake(const ThreadLake&) = delete;
         ThreadLake(ThreadLake&&) = delete;
-        ~ThreadLake();
+        virtual ~ThreadLake();
 
         //提交任务
         // 方法1：提交任务函数 std::function 和回调函数 std::function，推荐使用此方法

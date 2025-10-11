@@ -66,26 +66,6 @@ namespace HYDRA15::Union::commander
         return instance;
     }
 
-    //std::string Command::getline()
-    //{
-    //    std::unique_lock lg(inputMutex);
-    //    inputting = true;
-    //    while(currentInputLine.empty())
-    //        inputCv.wait(lg);
-    //    inputting = false;
-    //    return std::move(currentInputLine);
-    //}
-
-    //std::string Command::getline(std::string promt)
-    //{
-    //    secretary::PrintCenter::get_instance().set_stick_btm(promt);
-    //    return getline();
-    //}
-
-    void Command::set_strict_destruct(bool sd)
-    {
-        strictDestruct = sd;
-    }
 
     std::string Command::getline()
     {
@@ -101,6 +81,12 @@ namespace HYDRA15::Union::commander
         secretary::PrintCenter::get_instance().set_stick_btm(promt);
         secretary::PrintCenter::get_instance().flush();
         return getline();
+    }
+
+    void Command::threadpool(std::shared_ptr<labourer::ThreadLake> p)
+    {
+        std::unique_lock ul(syslock);
+        pthreadpool = p;
     }
 
     void Command::regist(const std::string& cmd, bool async, const command_handler& handler)
@@ -126,7 +112,6 @@ namespace HYDRA15::Union::commander
         while (working || ![this]() {std::unique_lock ul(cmdQueMutex); return cmdQueue.empty(); }())
         {
             std::list<std::string> args;
-
             {
                 std::unique_lock ul(cmdQueMutex);
                 while (working && cmdQueue.empty())
@@ -142,6 +127,8 @@ namespace HYDRA15::Union::commander
             std::string cmd = args.front();
             std::pair<bool, command_handler> cmdHandler;
 
+            std::unique_lock ul(syslock);
+
             {
                 std::shared_lock sl(cmdRegMutex);
                 if (cmdRegistry.contains(cmd))
@@ -156,7 +143,13 @@ namespace HYDRA15::Union::commander
             }
 
             if (cmdHandler.first)
-                globalthreadpool.submit(std::bind(handler_shell, cmdHandler.second, args));
+                if (pthreadpool)
+                    pthreadpool->submit(std::bind(handler_shell, cmdHandler.second, args));
+                else
+                {
+                    lgr.warn(vslz.threadpoolNotDefined.data());
+                    handler_shell(cmdHandler.second, args);
+                }
             else
                 handler_shell(cmdHandler.second, args);
         }
@@ -198,6 +191,24 @@ namespace HYDRA15::Union::commander
         std::unique_lock ul(cmd.cmdQueMutex);
         cmd.cmdQueue.push(cmdline);
         cmd.cmdQueCv.notify_all();
+    }
+
+    void Command::sync_excute(const std::string& cmdline)
+    {
+        sync_excute(assistant::split_by(cmdline, " "));
+    }
+
+    void Command::sync_excute(const std::list<std::string>& cmdline)
+    {
+        if (cmdline.empty())return;
+        Command& cmd = get_instance();
+        std::function<void(std::list<std::string>)> hdlr;
+
+        std::shared_lock sl(cmd.cmdRegMutex);
+        if (cmd.cmdRegistry.contains(cmdline.front()))
+            hdlr = cmd.cmdRegistry.fecth(cmdline.front()).second;
+        else
+            throw exceptions::commander::NoSuchCommand(cmdline.front());
     }
 
     void Command::async_input::work(background::thread_info& info)

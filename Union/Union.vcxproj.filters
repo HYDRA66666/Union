@@ -117,9 +117,6 @@
     <ClInclude Include="commander_exception.h">
       <Filter>exceptions</Filter>
     </ClInclude>
-    <ClInclude Include="GlobalThreadLake.h">
-      <Filter>commander</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="archivist_exception.cpp">
@@ -186,9 +183,6 @@
       <Filter>exceptions</Filter>
     </ClCompile>
     <ClCompile Include="commander_streambuf.cpp">
-      <Filter>commander</Filter>
-    </ClCompile>
-    <ClCompile Include="GlobalThreadLake.cpp">
       <Filter>commander</Filter>
     </ClCompile>
   </ItemGroup>
