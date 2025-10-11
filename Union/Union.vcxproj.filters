@@ -117,6 +117,9 @@
     <ClInclude Include="commander_exception.h">
       <Filter>exceptions</Filter>
     </ClInclude>
+    <ClInclude Include="ScanCenter.h">
+      <Filter>secretary</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="archivist_exception.cpp">
@@ -184,6 +187,9 @@
     </ClCompile>
     <ClCompile Include="commander_streambuf.cpp">
       <Filter>commander</Filter>
+    </ClCompile>
+    <ClCompile Include="ScanCenter.cpp">
+      <Filter>secretary</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

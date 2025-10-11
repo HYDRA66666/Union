@@ -168,6 +168,7 @@
     <ClInclude Include="PrintCenter.h" />
     <ClInclude Include="progress.h" />
     <ClInclude Include="registry.h" />
+    <ClInclude Include="ScanCenter.h" />
     <ClInclude Include="secretary_exception.h" />
     <ClInclude Include="shared_container_base.h" />
     <ClInclude Include="ThreadLake.h" />
@@ -193,6 +194,7 @@
     <ClCompile Include="PrintCenter.cpp" />
     <ClCompile Include="progress.cpp" />
     <ClCompile Include="registry.cpp" />
+    <ClCompile Include="ScanCenter.cpp" />
     <ClCompile Include="secretary_exception.cpp" />
     <ClCompile Include="ThreadLake.cpp" />
     <ClCompile Include="utility.cpp" />
