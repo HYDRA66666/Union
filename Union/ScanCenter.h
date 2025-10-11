@@ -7,6 +7,7 @@
 #include "utility.h"
 #include "registry.h"
 #include "PrintCenter.h"
+#include "logger.h"
 
 namespace HYDRA15::Union::secretary
 {
@@ -19,29 +20,28 @@ namespace HYDRA15::Union::secretary
     {
         /***************************** 快速接口 *****************************/
     public:
-        static std::string getline(std::string id, std::string promt);
-        static std::future<std::string> async_getline(std::string id, std::string promt);
+        static std::string getline(std::string promt);
+        static std::string getline();
 
         /***************************** 公有单例 *****************************/
     private:
-        ScanCenter();
+        ScanCenter(bool waitForSignal);
 
     public:
         ~ScanCenter();
-        static ScanCenter& get_instance();
+        static ScanCenter& get_instance(bool waitForSignal = false);
 
         /***************************** 系 统 *****************************/
     private:
         static struct visualize
         {
-            static_string promtFormat = "[{}]{} > ";
+            static_string promt = " > ";
         }vslz;
     private:
         PrintCenter& pc = PrintCenter::get_instance();
+        secretary::logger lgr{ "ScanCenter" };
 
-        std::atomic<bool> working = true;
-        std::shared_mutex syslock;
-        std::condition_variable_any syscv;
+        std::atomic<bool> working = false;
 
         virtual void work(thread_info& info) override;
 
@@ -50,30 +50,26 @@ namespace HYDRA15::Union::secretary
     public:
         void set_getline(std::function<std::string()> g);
 
+    private:    // 用于设置默认提示词
+        std::string defaultPromt;
     public:
-        void lock();   // 锁定，防止输入
-        void unlock(); // 解锁，允许输入
+        void set_defaultPromt(const std::string& promt);
+
+    public:
+        void start();
 
         /***************************** 输入管理 *****************************/
     private:
-        struct input_ctrlblk
-        {
-            std::string id;
-            std::string promt;
-            std::promise<std::string> prms;
-            operator bool() const;
-        };
+        std::string line;
+        std::shared_mutex inputMutex;
+        std::shared_mutex inputLineMutex;
+        std::condition_variable_any inputcv;
+        std::atomic<bool> isWaiting;
 
-        std::list<input_ctrlblk> inputQueue;
-        std::shared_mutex inputQueueMutex;
-
-        std::string currentID;
-        std::string currentPromt;
-
-        std::function<void(std::string)> sysassign = nullptr;  // 当没有后台线程等待时，输入会自动路由到此处
+        std::function<void(const std::string&)> sysassign = nullptr;  // 当没有后台线程等待时，输入会自动路由到此处
 
     public:
-        void set_assign(std::function<void(std::string)> a);
+        void set_assign(std::function<void(const std::string&)> a);
 
     };
 }

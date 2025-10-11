@@ -15,10 +15,10 @@ namespace HYDRA15::Union::archivist
             if (extract_name(a) != className)
                 throw exceptions::archivist::FactoryContaminatedData();
         // 检查构造函数是否存在
-        if (!ct.contains(className) || !ct.fecth(className))
+        if (!ct.contains(className) || !ct.fetch(className))
             throw exceptions::archivist::FactoryUnknownClass();
 
-        return unpack(archlst, ct.fecth(className));
+        return unpack(archlst, ct.fetch(className));
     }
 
     void factory::regist(std::string name, const std::function<packable::objects(packable::datablocks)>& constructor)

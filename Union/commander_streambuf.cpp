@@ -98,7 +98,6 @@ namespace HYDRA15::Union::commander
         if (allowedThrid_ != std::thread::id() && allowedThrid_ != std::this_thread::get_id())
             throw exceptions::commander::CommandAsyncInputNotAllowed();
 
-
         if (eof_) return false;
 
         buffer_ = std::move(getline_callback());

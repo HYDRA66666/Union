@@ -295,7 +295,7 @@ namespace HYDRA15::Union::secretary
         btmmsg_ctrlblock* pMsgCtrl;
         std::lock_guard lk(btmMsgTabLock);
 
-        pMsgCtrl = &btmMsgTab.fecth(id);
+        pMsgCtrl = &btmMsgTab.fetch(id);
         pMsgCtrl->msg = content;
         pMsgCtrl->lastUpdate = time_point::clock::now();
     }

@@ -43,7 +43,7 @@ namespace HYDRA15::Union::archivist
         {
             return tab.erase(key);
         }
-        V& fecth(const K& key)
+        V& fetch(const K& key)
         {
             try{return tab.at(key);}
             catch (const std::out_of_range&) { throw exceptions::archivist::RegistryKeyNotFound(); }

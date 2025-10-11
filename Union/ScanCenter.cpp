@@ -2,60 +2,66 @@
 
 namespace HYDRA15::Union::secretary
 {
-    std::string ScanCenter::getline(std::string id, std::string promt)
+    ScanCenter::ScanCenter(bool waitForSignal)
+        :labourer::background(1)
     {
-        return async_getline(id, promt).get();
+        if (!waitForSignal)
+        {
+            working = true;
+            labourer::background::start();
+        }
     }
 
-    std::future<std::string> ScanCenter::async_getline(std::string id, std::string promt)
+    std::string ScanCenter::getline(std::string promt)
     {
         ScanCenter& inst = ScanCenter::get_instance();
-        std::unique_lock ul(inst.inputQueueMutex);
-        input_ctrlblk ic{ id,promt };
-        std::future<std::string> fut = ic.prms.get_future();
-        inst.inputQueue.emplace_back(std::move(ic));
-        return std::move(fut);
+        std::unique_lock ul(inst.inputMutex);
+        PrintCenter::get_instance().set_stick_btm(promt);
+        PrintCenter::get_instance().sync_flush();
+        std::unique_lock lul(inst.inputLineMutex);
+        inst.isWaiting = true;
+        while (inst.line.empty())
+            inst.inputcv.wait(lul);
+        inst.isWaiting = false;
+        return std::move(inst.line);
+    }
+
+    std::string ScanCenter::getline()
+    {
+        return getline(vslz.promt.data());
     }
 
 
-    ScanCenter& ScanCenter::get_instance()
+    ScanCenter::~ScanCenter()
     {
-        static ScanCenter* instance = new ScanCenter{};
+        working = false;
+    }
+
+    ScanCenter& ScanCenter::get_instance(bool waitForSignal)
+    {
+        static ScanCenter* instance = new ScanCenter{ waitForSignal };
         return *instance;
     }
 
     void ScanCenter::work(thread_info& info)
     {
-        while (working)
+        while (true)
         {
-            input_ctrlblk ic;
+            std::string ln = sysgetline();
+            PrintCenter::get_instance().set_stick_btm(defaultPromt);
+            PrintCenter::get_instance().sync_flush();
+            if (isWaiting)
             {
-                std::unique_lock ul(inputQueueMutex);
-                if (inputQueue.empty() && !sysassign)
-                    syscv.wait(ul);
-                if (!inputQueue.empty())
-                {
-                    ic = std::move(inputQueue.front());
-                    inputQueue.pop_front();
-                }
+                std::unique_lock ul(inputLineMutex);
+                line = ln;
+                inputcv.notify_all();
             }
-            while(true)
+            else if (sysassign)
+                std::thread(sysassign, ln).detach();
+            else
             {
-                try
-                {
-                    if (ic)
-                    {
-                        pc.set_stick_btm(std::format(vslz.promtFormat.data(), ic.id, ic.prms));
-                        ic.prms.set_value(sysgetline());
-                    }
-                    else
-                    {
-                        if (sysassign)
-                            sysassign(sysgetline());
-                    }
-                    break;
-                }
-                catch (...) { continue; }
+                std::unique_lock ul(inputLineMutex);
+                line = ln;
             }
         }
     }
@@ -65,7 +71,19 @@ namespace HYDRA15::Union::secretary
         sysgetline = g;
     }
 
-    void ScanCenter::set_assign(std::function<void(std::string)> a)
+    void ScanCenter::set_defaultPromt(const std::string& promt)
+    {
+        defaultPromt = promt;
+    }
+
+    void ScanCenter::start()
+    {
+        bool currentState = false;
+        if (working.compare_exchange_strong(currentState, true))
+            labourer::background::start();
+    }
+
+    void ScanCenter::set_assign(std::function<void(const std::string&)> a)
     {
         sysassign = a;
     }
