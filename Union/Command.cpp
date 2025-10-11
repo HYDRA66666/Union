@@ -17,7 +17,7 @@ namespace HYDRA15::Union::commander
         // 重定向输入
         {
             secretary::ScanCenter& sc = secretary::ScanCenter::get_instance(true);
-            pCmdInBuf = new istreambuf([this]() {return secretary::ScanCenter::getline("cin> ", std::hash<std::thread::id>{}(std::this_thread::get_id())); });
+            pCmdInBuf = new istreambuf([this]() {return secretary::ScanCenter::getline("cin> "); });
             pSysInBuf = std::cin.rdbuf(pCmdInBuf);
             std::cin.exceptions(std::ios::badbit | std::ios::failbit);
             std::istream* psis = pSysInStream = new std::istream(pSysInBuf);
