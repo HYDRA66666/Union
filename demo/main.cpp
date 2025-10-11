@@ -7,7 +7,12 @@ int main()
 {
     Command& cmd = Command::get_instance();
 
-    cmd.regist("echo", false, [](const std::list<std::string>& args) {
+    cmd.regist_command("echo", false, [](const std::list<std::string>& args) {
+        std::string a = Command::getline("Input something to echo: ");
+        std::cout << "Echo: " << a << std::endl;
+        });
+
+    cmd.regist_default_command(false, [](const std::list<std::string>& args) {
         std::string a = Command::getline("Input something to echo: ");
         std::cout << "Echo: " << a << std::endl;
         });
@@ -26,6 +31,8 @@ int main()
     //cmd.regist("", false, [](const std::list<std::string>& args) {
     //    std::cout << "Unknown command. Type 'echo' or 'echoasyc' or 'echocin'." << std::endl;
     //    });
+
+    cmd.excute("echo");
 
     std::this_thread::sleep_for(std::chrono::seconds(100));
 

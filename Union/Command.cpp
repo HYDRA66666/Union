@@ -35,6 +35,8 @@ namespace HYDRA15::Union::commander
     {
         // 停止后台线程
         working = false;
+        cmdQueCv.notify_all();
+        wait_for_end();
         
         // 结束输入
         asyncInput.stop();
@@ -116,7 +118,7 @@ namespace HYDRA15::Union::commander
                 std::unique_lock ul(cmdQueMutex);
                 while (working && cmdQueue.empty())
                     cmdQueCv.wait(ul);
-                if (!working)
+                if (cmdQueue.empty())
                     continue;
                 args = cmdQueue.front();
                 cmdQueue.pop();
