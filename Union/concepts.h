@@ -52,4 +52,22 @@ namespace HYDRA15::Union::framework
 
     template<typename T, typename RT>
     concept is_really_derived_from = std::derived_from<std::remove_cvref_t<T>, std::remove_cvref_t<RT>>;
+
+    // 容器相关概念
+    template<typename C>
+    concept container = requires(C c) {
+        { c.begin() } ;
+        { c.end() } ;
+        { c.size() } -> std::same_as<size_t>;
+    };
+
+    template<typename M>
+    concept map_container = container<M> && requires(M m) {
+        typename M::key_type;
+        typename M::mapped_type;
+        { m.contains(typename M::key_type{}) } -> std::same_as<bool>;
+        { m.try_emplace(typename M::key_type{}, typename M::mapped_type{}) };
+        { m.erase(typename M::key_type{}) } -> std::same_as<size_t>;
+        { m.at(typename M::key_type{}) } -> std::same_as<typename M::mapped_type&>;
+    };
 }

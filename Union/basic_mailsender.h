@@ -40,11 +40,11 @@ namespace HYDRA15::Union::expressman
         basic_mailsender(basic_mailsender&&) = delete;
         virtual ~basic_mailsender() { working = false; cv.notify_all(); wait_for_end(); }
 
-        virtual bool post(const std::shared_ptr<const postable<A>>& pkg) override
+        virtual unsigned int post(const std::shared_ptr<const postable<A>>& pkg) override
         {
             std::shared_lock slk(smt);
             if (pRemoteAgent = nullptr)
-                throw exceptions::expressman::BasicMailEmptyCollector();
+                return false;
             std::shared_ptr<const archivist::packable> pp = std::dynamic_pointer_cast<const archivist::packable>(pkg);
             if (pp == nullptr)
                 throw exceptions::expressman::BasicMailRequirementNotMet();

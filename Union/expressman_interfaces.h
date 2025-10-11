@@ -14,12 +14,13 @@ namespace HYDRA15::Union::expressman
     class postable : virtual public archivist::notype
     {
     public:
-        virtual A origin() const = 0;    // 指示源地址
+        virtual A origin() const { return std::string(); }  // 指示源地址
         virtual A destination() const = 0;   // 指示目标地址
-        virtual bool next_route() const     // 可选：指定路由路径时使用，使得指示目的地的指针在路由路径列表中向后移动一位，如果成功返回true，否则，如不存在路由路径或者已经达到最终目的地，返回false
-        {
-            return false;
-        }
+
+        // 可选：指定路由路径时使用
+        // 使得指示目的地的指针在路由路径列表中向后移动一位，如果成功返回true，
+        // 否则，如不存在路由路径或者已经达到最终目的地，返回false
+        virtual bool next_route() const { return false; }
 
         virtual ~postable() = default;
     };
@@ -39,7 +40,7 @@ namespace HYDRA15::Union::expressman
     class collector
     {
     public:
-        virtual bool post(const std::shared_ptr<const postable<A>>& pkg) = 0;    
+        virtual unsigned int post(const std::shared_ptr<const postable<A>>& pkg) = 0;    
 
         virtual ~collector() = default;
     };

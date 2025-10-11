@@ -24,6 +24,7 @@ namespace HYDRA15::Union::labourer
 
             // 执行任务
             info.thread_state = background::thread_info::state::working;
+            info.workStartTime = std::chrono::steady_clock::now();
             if (taskPkg.content)
                 taskPkg.content();
             if (taskPkg.callback)
@@ -32,7 +33,7 @@ namespace HYDRA15::Union::labourer
 
     }
 
-    ThreadLake::ThreadLake(int threadCount, size_t tskQueMaxSize)
+    ThreadLake::ThreadLake(unsigned int threadCount, size_t tskQueMaxSize)
         : background(threadCount), tskQueMaxSize(tskQueMaxSize)
     {
         working = true;

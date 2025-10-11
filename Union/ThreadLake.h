@@ -37,11 +37,11 @@ namespace HYDRA15::Union::labourer
 
         //接口
     public:
-        ThreadLake(int threadCount, size_t tskQueMaxSize = 0);
+        ThreadLake(unsigned int threadCount, size_t tskQueMaxSize = 0);
         ThreadLake() = delete;
         ThreadLake(const ThreadLake&) = delete;
         ThreadLake(ThreadLake&&) = delete;
-        ~ThreadLake();
+        virtual ~ThreadLake();
 
         //提交任务
         // 方法1：提交任务函数 std::function 和回调函数 std::function，推荐使用此方法
@@ -104,7 +104,9 @@ namespace HYDRA15::Union::labourer
             return pkgedTask->get_future();
         }
 
-
-
+        // 迭代器访问每一个线程信息
+        using background::iterator;
+        using background::begin;
+        using background::end;
     };
 }

@@ -14,7 +14,7 @@ namespace HYDRA15::Union::expressman
     class basic_mailrouter :virtual public collector<A>
     {
     public:
-        using router_map = std::unordered_map<A, std::shared_ptr<collector<A>>>;
+        using router_map = std::unordered_map<A, std::weak_ptr<collector<A>>>;
         using group_router_map = std::unordered_map<A, std::function<std::generator<A>()>>;
         
 
@@ -30,40 +30,38 @@ namespace HYDRA15::Union::expressman
         basic_mailrouter(basic_mailrouter&&) = delete;
         virtual ~basic_mailrouter() = default;
 
-        virtual bool post(const std::shared_ptr<const postable<A>>& pkg) override
+        virtual unsigned int post(const std::shared_ptr<const postable<A>>& pkg) override
         {
             std::shared_lock slk(smt);
             pkg->next_route();
-            bool posted = false;
+            unsigned int posted = 0;
             A dest = pkg->destination();
 
-            const auto& grit = grmap.find(dest);    // 匹配组播路由
+            // 匹配组播路由
+            const auto& grit = grmap.find(dest);    
             if (grit != grmap.end())
                 for (const auto& i : (grit->second)())
                 {
                     const auto& rit = rmap.find(i);
-                    if (rit != rmap.end())
+                    if (rit != rmap.end() && !rit->second.expired())
                     {
-                        if ((rit->second) == nullptr)
-                            throw exceptions::expressman::BasicMailEmptyCollector();
-                        (rit->second)->post(std::dynamic_pointer_cast<const postable<A>>(pkg->clone()));  // 组播路由创建新的对象
-                        posted = true;
+                        rit->second.lock()->post(std::dynamic_pointer_cast<const postable<A>>(pkg->clone()));  // 组播路由创建新的对象
+                        posted++;
                     }
                 }
+
+            // 匹配单播路由
             const auto& rit = rmap.find(dest);
-            if (rit!=rmap.end()) // 匹配单播路由
-                if (rit != rmap.end())
-                {
-                    if ((rit->second) == nullptr)
-                        throw exceptions::expressman::BasicMailEmptyCollector();
-                    (rit->second)->post(pkg);
-                    posted = true;
-                }
+            if (rit != rmap.end() && !rit->second.expired())
+            {
+                rit->second.lock()->post(pkg);
+                posted++;
+            }
             return posted;
         }
 
         // 修改路由表接口
-        bool add(A addr, const std::shared_ptr<collector<A>>& pc)  // 添加路由表项
+        bool add(A addr, const std::weak_ptr<collector<A>>& pc)  // 添加路由表项
         {
             std::unique_lock ul(smt);
             if (rmap.contains(addr))
@@ -87,6 +85,18 @@ namespace HYDRA15::Union::expressman
             grmap[addr] = [lst = lst]() -> std::generator<A> {for (const auto& i : lst)co_yield i; };
             return true;
         }
+        void cleanup()  // 清理失效的路由表项
+        {
+            std::unique_lock ul(smt);
+            auto it = rmap.begin();
+            while (it != rmap.end())
+                if (it->second.expired())
+                    it = rmap.erase(it);
+                else
+                    it++;
+        }
+
+        // 高级管理接口
         router_map& fetch_rmap() { return rmap; }   // 直接获取整个路由表
         group_router_map& fetch_grmap() { return grmap; }   // 直接获取整个路由表
         auto lock() { return smt.lock(); }

@@ -9,6 +9,7 @@ namespace HYDRA15::Union::labourer
         // 等待所有线程准备就绪
         checkpoint.arrive_and_wait();
         // 执行工作
+        info.workStartTime = std::chrono::steady_clock::now();
         work(info);
         info.thread_state = thread_info::state::finishing;
         // 等待所有线程完成工作
@@ -30,15 +31,24 @@ namespace HYDRA15::Union::labourer
     {
         threads.resize(bkgThrCount);
         for (auto& i : threads)
+        {
             i.thread = std::make_shared<std::thread>(&background::work_shell, this, std::ref(i.info));
-        for (auto& item : threads)
-            item.thread->detach();
+            i.thread_id = i.thread->get_id();
+        }
     }
 
     background::background()
         :background(1)
     {
+
     }
+
+    background::~background()
+    {
+        for (auto& i : threads)
+            i.thread->detach();
+    }
+
 
     background::iterator::iterator(list_iter iter)
         :it(iter)
@@ -60,6 +70,11 @@ namespace HYDRA15::Union::labourer
     background::thread_info& background::iterator::operator*() const
     {
         return it->info;
+    }
+
+    std::thread::id background::iterator::get_id() const
+    {
+        return it->thread_id;
     }
 
     background::iterator background::begin()

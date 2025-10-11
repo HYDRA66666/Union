@@ -99,7 +99,7 @@ namespace HYDRA15::Union::secretary
 
         std::string str;
         for (auto& msg : *pRollMsgLstBack)
-            str.append(assistant::strip(msg, [](char c) {return (c > 0x20 && c < 0x7F) || c == 0x1B; }) + '\n');
+            str.append(assistant::strip(msg, is_valid_with_ansi) + "\n");
         pRollMsgLstBack->clear();
 
         return str;
@@ -132,7 +132,7 @@ namespace HYDRA15::Union::secretary
                 str.append("\n");
             else
                 first = false;
-            str.append(assistant::strip(i.msg, [](char c) {return (c > 0x20 && c < 0x7F) || c == 0x1B; }));
+            str.append(assistant::strip(i.msg, is_valid_with_ansi));
             lastBtmLines++;
         }
         if (more > 0)
@@ -152,7 +152,7 @@ namespace HYDRA15::Union::secretary
                 str.append("\n");
             else
                 first = false;
-            str.append(assistant::strip(stickBtmMsg, [](char c) {return (c > 0x20 && c < 0x7F) || c == 0x1B; }));
+            str.append(stickBtmMsg);
             lastBtmLines++;
         }
 
@@ -181,9 +181,9 @@ namespace HYDRA15::Union::secretary
     {
         while (
             working || // 工作中
-            !pRollMsgLstBack->empty() || !pRollMsgLstFront->empty() || // 滚动消息不为空
-            btmMsgTab.size() > 0 || // 底部消息不为空
-            !pFMsgLstBack->empty() || !pFMsgLstFront->empty() // 文件消息不为空
+            ((!pRollMsgLstBack->empty() || !pRollMsgLstFront->empty()) && print) || // 滚动消息不为空且可打印
+            (btmMsgTab.size() > 0 && print) || // 底部消息不为空且可打印
+            ((!pFMsgLstBack->empty() || !pFMsgLstFront->empty()) && printFile) // 文件消息不为空且可打印
             )
         {
             std::unique_lock lg(systemLock);
@@ -191,10 +191,10 @@ namespace HYDRA15::Union::secretary
             // 无工作，等待
             while (
                 working && // 工作中
-                pRollMsgLstFront->empty() && pRollMsgLstBack->empty() && // 滚动消息为空
-                pFMsgLstBack->empty() && pFMsgLstFront->empty() && // 文件消息为空
+                ((pRollMsgLstFront->empty() && pRollMsgLstBack->empty()) || !print) && // 滚动消息为空
+                ((pFMsgLstBack->empty() && pFMsgLstFront->empty()) || !printFile) && // 文件消息为空
                 (time_point::clock::now() - lastRefresh < cfg.refreshInterval) && // 未到刷新时间
-                (print || printFile)// 输出接口有效
+                !forceRefresh   // 未被强制刷新
                 )
                 sleepcv.wait_for(lg, cfg.refreshInterval);
 
@@ -208,7 +208,7 @@ namespace HYDRA15::Union::secretary
                     print(print_rolling_msg());
 
             // 输出底部消息
-            if (btmMsgTab.size() > 0)
+            if (btmMsgTab.size() > 0 || !stickBtmMsg.empty())
                 if (print)
                     print(print_bottom_msg());
 
@@ -219,23 +219,46 @@ namespace HYDRA15::Union::secretary
 
             // 计时
             lastRefresh = time_point::clock::now();
+
+            // 通知等待
+            forceRefresh = false;
+            sleepcv.notify_all();
         }
     }
 
     void PrintCenter::flush()
     {
+        std::unique_lock ul(systemLock);
+        forceRefresh = true;
         sleepcv.notify_all();
+    }
+
+    void PrintCenter::sync_flush()
+    {
+        std::unique_lock ul(systemLock);
+        forceRefresh = true;
+        sleepcv.notify_all();
+        while (forceRefresh)
+            sleepcv.wait(ul);
+    }
+
+    void PrintCenter::lock()
+    {
+        systemLock.lock();
+    }
+
+    void PrintCenter::unlock()
+    {
+        systemLock.unlock();
     }
 
     void PrintCenter::redirect(std::function<void(const std::string&)> printFunc)
     {
-        std::unique_lock ul(systemLock);
         print = printFunc;
     }
 
     void PrintCenter::fredirect(std::function<void(const std::string&)> fprintFunc)
     {
-        std::unique_lock ul(systemLock);
         printFile = fprintFunc;
     }
 
@@ -248,6 +271,7 @@ namespace HYDRA15::Union::secretary
 
     void PrintCenter::set_stick_btm(const std::string& str)
     {
+        std::lock_guard lk(btmMsgTabLock);
         stickBtmMsg = str;
     }
 
@@ -256,7 +280,7 @@ namespace HYDRA15::Union::secretary
         std::lock_guard lk(btmMsgTabLock);
         try
         {
-            return btmMsgTab.regist({time_point::clock::now(), forceDisplay, neverExpire, std::string() });
+            return btmMsgTab.regist(btmmsg_ctrlblock{time_point::clock::now(), forceDisplay, neverExpire, std::string() });
         }
         catch(exceptions::archivist& e)
         {
@@ -271,7 +295,7 @@ namespace HYDRA15::Union::secretary
         btmmsg_ctrlblock* pMsgCtrl;
         std::lock_guard lk(btmMsgTabLock);
 
-        pMsgCtrl = &btmMsgTab.fecth(id);
+        pMsgCtrl = &btmMsgTab.fetch(id);
         pMsgCtrl->msg = content;
         pMsgCtrl->lastUpdate = time_point::clock::now();
     }

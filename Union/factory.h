@@ -25,7 +25,7 @@ namespace HYDRA15::Union::archivist
         packable::objects build(const std::list<archive>& archlst);    // 构造对象，给定的列表中只能由一个类，并且需要有完整的数据
 
         void regist(std::string name, const std::function<packable::objects(packable::datablocks)>& constructor);  // 注册构造函数
-        void unregist(std::string name);    // 移除构造函数
+        bool unregist(std::string name);    // 移除构造函数
         bool contains(std::string name);    // 检查构造函数
     };
 }

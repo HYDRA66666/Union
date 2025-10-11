@@ -110,6 +110,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -129,6 +130,7 @@
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -144,11 +146,14 @@
     <ClInclude Include="archivist_exception.h" />
     <ClInclude Include="archivist_interfaces.h" />
     <ClInclude Include="assistant_exception.h" />
+    <ClInclude Include="astring.h" />
     <ClInclude Include="background.h" />
     <ClInclude Include="basic_mailbox.h" />
     <ClInclude Include="basic_mailrouter.h" />
     <ClInclude Include="basic_mailsender.h" />
-    <ClInclude Include="basic_remote_agent.h" />
+    <ClInclude Include="Command.h" />
+    <ClInclude Include="commander_exception.h" />
+    <ClInclude Include="commander_streambuf.h" />
     <ClInclude Include="concepts.h" />
     <ClInclude Include="datetime.h" />
     <ClInclude Include="expressman_exception.h" />
@@ -159,9 +164,11 @@
     <ClInclude Include="labourer_exception.h" />
     <ClInclude Include="libID.h" />
     <ClInclude Include="log.h" />
+    <ClInclude Include="logger.h" />
     <ClInclude Include="PrintCenter.h" />
     <ClInclude Include="progress.h" />
     <ClInclude Include="registry.h" />
+    <ClInclude Include="ScanCenter.h" />
     <ClInclude Include="secretary_exception.h" />
     <ClInclude Include="shared_container_base.h" />
     <ClInclude Include="ThreadLake.h" />
@@ -171,7 +178,11 @@
     <ClCompile Include="archivist_exception.cpp" />
     <ClCompile Include="archivist_interfaces.cpp" />
     <ClCompile Include="assistant_exception.cpp" />
+    <ClCompile Include="astring.cpp" />
     <ClCompile Include="background.cpp" />
+    <ClCompile Include="Command.cpp" />
+    <ClCompile Include="commander_exception.cpp" />
+    <ClCompile Include="commander_streambuf.cpp" />
     <ClCompile Include="datetime.cpp" />
     <ClCompile Include="expressman_exception.cpp" />
     <ClCompile Include="expressman_interfaces.cpp" />
@@ -179,9 +190,11 @@
     <ClCompile Include="iExceptionBase.cpp" />
     <ClCompile Include="labourer_exception.cpp" />
     <ClCompile Include="log.cpp" />
+    <ClCompile Include="logger.cpp" />
     <ClCompile Include="PrintCenter.cpp" />
     <ClCompile Include="progress.cpp" />
     <ClCompile Include="registry.cpp" />
+    <ClCompile Include="ScanCenter.cpp" />
     <ClCompile Include="secretary_exception.cpp" />
     <ClCompile Include="ThreadLake.cpp" />
     <ClCompile Include="utility.cpp" />

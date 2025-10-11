@@ -91,6 +91,23 @@ namespace HYDRA15::Union::assistant
                 throw exceptions::assistant::UtilityInvalidChar();
     }
 
+    std::list<std::string> split_by(const std::string& str, const std::string& delimiter)
+    {
+        auto slow = str.cbegin();
+        auto fast = str.cbegin();
+        std::list<std::string> res;
+
+        while (fast != str.cend())
+        {
+            fast = std::search(slow, str.cend(), delimiter.cbegin(), delimiter.cend());
+            res.emplace_back(slow, fast);
+            if (fast != str.cend())
+                fast += delimiter.size();
+            slow = fast;
+        }
+        return res;
+    }
+
     std::string hex_heap(const unsigned char* pBegin, unsigned int size, const std::string& title, unsigned int preLine)
     {
         std::string str = std::format("   -------- {} --------   \n", title);
@@ -136,4 +153,5 @@ namespace HYDRA15::Union::assistant
 
         return str;
     }
+    
 }

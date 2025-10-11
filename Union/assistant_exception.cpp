@@ -13,26 +13,17 @@ namespace HYDRA15::Union::exceptions
         return assistant(vslz.assistant.data(), code);
     }
 
-    assistant assistant::DateTimeUnknownException()
-    {
-        return assistant(vslz.dateTime.data(), iExptCodes.dateTime);
+    // 快速创建异常的函数模板
+#define make(type)                                              \
+    assistant assistant::type() noexcept                        \
+    {                                                           \
+        return assistant(vslz.type.data(),iExptCodes.type);     \
     }
 
-    assistant assistant::DateTimeInvalidTimeZone()
-    {
-        return assistant(vslz.dateTimeInvalidTimeZone.data(), iExptCodes.dateTimeInvalidTimeZone);
-    }
+    make(DateTimeInvalidTimeZone);
+    make(UtilityInvalidChar);
 
-    assistant assistant::UtilityUnknownException()
-    {
-        return assistant(vslz.utility.data(), iExptCodes.utility);
-    }
-
-    assistant assistant::UtilityInvalidChar()
-    {
-        return assistant(vslz.utilityInvalidChar.data(), iExptCodes.utilityInvalidChar);
-    }
-
+#undef make
 
 
 
