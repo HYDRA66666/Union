@@ -33,6 +33,10 @@ namespace HYDRA15::Union::assistant
     // 删除字符串中的ansi颜色格式
     std::string strip_color(const std::string& str);
 
+    // 删除字符串中所有的 ansi 转义串
+    // ansi 转义串以 \0x1b 开始，任意字母结束
+    std::string strip_ansi_secquence(const std::string& str);
+
     // 检查字符串内容是否全部合法，如不合法则报错
     void check_content(
         const std::string& str,

@@ -2,18 +2,14 @@
 #include "pch.h"
 #include "framework.h"
 
-#include "PrintCenter.h"
-#include "log.h"
 
-#include "commander_exception.h"
-
-namespace HYDRA15::Union::commander
+namespace HYDRA15::Union::secretary
 {
     // AI 生成的代码
     // 自定义输出流缓冲区，自动将缓冲区内容传递给PrintCenter，用于重定向 std::cout
     class ostreambuf : public std::streambuf {
     public:
-        explicit ostreambuf(std::size_t initial_size = 256, std::size_t max_size = 65536);
+        explicit ostreambuf(std::function<void(const std::string&)> callback, std::size_t initial_size = 256, std::size_t max_size = 65536);
 
     protected:
         int_type overflow(int_type ch) override;
@@ -26,6 +22,7 @@ namespace HYDRA15::Union::commander
         std::vector<char> buffer_;
         std::size_t max_size_;
         std::mutex mtx_;
+        std::function<void(const std::string&)> callback;
 
         void expand_buffer();
 
@@ -39,7 +36,6 @@ namespace HYDRA15::Union::commander
     private:
         std::string buffer_;   // 使用 std::string 作为缓冲区（自动管理内存）
         bool eof_ = false;     // 是否已到逻辑 EOF
-        const std::thread::id allowedThrid_; // 仅允许特定线程访问（默认允许所有线程）
 
         // 回调函数：用于获取一行输入
         std::function<std::string()> getline_callback;
@@ -49,7 +45,7 @@ namespace HYDRA15::Union::commander
 
     public:
         // 构造时传入回调
-        explicit istreambuf(std::function<std::string()> callback, std::thread::id allowedThrid = std::thread::id());
+        explicit istreambuf(std::function<std::string()> callback);
 
         // 重写 underflow：单字符读取时调用
         int underflow() override;

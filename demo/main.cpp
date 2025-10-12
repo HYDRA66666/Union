@@ -14,14 +14,9 @@ int main()
         std::cout << "Echo: " << a << std::endl;
         });
 
-    cmd.regist_default_command([](const std::list<std::string>& args) {
-        std::string a = ScanCenter::getline("Input something to echo: ");
-        std::cout << "Echo: " << a << std::endl;
-        });
-
-    cmd.regist("echoasyc", [](const std::list<std::string>& args) {
-        std::string a = ScanCenter::getline("Input something to echo: ");
-        std::cout << "Echo: " << a << std::endl;
+    cmd.regist("exit", [](const std::list<std::string>& args) {
+        std::cout << "exiting..." << std::endl;
+        exit(0);
         });
 
     cmd.regist("echocin", [](const std::list<std::string>& args) {

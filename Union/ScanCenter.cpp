@@ -40,6 +40,7 @@ namespace HYDRA15::Union::secretary
             {
                 it->prms.set_value(line);
                 inst.getlineQueue.erase(it);
+                inst.syscv.notify_all();
                 return;
             }
 
@@ -49,76 +50,81 @@ namespace HYDRA15::Union::secretary
     }
 
 
-    ScanCenter::ScanCenter(bool waitForSignal)
+    ScanCenter::ScanCenter()
         :labourer::background(1)
     {
-        if (!waitForSignal)
-        {
-            working = true;
-            labourer::background::start();
-        }
+        // 重定向cin
+        pSCIstreamBuf = std::make_shared<istreambuf>([this]() {return getline("cin > "); });
+        std::streambuf* pSysIstreamBuf = std::cin.rdbuf(pSCIstreamBuf.get());
+        pSysInStream = std::make_shared<std::istream>(pSysIstreamBuf);
+        sysgetline = [this]() {std::string str; std::getline(*pSysInStream, str); return str; };
+
+        start();
     }
 
 
     ScanCenter::~ScanCenter()
     {
         working = false;
+
+        // 等待输入任务全部完成
+        std::unique_lock ul(queueLock);
+        while (!getlineQueue.empty())
+            syscv.wait(ul);
+
+        // 回复 cin
+        sysgetline = nullptr;
+        std::cin.rdbuf(pSysInStream->rdbuf());
+        pSysInStream = nullptr;
+        pSCIstreamBuf = nullptr;
     }
 
-    ScanCenter& ScanCenter::get_instance(bool waitForSignal)
+    ScanCenter& ScanCenter::get_instance()
     {
-        static ScanCenter* instance = new ScanCenter{ waitForSignal };
+        static ScanCenter* instance = new ScanCenter{};
         return *instance;
     }
 
     void ScanCenter::work(thread_info& info)
     {
-        while (true)
+        try
         {
+            while (working)
             {
-                std::unique_lock ul(queueLock);
-                if (!getlineQueue.empty())
-                    PrintCenter::set_stick_btm(getlineQueue.front().promt);
-                else
-                    PrintCenter::set_stick_btm(defaultPromt);
-            }
-            std::string ln = sysgetline();
-            {
-                std::unique_lock ul(queueLock);
-                if (!getlineQueue.empty())
                 {
-                    getlineQueue.front().prms.set_value(ln);
-                    getlineQueue.pop_front();
-                    continue;
+                    std::unique_lock ul(queueLock);
+                    if (!getlineQueue.empty())
+                        PrintCenter::set_stick_btm(getlineQueue.front().promt);
+                    else
+                        PrintCenter::set_stick_btm(vslz.promt.data());
+                }
+                std::string ln = sysgetline();
+                {
+                    std::unique_lock ul(queueLock);
+                    if (!getlineQueue.empty())
+                    {
+                        getlineQueue.front().prms.set_value(ln);
+                        getlineQueue.pop_front();
+                        syscv.notify_all();
+                        continue;
+                    }
+                }
+                {
+                    std::unique_lock ul(sysLock);
+                    if (sysassign)
+                    {
+                        std::thread(sysassign, ln).detach();
+                        continue;
+                    }
                 }
             }
-            if (sysassign)
-            {
-                std::thread(sysassign, ln).detach();
-                continue;
-            }
         }
-    }
-
-    void ScanCenter::set_getline(std::function<std::string()> g)
-    {
-        sysgetline = g;
-    }
-
-    void ScanCenter::set_defaultPromt(const std::string& promt)
-    {
-        defaultPromt = promt;
-    }
-
-    void ScanCenter::start()
-    {
-        bool currentState = false;
-        if (working.compare_exchange_strong(currentState, true))
-            labourer::background::start();
+        catch (...) { return; }
     }
 
     void ScanCenter::set_assign(std::function<void(const std::string&)> a)
     {
+        std::unique_lock ul(sysLock);
         sysassign = a;
     }
 

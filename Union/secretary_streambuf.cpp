@@ -1,10 +1,10 @@
 ﻿#include "pch.h"
-#include "commander_streambuf.h"
+#include "secretary_streambuf.h"
 
-namespace HYDRA15::Union::commander
+namespace HYDRA15::Union::secretary
 {
-    ostreambuf::ostreambuf(std::size_t initial_size, std::size_t max_size)
-        : buffer_(initial_size), max_size_(max_size) 
+    ostreambuf::ostreambuf(std::function<void(const std::string&)> c, std::size_t initial_size, std::size_t max_size)
+        : buffer_(initial_size), max_size_(max_size), callback(c)
     {
         setp(buffer_.data(), buffer_.data() + buffer_.size());
     }
@@ -88,16 +88,13 @@ namespace HYDRA15::Union::commander
     {
         std::ptrdiff_t n = pptr() - pbase();
         if (n > 0) {
-            secretary::PrintCenter::println(std::string(pbase(), n));
+            callback(std::string(pbase(), n));
             pbump(static_cast<int>(-n));
         }
     }
 
     bool istreambuf::refill()
     {
-        if (allowedThrid_ != std::thread::id() && allowedThrid_ != std::this_thread::get_id())
-            throw exceptions::commander::CommandAsyncInputNotAllowed();
-
         if (eof_) return false;
 
         buffer_ = std::move(getline_callback());
@@ -119,17 +116,14 @@ namespace HYDRA15::Union::commander
         return true;
     }
 
-    istreambuf::istreambuf(std::function<std::string()> callback, std::thread::id allowedThrid)
-        : getline_callback(std::move(callback)), allowedThrid_(allowedThrid)
+    istreambuf::istreambuf(std::function<std::string()> callback)
+        : getline_callback(std::move(callback))
     {
         setg(nullptr, nullptr, nullptr); // 初始化 get area
     }
 
     int istreambuf::underflow()
     {
-        if(allowedThrid_!=std::thread::id() && allowedThrid_!=std::this_thread::get_id())
-            throw exceptions::commander::CommandAsyncInputNotAllowed();
-
         if (gptr() < egptr()) {
             return traits_type::to_int_type(*gptr());
         }
@@ -141,9 +135,6 @@ namespace HYDRA15::Union::commander
 
     std::streamsize istreambuf::xsgetn(char* s, std::streamsize count)
     {
-        if (allowedThrid_ != std::thread::id() && allowedThrid_ != std::this_thread::get_id())
-            throw exceptions::commander::CommandAsyncInputNotAllowed();
-
         std::streamsize total = 0;
 
         while (total < count) {
@@ -170,9 +161,6 @@ namespace HYDRA15::Union::commander
 
     std::streamsize istreambuf::showmanyc()
     {
-        if (allowedThrid_ != std::thread::id() && allowedThrid_ != std::this_thread::get_id())
-            throw exceptions::commander::CommandAsyncInputNotAllowed();
-
         if (gptr() < egptr()) {
             return egptr() - gptr();
         }

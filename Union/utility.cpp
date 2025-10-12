@@ -84,6 +84,31 @@ namespace HYDRA15::Union::assistant
         return res;
     }
 
+    std::string strip_ansi_secquence(const std::string& str)
+    {
+        if (str.empty())return std::string();
+
+        auto is_charactor = [](char c) {return (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A); };
+
+        std::string res;
+        res.reserve(str.size());
+
+        size_t fast = 0, slow = 0;
+
+        while (slow < str.size())
+        {
+            fast = str.find('\0x1b', fast);
+            if (fast == str.npos)fast = str.size();
+            res.append(str.substr(slow, fast));
+            for (; fast < str.size(); fast++)
+                if (is_charactor(str[fast]))
+                    break;
+            slow = ++fast;
+        }
+
+        return res;
+    }
+
     void check_content(const std::string& str, std::function<bool(char)> is_valid)
     {
         for (const auto& c : str)

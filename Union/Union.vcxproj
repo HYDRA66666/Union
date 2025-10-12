@@ -153,7 +153,7 @@
     <ClInclude Include="basic_mailsender.h" />
     <ClInclude Include="Command.h" />
     <ClInclude Include="commander_exception.h" />
-    <ClInclude Include="commander_streambuf.h" />
+    <ClInclude Include="secretary_streambuf.h" />
     <ClInclude Include="concepts.h" />
     <ClInclude Include="datetime.h" />
     <ClInclude Include="expressman_exception.h" />
@@ -182,7 +182,7 @@
     <ClCompile Include="background.cpp" />
     <ClCompile Include="Command.cpp" />
     <ClCompile Include="commander_exception.cpp" />
-    <ClCompile Include="commander_streambuf.cpp" />
+    <ClCompile Include="secretary_streambuf.cpp" />
     <ClCompile Include="datetime.cpp" />
     <ClCompile Include="expressman_exception.cpp" />
     <ClCompile Include="expressman_interfaces.cpp" />

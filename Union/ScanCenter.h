@@ -26,11 +26,11 @@ namespace HYDRA15::Union::secretary
 
         /***************************** 公有单例 *****************************/
     private:
-        ScanCenter(bool waitForSignal);
+        ScanCenter();
 
     public:
         ~ScanCenter();
-        static ScanCenter& get_instance(bool waitForSignal = false);
+        static ScanCenter& get_instance();
 
         /***************************** 系 统 *****************************/
     private:
@@ -42,24 +42,24 @@ namespace HYDRA15::Union::secretary
         PrintCenter& pc = PrintCenter::get_instance();
         secretary::logger lgr{ "ScanCenter" };
 
-        std::atomic<bool> working = false;
-
+        // 后台线程
+    private:
+        std::atomic<bool> working = true;
         virtual void work(thread_info& info) override;
 
     private:    
         // 用于重定向输入
-        std::function<std::string()> sysgetline = []() {std::string line; std::getline(std::cin, line); return line; };
-        std::string defaultPromt = " > ";
+        std::function<std::string()> sysgetline;
+        std::shared_ptr<std::istream> pSysInStream;
+        std::shared_ptr<istreambuf> pSCIstreamBuf;
         // 当没有后台线程等待时，输入会自动路由到此处
-        std::function<void(const std::string&)> sysassign = nullptr;  
+        std::function<void(const std::string&)> sysassign = nullptr; 
+        // 系统锁
+        std::mutex sysLock;
+        std::condition_variable_any syscv;
 
     public:
-        void set_getline(std::function<std::string()> g);
-        void set_defaultPromt(const std::string& promt);
         void set_assign(std::function<void(const std::string&)> a);
-
-    public:
-        void start();
 
         /***************************** 输入管理 *****************************/
     private:
@@ -81,6 +81,7 @@ namespace HYDRA15::Union::secretary
         std::list<getline_request> getlineQueue;
         std::list<putline_request> setlineQueue;
         std::shared_mutex queueLock;
+
 
 
     };

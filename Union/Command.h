@@ -9,7 +9,6 @@
 #include "utility.h"
 #include "commander_exception.h"
 #include "logger.h"
-#include "commander_streambuf.h"
 #include "ScanCenter.h"
 
 namespace HYDRA15::Union::commander
@@ -37,7 +36,7 @@ namespace HYDRA15::Union::commander
         {
             static_string prompt = "> ";
             static_string onExit = "Press enter to exit...";
-            static_string threadpoolNotDefined = "No thread pool specified; falling back to synchronous execution.";
+            static_string threadpoolNotDefined = "No thread pool specified, which may cause performance impact.";
             static_string unknownExptDuringExcute = "Unknown exception occured during excuting command > {}";
         }vslz;
 
@@ -48,16 +47,6 @@ namespace HYDRA15::Union::commander
         // 系统锁
     private:
         std::shared_mutex syslock;
-
-        /***************************** 输入输出 *****************************/
-    private:
-        std::streambuf* pSysOutBuf = nullptr;
-        ostreambuf* pCmdOutBuf = nullptr;
-        std::ostream* pSysOutStream = nullptr;
-
-        std::streambuf* pSysInBuf = nullptr;
-        istreambuf* pCmdInBuf = nullptr;
-        std::istream* pSysInStream = nullptr;
 
         /***************************** 指令处理 *****************************/
         // 指令处理函数类型
@@ -89,8 +78,6 @@ namespace HYDRA15::Union::commander
     public:
         static void regist_command(const std::string& cmd, const command_handler& handler);
         static void regist_default_command(const command_handler& handler);
-        static void excute_async(const std::string& cmdline);
-        static void excute_async(const std::list<std::string>& cmdline);
         static void excute(const std::string& cmdline);
         static void excute(const std::list<std::string>& cmdline);
     };
