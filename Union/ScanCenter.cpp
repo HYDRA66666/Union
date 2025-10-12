@@ -111,11 +111,15 @@ namespace HYDRA15::Union::secretary
                 }
                 {
                     std::unique_lock ul(sysLock);
-                    if (sysassign)
+                    if (assign)
                     {
-                        std::thread(sysassign, ln).detach();
+                        std::thread(assign, ln).detach();
                         continue;
                     }
+                }
+                {
+                    std::unique_lock ul(queueLock);
+                    setlineQueue.push_back({ 0,ln });
                 }
             }
         }
@@ -125,7 +129,7 @@ namespace HYDRA15::Union::secretary
     void ScanCenter::set_assign(std::function<void(const std::string&)> a)
     {
         std::unique_lock ul(sysLock);
-        sysassign = a;
+        assign = a;
     }
 
     bool ScanCenter::getline_request::operator==(unsigned long long i)

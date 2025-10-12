@@ -53,7 +53,7 @@ namespace HYDRA15::Union::secretary
         std::shared_ptr<std::istream> pSysInStream;
         std::shared_ptr<istreambuf> pSCIstreamBuf;
         // 当没有后台线程等待时，输入会自动路由到此处
-        std::function<void(const std::string&)> sysassign = nullptr; 
+        std::function<void(const std::string&)> assign = nullptr; 
         // 系统锁
         std::mutex sysLock;
         std::condition_variable_any syscv;
