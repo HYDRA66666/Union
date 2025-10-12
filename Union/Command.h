@@ -13,10 +13,8 @@
 
 namespace HYDRA15::Union::commander
 {
-    // 接管 std 输入、输出，处理指令、调用处理函数
     // 程序需要在启动初期注册指令和对应的处理函数，指令为空的处理函数为默认处理函数
     // 处理函数不得有返回值，输入为参数列表，列表的首项一致为命令本身
-    // 指令处理函数可以是同步的也可以是异步的，但是有与控制台交互的指令必须是同步的
     class Command
     {
         /***************************** 公  用 *****************************/
@@ -68,6 +66,7 @@ namespace HYDRA15::Union::commander
         void regist(const std::string& cmd, const command_handler& handler);
         bool unregist(const std::string& cmd);
         bool contains(const std::string& cmd) const;
+        command_handler fetch(const std::string& cmd);
 
 
         // 指令处理

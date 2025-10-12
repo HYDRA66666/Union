@@ -45,6 +45,13 @@ namespace HYDRA15::Union::commander
         return cmdRegistry.contains(cmd);
     }
 
+    Command::command_handler Command::fetch(const std::string& cmd)
+    {
+        std::list<std::string> args = assistant::split_by(cmd, " ");
+        std::shared_lock sl(cmdRegMutex);
+        return cmdRegistry.fetch(args.front());
+    }
+
     void Command::handler_shell(const command_handler& handler, const std::list<std::string>& args)
     {
         try
