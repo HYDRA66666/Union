@@ -52,7 +52,7 @@ namespace HYDRA15::Union::commander
         return cmdRegistry.fetch(args.front());
     }
 
-    void Command::handler_shell(const command_handler& handler, const std::list<std::string>& args)
+    void Command::warp(const command_handler& handler, const std::list<std::string>& args)
     {
         try
         {
@@ -97,11 +97,32 @@ namespace HYDRA15::Union::commander
         }
         std::shared_lock sl(inst.syslock);
         if (inst.pthreadpool)
-            inst.pthreadpool->submit(std::bind(handler_shell, ch, cmdline));
+            inst.pthreadpool->submit(std::bind(warp, ch, cmdline));
         else
         {
             inst.lgr.debug(vslz.threadpoolNotDefined.data());
-            std::thread(std::bind(handler_shell, ch, cmdline)).detach();
+            std::thread(std::bind(warp, ch, cmdline)).detach();
         }
+    }
+
+    void Command::excute_sync(const std::string& cmdline)
+    {
+        excute_sync(assistant::split_by(cmdline, " "));
+    }
+
+    void Command::excute_sync(const std::list<std::string>& cmdline)
+    {
+        Command& inst = Command::get_instance();
+        std::string cmd = cmdline.front();
+        command_handler ch;
+        {
+            std::shared_lock sl(inst.cmdRegMutex);
+            if (inst.cmdRegistry.contains(cmd))
+                ch = inst.cmdRegistry.fetch(cmd);
+            else if (inst.cmdRegistry.contains(std::string()))
+                ch = inst.cmdRegistry.fetch(std::string());
+            else throw exceptions::commander::NoSuchCommand(cmd);
+        }
+        ch(cmdline);
     }
 }

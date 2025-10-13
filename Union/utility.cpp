@@ -97,7 +97,7 @@ namespace HYDRA15::Union::assistant
 
         while (slow < str.size())
         {
-            fast = str.find('\0x1b', fast);
+            fast = str.find('\x1b', fast);
             if (fast == str.npos)fast = str.size();
             res.append(str.substr(slow, fast));
             for (; fast < str.size(); fast++)
@@ -194,7 +194,7 @@ namespace HYDRA15::Union::assistant
         return str;
     }
 
-    std::unordered_map<std::string, std::string> parse_propreties(std::string ppts)
+    std::unordered_map<std::string, std::string> parse_propreties(const std::string& ppts)
     {
 
         // 预处理：去除所有的空格，处理转义字符
@@ -266,9 +266,12 @@ namespace HYDRA15::Union::assistant
                 if (it->back() == '\\')
                 {
                     auto current = it++;
-                    *current += *it;
+                    current->pop_back();
+                    *current += "=" + *it;
                     it = entryPair.erase(it);
                 }
+                else
+                    it++;
             }
         }
 

@@ -17,6 +17,18 @@ namespace HYDRA15::Union::commander
     // 处理函数不得有返回值，输入为参数列表，列表的首项一致为命令本身
     class Command
     {
+        using command_handler = std::function<void(const std::list<std::string>& args)>;
+        /***************************** 快捷命令 *****************************/
+    public:
+        static void regist_command(const std::string& cmd, const command_handler& handler);
+        static void regist_default_command(const command_handler& handler);
+        // 启动后台线程执行 默认的执行方式
+        static void excute(const std::string& cmdline);
+        static void excute(const std::list<std::string>& cmdline);
+        // 在调用线程执行
+        static void excute_sync(const std::string& cmdline);
+        static void excute_sync(const std::list<std::string>& cmdline);
+
         /***************************** 公  用 *****************************/
         // 单例
     private:
@@ -47,10 +59,6 @@ namespace HYDRA15::Union::commander
         std::shared_mutex syslock;
 
         /***************************** 指令处理 *****************************/
-        // 指令处理函数类型
-    public:
-        using command_handler = std::function<void(const std::list<std::string>& args)>;
-
         // 线程池相关
     private:
         std::shared_ptr<labourer::ThreadLake> pthreadpool = nullptr;
@@ -71,14 +79,9 @@ namespace HYDRA15::Union::commander
 
         // 指令处理
     private:
-        static void handler_shell(const command_handler& handler, const std::list<std::string>& args);
+        static void warp(const command_handler& handler, const std::list<std::string>& args);
 
-        /***************************** 快捷命令 *****************************/
-    public:
-        static void regist_command(const std::string& cmd, const command_handler& handler);
-        static void regist_default_command(const command_handler& handler);
-        static void excute(const std::string& cmdline);
-        static void excute(const std::list<std::string>& cmdline);
+
     };
     
 }
