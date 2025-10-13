@@ -28,11 +28,9 @@ namespace HYDRA15::Union::secretary
             static_string debug = "\033[0m[ {0} |\033[2mDEBUG\033[0m ][ {1} ] {2}\033[0m";
             static_string trace = "\033[0m[ {0} |\033[34mTRACE\033[0m ][ {1} ] {2}\033[0m";
         }vslz;
-#ifdef _DEBUG
-        inline static bool enableDebug = true;
-#else
-        inline static bool enableDebug = false;
-#endif // _DEBUG
+
+        inline static bool enableDebug = debug;
+
         inline static std::function<void(const std::string&)> print = [](const std::string& str) {PrintCenter::get_instance() << str; };
         
         // 公有接口

@@ -4,6 +4,9 @@
 
 namespace HYDRA15::Union::referee
 {
+
+    void iExceptionBase::debug(bool d) { enableDebug = d; }
+
 	iExceptionBase::iExceptionBase(const std::string& desp, const iException_code& id, const iException_code& code) noexcept
         :description(desp), libID(id), exptCode(code)
 #ifdef UNION_IEXPT_STACKTRACE_ENABLE
@@ -22,6 +25,10 @@ namespace HYDRA15::Union::referee
                 libID,
                 exptCode
             );
+
+#ifdef UNION_IEXPT_STACKTRACE_ENABLE
+        if (enableDebug)whatStr += stack_trace();
+#endif // LIB_IEXPT_STACKTRACE_ENABLE
 
 		return whatStr.c_str();
 	}

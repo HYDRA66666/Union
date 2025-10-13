@@ -108,9 +108,6 @@
     <ClInclude Include="logger.h">
       <Filter>secretary</Filter>
     </ClInclude>
-    <ClInclude Include="commander_streambuf.h">
-      <Filter>commander</Filter>
-    </ClInclude>
     <ClInclude Include="Command.h">
       <Filter>commander</Filter>
     </ClInclude>
@@ -118,6 +115,9 @@
       <Filter>exceptions</Filter>
     </ClInclude>
     <ClInclude Include="ScanCenter.h">
+      <Filter>secretary</Filter>
+    </ClInclude>
+    <ClInclude Include="secretary_streambuf.h">
       <Filter>secretary</Filter>
     </ClInclude>
   </ItemGroup>
@@ -185,10 +185,10 @@
     <ClCompile Include="commander_exception.cpp">
       <Filter>exceptions</Filter>
     </ClCompile>
-    <ClCompile Include="commander_streambuf.cpp">
-      <Filter>commander</Filter>
-    </ClCompile>
     <ClCompile Include="ScanCenter.cpp">
+      <Filter>secretary</Filter>
+    </ClCompile>
+    <ClCompile Include="secretary_streambuf.cpp">
       <Filter>secretary</Filter>
     </ClCompile>
   </ItemGroup>

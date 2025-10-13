@@ -33,6 +33,10 @@ namespace HYDRA15::Union::assistant
     // 删除字符串中的ansi颜色格式
     std::string strip_color(const std::string& str);
 
+    // 删除字符串中所有的 ansi 转义串
+    // ansi 转义串以 \0x1b 开始，任意字母结束
+    std::string strip_ansi_secquence(const std::string& str);
+
     // 检查字符串内容是否全部合法，如不合法则报错
     void check_content(
         const std::string& str,
@@ -42,10 +46,15 @@ namespace HYDRA15::Union::assistant
     // 用给定的字符切分字符串
     std::list<std::string> split_by(const std::string& str, const std::string& delimiter = " ");
 
+    std::list<std::string> split_by(const std::string& str, const std::list<std::string>& deliniters);
+
 
     //向控制台输出十六进制的原始数据和对应的ascii字符
     std::string hex_heap(const unsigned char* pBegin, unsigned int size, const std::string& title = "Hex Heap", unsigned int preLine = 32);
-
+    
+    // 解析 propreties 文件
+    // 强制要求键值分隔符为 = ，unicode字符保持原样，
+    std::unordered_map<std::string, std::string> parse_propreties(const std::string& ppts);
 
     // 内存拷贝
     template<typename T>

@@ -7,6 +7,7 @@
 #include "datetime.h"
 #include "utility.h"
 #include "registry.h"
+#include "secretary_streambuf.h"
 
 namespace HYDRA15::Union::secretary
 {
@@ -32,6 +33,7 @@ namespace HYDRA15::Union::secretary
         static unsigned long long set(const std::string& str, bool forceDisplay = false, bool neverExpire = false);
         static bool update(unsigned long long id, const std::string& str);
         static bool remove(unsigned long long id);
+        static void set_stick_btm(const std::string& str);
         static size_t fprint(const std::string& str);
         PrintCenter& operator<<(const std::string& content);    // 快速输出，滚动消息+文件+刷新
 
@@ -76,9 +78,14 @@ namespace HYDRA15::Union::secretary
         std::string print_bottom_msg();  // 输出底部消息
         std::string print_file_msg();    // 输出文件消息
 
-        // 需要重定向时修改此变量
-        std::function<void(const std::string&)> print = [](const std::string& str) {std::cout << str; };
+        // 重定向时修改此变量
+        std::shared_ptr<ostreambuf> pPCOutBuf;
+        std::shared_ptr<std::ostream> pSysOutStream;
+        std::function<void(const std::string&)> print;
         std::function<void(const std::string&)> printFile;
+
+        // 是否启用ansi颜色
+        bool enableAnsiColor = true;
 
         // 工作
     private:
@@ -95,8 +102,8 @@ namespace HYDRA15::Union::secretary
         void sync_flush();  // 同步刷新，后台线程刷新完成后才会返回
         void lock();   // 锁定，防止刷新
         void unlock(); // 解锁，允许刷新
-        void redirect(std::function<void(const std::string&)> printFunc);
         void fredirect(std::function<void(const std::string&)> fprintFunc);
+        void enable_ansi_color(bool c);
 
         /***************************** 滚动消息相关 *****************************/
         // 类型定义
@@ -142,7 +149,7 @@ namespace HYDRA15::Union::secretary
         void update_bottom(ID id, const std::string& content);
         bool check_bottom(ID id);
         void remove_bottom(ID id);
-        void set_stick_btm(const std::string& str = std::string());
+        void stick_btm(const std::string& str = std::string());
 
 
         /***************************** 写入文件相关 *****************************/

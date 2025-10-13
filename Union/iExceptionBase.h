@@ -16,6 +16,12 @@ namespace HYDRA15::Union::referee
 	{
 		static_string baseWhatStrFormat = "iException: {0} ( 0x{1:08X} : 0x{2:08X} )";
 
+        // 全局 debug 选项
+    private:
+        inline static bool enableDebug = debug;
+    public:
+        static void debug(bool d);
+
 	protected:
 		// what字符串缓存
 		mutable std::string whatStr;

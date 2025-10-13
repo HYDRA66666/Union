@@ -40,6 +40,12 @@ namespace HYDRA15::Union::secretary
         return true;
     }
 
+    void PrintCenter::set_stick_btm(const std::string& str)
+    {
+        get_instance().stick_btm(str);
+        get_instance().sync_flush();
+    }
+
     size_t PrintCenter::fprint(const std::string& str)
     {
         PrintCenter& instance = PrintCenter::get_instance();
@@ -61,6 +67,15 @@ namespace HYDRA15::Union::secretary
     PrintCenter::PrintCenter()
         :labourer::background(1)
     {
+        // 重定向 cout
+        pPCOutBuf = std::make_shared<ostreambuf>([this](const std::string& str) {*this << str; });
+        std::streambuf* pSysOstreamBuf = std::cout.rdbuf(pPCOutBuf.get());
+        pSysOutStream = std::make_shared<std::ostream>(pSysOstreamBuf);
+        print = [this](const std::string& str) {*pSysOutStream << str; };
+
+        // 启动清屏
+        print("\0x1B[2J\0x1B[H");
+
         start();
     }
 
@@ -75,6 +90,14 @@ namespace HYDRA15::Union::secretary
         working = false;
         sleepcv.notify_all();
         wait_for_end();
+
+        // 结束清除末尾行
+        print(clear_bottom_msg());
+
+        // 恢复 cout
+        std::cout.rdbuf(pSysOutStream->rdbuf());
+        pSysOutStream = nullptr;
+        pPCOutBuf = nullptr;
     }
 
     std::string PrintCenter::clear_bottom_msg()
@@ -99,7 +122,10 @@ namespace HYDRA15::Union::secretary
 
         std::string str;
         for (auto& msg : *pRollMsgLstBack)
-            str.append(assistant::strip(msg, is_valid_with_ansi) + "\n");
+            if (enableAnsiColor)
+                str.append(assistant::strip(msg, is_valid_with_ansi) + "\n");
+            else
+                str.append(assistant::strip_color(assistant::strip(msg, is_valid_with_ansi) + "\n"));
         pRollMsgLstBack->clear();
 
         return str;
@@ -252,14 +278,14 @@ namespace HYDRA15::Union::secretary
         systemLock.unlock();
     }
 
-    void PrintCenter::redirect(std::function<void(const std::string&)> printFunc)
-    {
-        print = printFunc;
-    }
-
     void PrintCenter::fredirect(std::function<void(const std::string&)> fprintFunc)
     {
         printFile = fprintFunc;
+    }
+
+    void PrintCenter::enable_ansi_color(bool c)
+    {
+        enableAnsiColor = c;
     }
 
     size_t PrintCenter::rolling(const std::string& content)
@@ -269,7 +295,7 @@ namespace HYDRA15::Union::secretary
         return rollMsgCount++;
     }
 
-    void PrintCenter::set_stick_btm(const std::string& str)
+    void PrintCenter::stick_btm(const std::string& str)
     {
         std::lock_guard lk(btmMsgTabLock);
         stickBtmMsg = str;

@@ -15,6 +15,7 @@ namespace HYDRA15::Union::exceptions
             static_uint assistant = 0x0000;
             static_uint DateTimeInvalidTimeZone = 0x001;
             static_uint UtilityInvalidChar = 0x002;
+            static_uint PropretiesParseFaild = 0x003;
         }iExptCodes;
 
     private:
@@ -23,6 +24,7 @@ namespace HYDRA15::Union::exceptions
             static_string assistant = "Unknown Assistant Exception";
             static_string DateTimeInvalidTimeZone = "DateTime: Invalid Time Zone";
             static_string UtilityInvalidChar = "Invalid character detected";
+            static_string PropretiesParseFaild = "Faild to parse propreties.";
         }vslz;
 
     public:
@@ -38,5 +40,6 @@ namespace HYDRA15::Union::exceptions
 
         static assistant DateTimeInvalidTimeZone() noexcept;
         static assistant UtilityInvalidChar() noexcept;
+        static assistant PropretiesParseFaild() noexcept;
     };
 }

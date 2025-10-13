@@ -84,6 +84,31 @@ namespace HYDRA15::Union::assistant
         return res;
     }
 
+    std::string strip_ansi_secquence(const std::string& str)
+    {
+        if (str.empty())return std::string();
+
+        auto is_charactor = [](char c) {return (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A); };
+
+        std::string res;
+        res.reserve(str.size());
+
+        size_t fast = 0, slow = 0;
+
+        while (slow < str.size())
+        {
+            fast = str.find('\x1b', fast);
+            if (fast == str.npos)fast = str.size();
+            res.append(str.substr(slow, fast));
+            for (; fast < str.size(); fast++)
+                if (is_charactor(str[fast]))
+                    break;
+            slow = ++fast;
+        }
+
+        return res;
+    }
+
     void check_content(const std::string& str, std::function<bool(char)> is_valid)
     {
         for (const auto& c : str)
@@ -105,6 +130,21 @@ namespace HYDRA15::Union::assistant
                 fast += delimiter.size();
             slow = fast;
         }
+        return res;
+    }
+
+    std::list<std::string> split_by(const std::string& str, const std::list<std::string>& deliniters)
+    {
+        std::list<std::string> res = { str };
+
+        for (const auto& deliniter : deliniters)
+        {
+            std::list<std::string> strs;
+            strs.swap(res);
+            for (const auto& str : strs)
+                res.splice(res.end(), split_by(str, deliniter));
+        }
+
         return res;
     }
 
@@ -152,6 +192,99 @@ namespace HYDRA15::Union::assistant
         }
 
         return str;
+    }
+
+    std::unordered_map<std::string, std::string> parse_propreties(const std::string& ppts)
+    {
+
+        // 预处理：去除所有的空格，处理转义字符
+        std::string content;
+        content.reserve(ppts.size());
+        for (size_t i = 0; i < ppts.size(); i++)
+        {
+            switch (ppts[i])
+            {
+                // 去除空格
+            case ' ':
+                break;
+                // 处理转义
+            case '\\':
+                if (i + 1 >= ppts.size())
+                    break;
+                switch (ppts[i + 1])
+                {
+                    // 普通转义
+                case 't': content += '\t'; i++; break;
+                case 'n': content += '\n'; i++; break;
+                case 'r': content += '\r'; i++; break;
+                case 'f': content += '\f'; i++; break;
+                case '\\': content += '\n'; i++; break;
+                case ':': content += ':'; i++; break;
+                    // 等号等会再处理
+                case '=': content += ppts.substr(i, 2); i++; break;
+                    // unicode 字符不处理
+                case 'u':
+                    if (i + 5 >= ppts.size())
+                        throw exceptions::assistant::PropretiesParseFaild();
+                    content += ppts.substr(i, 6);
+                    i += 5;
+                    break;
+                    // 换行符直接去除
+                case '\n': i++; break;
+                    // 不知道的保留原样
+                default: content += ppts.substr(i, 2); i++; break;
+                }
+                break;
+                // 注释，一直删到行尾
+            case '!':
+            case '#':
+                for (; i < ppts.size(); i++)
+                    if (ppts[i] == '\n')
+                        break;
+                break;
+                // 其余字符直接拷贝
+            default:
+                content += ppts[i];
+            }
+        }
+
+        // 处理1：按行分割后按分隔符 = 分割
+        std::list<std::list<std::string>> entryLst;
+        {
+            std::list<std::string> itemLst = split_by(content, "\n");
+            content.~basic_string();    // 节省空间
+            for (const auto& item : itemLst)
+                entryLst.push_back(split_by(item, "="));
+        }
+
+        // 处理2：处理 \n 转义
+        for (auto& entryPair : entryLst)
+        {
+            auto it = entryPair.begin();
+            while (it != entryPair.end())
+            {
+                if (it->back() == '\\')
+                {
+                    auto current = it++;
+                    current->pop_back();
+                    *current += "=" + *it;
+                    it = entryPair.erase(it);
+                }
+                else
+                    it++;
+            }
+        }
+
+        // 以上处理完成后，每个 list 中应该只有两个元素，分别为键和值
+        std::unordered_map<std::string, std::string> res;
+        for (auto& entryPair : entryLst)
+        {
+            if (entryPair.size() != 2)
+                throw exceptions::assistant::PropretiesParseFaild();
+            res[entryPair.front()] = entryPair.back();
+        }
+
+        return res;
     }
     
 }
