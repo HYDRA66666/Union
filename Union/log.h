@@ -21,12 +21,12 @@ namespace HYDRA15::Union::secretary
     private:
         static struct visualize
         {
-            static_string info = "\033[0m[ {0} | INFO ][ {1} ] {2}\033[0m";
-            static_string warn = "\033[0m[ {0} | \033[33mWARN\033[0m ][ {1} ] {2}\033[0m";
-            static_string error = "\033[0m[ {0} |\033[35mERROR\033[0m ][ {1} ] {2}\033[0m";
-            static_string fatal = "\033[0m[ {0} |\033[31mFATAL\033[0m ][ {1} ] \033[31m{2}\033[0m";
-            static_string debug = "\033[0m[ {0} |\033[2mDEBUG\033[0m ][ {1} ] {2}\033[0m";
-            static_string trace = "\033[0m[ {0} |\033[34mTRACE\033[0m ][ {1} ] {2}\033[0m";
+            static_string info = "\033[0m[ {0} | INFO ] [ {1} ] {2}\033[0m";
+            static_string warn = "\033[0m[ {0} | \033[33mWARN\033[0m ] [ {1} ] {2}\033[0m";
+            static_string error = "\033[0m[ {0} | \033[35mERROR\033[0m ][ {1} ] {2}\033[0m";
+            static_string fatal = "\033[0m[ {0} | \033[31mFATAL\033[0m ][ {1} ] \033[31m{2}\033[0m";
+            static_string debug = "\033[0m[ {0} | \033[2mDEBUG\033[0m ][ {1} ] {2}\033[0m";
+            static_string trace = "\033[0m[ {0} | \033[34mTRACE\033[0m ][ {1} ] {2}\033[0m";
         }vslz;
 
         inline static bool enableDebug = debug;
