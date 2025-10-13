@@ -73,6 +73,9 @@ namespace HYDRA15::Union::secretary
         pSysOutStream = std::make_shared<std::ostream>(pSysOstreamBuf);
         print = [this](const std::string& str) {*pSysOutStream << str; };
 
+        // 启动清屏
+        print("\0x1B[2J\0x1B[H");
+
         start();
     }
 
@@ -87,6 +90,9 @@ namespace HYDRA15::Union::secretary
         working = false;
         sleepcv.notify_all();
         wait_for_end();
+
+        // 结束清除末尾行
+        print(clear_bottom_msg());
 
         // 恢复 cout
         std::cout.rdbuf(pSysOutStream->rdbuf());

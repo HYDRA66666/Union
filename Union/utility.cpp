@@ -133,6 +133,21 @@ namespace HYDRA15::Union::assistant
         return res;
     }
 
+    std::list<std::string> split_by(const std::string& str, const std::list<std::string>& deliniters)
+    {
+        std::list<std::string> res = { str };
+
+        for (const auto& deliniter : deliniters)
+        {
+            std::list<std::string> strs;
+            strs.swap(res);
+            for (const auto& str : strs)
+                res.splice(res.end(), split_by(str, deliniter));
+        }
+
+        return res;
+    }
+
     std::string hex_heap(const unsigned char* pBegin, unsigned int size, const std::string& title, unsigned int preLine)
     {
         std::string str = std::format("   -------- {} --------   \n", title);

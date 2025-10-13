@@ -24,3 +24,10 @@
 
 // 默认线程池线程数目
 #define UNION_DEFAULT_THREAD_COUNT std::thread::hardware_concurrency() / 2
+
+// 全局 debug 变量
+#ifdef _DEBUG
+inline bool debug = true;
+#else 
+inline bool debug = false;
+#endif

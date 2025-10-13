@@ -46,6 +46,8 @@ namespace HYDRA15::Union::assistant
     // 用给定的字符切分字符串
     std::list<std::string> split_by(const std::string& str, const std::string& delimiter = " ");
 
+    std::list<std::string> split_by(const std::string& str, const std::list<std::string>& deliniters);
+
 
     //向控制台输出十六进制的原始数据和对应的ascii字符
     std::string hex_heap(const unsigned char* pBegin, unsigned int size, const std::string& title = "Hex Heap", unsigned int preLine = 32);
