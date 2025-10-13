@@ -120,6 +120,9 @@
     <ClInclude Include="secretary_streambuf.h">
       <Filter>secretary</Filter>
     </ClInclude>
+    <ClInclude Include="iExceptionManager.h">
+      <Filter>referee</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="archivist_exception.cpp">

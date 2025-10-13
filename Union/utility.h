@@ -51,7 +51,10 @@ namespace HYDRA15::Union::assistant
 
     //向控制台输出十六进制的原始数据和对应的ascii字符
     std::string hex_heap(const unsigned char* pBegin, unsigned int size, const std::string& title = "Hex Heap", unsigned int preLine = 32);
-
+    
+    // 解析 propreties 文件
+    // 强制要求键值分隔符为 = ，unicode字符保持原样，
+    std::unordered_map<std::string, std::string> parse_propreties(const std::string& ppts);
 
     // 内存拷贝
     template<typename T>
