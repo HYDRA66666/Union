@@ -38,8 +38,8 @@
 
 如你所见，这是一个线程池。    
 创建时需要指定后台工作的线程数，而后你便可使用多种方法提交任务。    
-每次提交任务都将返回一个``std::shared_future``对象，你可以从中获取任务的返回值，
-任务所抛出的异常也会在获取返回值时重新抛出。    
+根据提交的方式不同，每次提交任务都将返回一个``std::shared_future``或一个``std::future``
+对象，你可以从中获取任务的返回值，任务所抛出的异常也会在获取返回值时重新抛出。    
 通过特别的提交接口，你可以注册任务执行完成后执行的回调函数。    
 可以通过迭代器接口访问每一个线程的``labourer::background::thread_info``
 结构，用于监控每个线程的健康状态。
@@ -65,7 +65,7 @@ int main()
     labourer::ThreadLake tl(4); // 指定线程数为4
     auto ret1 = tl.submit(async_work, 1, 2);    // 通过函数指针添加任务
     auto ret2 = tl.submit(std::bind(async_work, 3, 4)); // 通过 `std::function` 添加任务
-    tl.submit(std::bind(async_work, 5, 6), callback);   // 添加任务并注册回调
+    auto ret3 = tl.submit(std::function<int()>(std::bind(async_work, 5, 6)), std::function<void(int)>(call_back));   // 添加任务并注册回调
 
     std::cout << ret1.get() << " " << ret2.get() << std::endl;
     return 0;

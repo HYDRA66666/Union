@@ -3,9 +3,23 @@
 #include "Union/Command.h"
 #include "Union/ScanCenter.h"
 #include "Union/utility.h"
+#include "Union/ThreadLake.h"
 using namespace HYDRA15::Union::commander;
 using namespace HYDRA15::Union::secretary;
 using namespace HYDRA15::Union::assistant;
+using namespace HYDRA15::Union::labourer;
+
+
+int async_work(int a, int b)
+{
+    std::this_thread::sleep_for(std::chrono::seconds(a));
+    return b;
+}
+
+void call_back(int a)
+{
+    std::cout << "Callback catched: " << a << std::endl;
+}
 
 int main()
 {
@@ -36,12 +50,14 @@ int main()
     //std::this_thread::sleep_for(std::chrono::seconds(100));
 
 
-    std::string ppts = ""
-        "one = tow\n"
-        "aaaaaaaa.b = c\n"
-        "cccd = sss\\\n"
-        "ss\\=ss";
+    ThreadLake tl(4);
 
-    auto p = parse_propreties(ppts);
+    auto ret1 = tl.submit(async_work, 1, 2);
+    auto ret2 = tl.submit(std::bind(async_work, 3, 4));
+    auto ret3 = tl.submit(std::function<int()>(std::bind(async_work, 5, 6)), std::function<void(int)>(call_back));
 
+    std::cout << ret1.get() << " " << ret2.get() << std::endl;
+    
+    std::this_thread::sleep_for(std::chrono::seconds(10));
+    std::cout << ret3.get() << std::endl;
 }

@@ -52,7 +52,7 @@ namespace HYDRA15::Union::labourer
         //提交任务
         // 方法1：提交任务函数 std::function 和回调函数 std::function，推荐使用此方法
         template<typename ret_type>
-        auto submit(std::function<ret_type()>& content, std::function<void(ret_type)> callback = std::function<void(ret_type)>())
+        auto submit(const std::function<ret_type()>& content, const std::function<void(ret_type)>& callback = std::function<void(ret_type)>())
             -> std::shared_future<ret_type>
         {
             if (!content)
@@ -69,7 +69,7 @@ namespace HYDRA15::Union::labourer
                 taskQueue.push(
                     {
                         std::function<void()>([pkgedTask] { (*pkgedTask)(); }),
-                        callback ? std::function<void()>(callback_shell, callback, sfut) : std::function<void()>()
+                        callback ? [sfut, callback]() {callback(sfut.get()); } : std::function<void()>()
                     }
                 );
                 queueCv.notify_one();
@@ -84,7 +84,7 @@ namespace HYDRA15::Union::labourer
         // 方法3：提交裸函数指针和参数，不建议使用此方法，仅留做备用
         template<typename F, typename ... Args>
         auto submit(F&& f, Args &&...args)
-            -> std::shared_future<typename std::invoke_result<F, Args...>::type>
+            -> std::future<typename std::invoke_result<F, Args...>::type>
         {
             using return_type = typename std::invoke_result<F, Args...>::type;
 
@@ -108,7 +108,7 @@ namespace HYDRA15::Union::labourer
                 queueCv.notify_one();
             }
 
-            return pkgedTask->get_future().share();
+            return pkgedTask->get_future();
         }
 
         // 迭代器访问每一个线程信息
