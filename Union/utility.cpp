@@ -281,7 +281,7 @@ namespace HYDRA15::Union::assistant
         {
             if (entryPair.size() != 2)
                 throw exceptions::assistant::PropretiesParseFaild();
-            res[entryPair.front()] = entryPair.back();
+            res.emplace(std::pair{ std::move(entryPair.front()),std::move(entryPair.back()) });
         }
 
         return res;
