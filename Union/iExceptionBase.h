@@ -16,11 +16,9 @@ namespace HYDRA15::Union::referee
 	{
 		static_string baseWhatStrFormat = "iException: {0} ( 0x{1:08X} : 0x{2:08X} )";
 
-        // 全局 debug 选项
-    private:
-        inline static bool enableDebug = debug;
+        // 配置项
     public:
-        static void debug(bool d);
+        inline static bool enableDebug = debug;
 
 	protected:
 		// what字符串缓存
