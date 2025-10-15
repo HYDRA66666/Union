@@ -75,7 +75,8 @@ int main()
 
 ### wirte_first_mutex
 
-写优先的锁。标准库的``std::shared_mutex``无法处理读多写少的情况，
+写优先的锁。   
+标准库的``std::shared_mutex``无法处理读多写少的情况，
 写线程很容易被大量读线程永远挡在门外。``wirte_first_mutex``支持在有
 写线程等待时，禁止新的读线程继续上锁，只有没有写线程等待时读线程才可自由上锁。    
 与``std::shared_mutex``类似，``wirte_first_mutex``拥有``lock()``
