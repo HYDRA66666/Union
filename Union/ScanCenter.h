@@ -16,12 +16,14 @@ namespace HYDRA15::Union::secretary
     // 支持队列化等待输入
     // 支持程序发送的伪输入
     // 从此处获取输入仅支持getline
+    // 用户输入时如果没有程序等待，则可选将输入发送至指定接口，或者将输入加入输入队列等待后续线程认领
     class ScanCenter : protected labourer::background
     {
         /***************************** 快速接口 *****************************/
     public:
+        // 获取输入，可选在输入前展示提示词 promt，指定的 id 将在程序发送伪输入时作为识别依据
         static std::string getline(std::string promt = vslz.promt.data(), unsigned long long id = 0);
-        static std::future<std::string> getline_async(std::string promt = vslz.promt.data(), unsigned long long id = 0);
+        static std::future<std::string> getline_async(std::string promt = vslz.promt.data(), unsigned long long id = 0);    // 非同步获取输入
         static void setline(std::string line, unsigned long long id = 0);    // 伪输入
 
         /***************************** 公有单例 *****************************/
@@ -58,6 +60,8 @@ namespace HYDRA15::Union::secretary
         std::mutex sysLock;
         std::condition_variable_any syscv;
 
+        // 如果用户输入时后台没有线程等待，系统将自动将输入内容发送至由此指定的接口
+        // 如果没有指定，则将输入加入输入队列，等待后续线程认领
     public:
         void set_assign(std::function<void(const std::string&)> a);
 

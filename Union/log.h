@@ -43,6 +43,6 @@ namespace HYDRA15::Union::secretary
         // 配置项
     public:
         inline static std::function<void(const std::string&)> print = [](const std::string& str) {PrintCenter::get_instance() << str; };
-        static inline bool enableDebug = debug;
+        static inline bool enableDebug = HYDRA15::Union::debug;
     };
 }
