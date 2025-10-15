@@ -120,6 +120,9 @@
     <ClInclude Include="secretary_streambuf.h">
       <Filter>secretary</Filter>
     </ClInclude>
+    <ClInclude Include="write_first_mutex.h">
+      <Filter>labourer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="archivist_exception.cpp">
@@ -190,6 +193,9 @@
     </ClCompile>
     <ClCompile Include="secretary_streambuf.cpp">
       <Filter>secretary</Filter>
+    </ClCompile>
+    <ClCompile Include="write_first_mutex.cpp">
+      <Filter>labourer</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>
