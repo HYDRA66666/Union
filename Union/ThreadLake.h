@@ -4,6 +4,7 @@
 
 #include "Background.h"
 #include "labourer_exception.h"
+#include "concepts.h"
 
 
 namespace HYDRA15::Union::labourer
@@ -69,7 +70,7 @@ namespace HYDRA15::Union::labourer
                 taskQueue.push(
                     {
                         std::function<void()>([pkgedTask] { (*pkgedTask)(); }),
-                        callback ? [sfut, callback]() {callback(sfut.get()); } : std::function<void()>()
+                        callback ? [sfut, callback]() {callback(sfut.get()); } : std::function<void()>{}
                     }
                 );
                 queueCv.notify_one();
@@ -78,13 +79,16 @@ namespace HYDRA15::Union::labourer
             return sfut;
         }
 
+        // 方法1特化的无返回值版本
+        std::future<void> submit(const std::function<void()>& content, const std::function<void()>& callback = std::function<void()>{});
+
         //方法2：直接提交任务包
         void submit(const package& taskPkg);
 
         // 方法3：提交裸函数指针和参数，不建议使用此方法，仅留做备用
         template<typename F, typename ... Args>
         auto submit(F&& f, Args &&...args)
-            -> std::future<typename std::invoke_result<F, Args...>::type>
+            -> std::future<std::invoke_result_t<F, Args...>>
         {
             using return_type = typename std::invoke_result<F, Args...>::type;
 

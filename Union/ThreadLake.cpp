@@ -51,6 +51,17 @@ namespace HYDRA15::Union::labourer
         wait_for_end(); // 等待所有线程结束
     }
 
+    std::future<void> ThreadLake::submit(const std::function<void()>& content, const std::function<void()>& callback)
+    {
+        auto tsk = std::make_shared<std::packaged_task<void()>>(content);
+
+        std::lock_guard<std::mutex> lock(queueMutex);
+        taskQueue.push(package{ [tsk]() {(*tsk)(); } ,callback });
+        queueCv.notify_one(); // 通知一个等待的线程
+
+        return tsk->get_future();
+    }
+
     void ThreadLake::submit(const package& taskPkg)
     {
         if (!taskPkg.content)

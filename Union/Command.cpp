@@ -7,6 +7,7 @@ namespace HYDRA15::Union::commander
     {
         secretary::ScanCenter& sc = secretary::ScanCenter::get_instance();
         sc.set_assign([this](const std::string& str) {excute(str); });
+        secretary::log::print = [](const std::string& str) {secretary::PrintCenter::println(str); };
     }
 
     Command::~Command()
@@ -97,7 +98,7 @@ namespace HYDRA15::Union::commander
         }
         std::shared_lock sl(inst.syslock);
         if (inst.pthreadpool)
-            inst.pthreadpool->submit(std::bind(warp, ch, cmdline));
+            inst.pthreadpool->submit(std::function<void()>(std::bind(warp, ch, cmdline)));
         else
         {
             inst.lgr.debug(vslz.threadpoolNotDefined.data());
