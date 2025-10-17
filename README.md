@@ -4,7 +4,6 @@
 
 包含的模块：
 - assistant：工具函数
-- commander：命令行相关
 - expressman：数据存储、传输、传递相关
 - labourer：多线程相关
 - referee：异常和异常处理
@@ -239,7 +238,7 @@ void my_modual_service(int a, int b)
 
 ## referee
 
-## commander
+
 
 
 

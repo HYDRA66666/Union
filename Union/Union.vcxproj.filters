@@ -25,9 +25,6 @@
     <Filter Include="secretary">
       <UniqueIdentifier>{c8a6a01b-75fb-43f1-b847-2020421927f4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="commander">
-      <UniqueIdentifier>{b0da66aa-8484-4451-aa24-4d9c05bc1da5}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="assistant_exception.h">
@@ -96,9 +93,6 @@
     <ClInclude Include="logger.h">
       <Filter>secretary</Filter>
     </ClInclude>
-    <ClInclude Include="Command.h">
-      <Filter>commander</Filter>
-    </ClInclude>
     <ClInclude Include="commander_exception.h">
       <Filter>exceptions</Filter>
     </ClInclude>
@@ -160,9 +154,6 @@
     </ClCompile>
     <ClCompile Include="logger.cpp">
       <Filter>secretary</Filter>
-    </ClCompile>
-    <ClCompile Include="Command.cpp">
-      <Filter>commander</Filter>
     </ClCompile>
     <ClCompile Include="commander_exception.cpp">
       <Filter>exceptions</Filter>
