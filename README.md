@@ -168,9 +168,73 @@ int main()
 
 ### ScanCenter
 
+此类用于协调不同模块和线程的输入请求，同时提供非阻塞的异步输入和程序发送的伪输入的功能。    
+此类将一次处理每一个输入请求，打印提示词、获取用于输入的内容、最后将内容通过std::future发送给请求线程。    
+对于每个输入请求，用户都可以设置一个请求ID。其他线程可以替代用户操作，将输入内容发送至此类，此类将以
+用户设定的ID作为标识将内容发送给等待中的线程。    
+如果用户输入内容时并没有任何线程等待，并且开发者为此类设置了 ``assign`` 函数，输入的内容将会被发送至 
+``assign``，此功能通常适用于交互式命令行执行；如果没有设置 ``assign`` 函数，
+输入内容会以默认ID添加至输入队列，等待匹配的线程认领。    
+> 使用此类输入时，一次只能获取整行的输入内容    
+> 为了实现提示词打印的功能，此类引用了 ``PrintCenter``，这意味着启动此类时会自动重定向 ``std::cout`` 
+> 到 ``PrintCenter``    
+> 此类采用懒汉模式的单例设计，并且在启动时会自动重定向 ``std::cin`` 到本类。如果你不想使用此特性，请确保
+> 在你的程序的任何地方都没有调用 ``get_instance()`` 函数。另外，本库的某些模块也引用了此类，你也需确保没有
+> 引用它们。引用本类的模块的详细信息参见此文档。
 
+### log & logger
+
+log 是一个静态类，用于生成格式化的日志字符串。    
+日志分为 info、warn、error、fatal、debug、trace 六个等级，分别用不同的颜色标识。日志内容包含 日期和时间、
+等级、标题和内容四个部分，其中日期和时间在生成日志时由系统生成，等级由调用的接口决定，标题和内容由用户输入。    
+> log使用 ansi 转义串来控制内容的颜色，这要求控制台必须支持 ansi 转义。如果不想使用此特性，可以使用
+> ``std::string assistant::strip_ansi_color(const std::string& str)`` 函数来去除所有的颜色信息，
+> 此函数被包含于 ``assistant`` 模块中。
+
+logger 通常在模块内部为模块发布日志提供帮助，其在创建时存储传入的 标题 字段，并自动将此字段添加至每一个
+日志中。你可以使用 ``assistant::logger lgr = UNION_CREATE_LOGGER()`` 来自动捕获创建 logger 时的函数名。
+同时，logger还集成了格式化日志内容的功能。
+
+log 创建日志时，默认只返回日志字符串。你可以修改其 ``std::function<void(const std::string&)>print``
+成员变量，让其自动将日志输出至 ``print`` 。    
+设置了 ``print`` 时，log 默认会在 DEBUG 环境下输出 debug、trace 等级的日志，你可以通过修改其 ``bool enableDebug``
+成员变量自定义此行为。    
+
+使用示例：    
+用两种方式输出日志。
+```cpp
+using namespace HYDRA15::Union;
+
+void my_modual_service(int a, int b)
+{
+    // 实用宏创建 logger 将自动捕获函数名 my_modual_service 作为标题
+    secretary::logger lgr = UNION_CREATE_LOGGER();
+    // 启用 DEBUG 输出
+    secretary::log::enableDebug = true;
+    // 设置自动输出
+    secretary::log::print = [](const std::string& str){ std::cout<< str << std::endl; }
+
+    lgr.debug("my_modual_service is running");  // 由于前面启用了 DEBUG ，此条会正常打印
+    lgr.info("recived param: {:04X} : {:04X}", a, b);   // 格式化日志内容并输出。
+}
+```
 
 ## assistant
+
+提供了一些实用工具。
+
+### datetime
+
+存储日期、时间的对象，并且可以用于格式化输出日期、时间字符串。
+使用 ``assistant::datetime assistant::datetime::now()`` 创建一个记录了当前时间的 datetime 对象。    
+使用 ``std::string date_time(std::string format, int timeZone)`` 
+将对象 dt 中记录的时间格式化为字符串。其中第二个参数是整数表示的时区，默认为东八区。
+或者使用 ``std::string now_date_time(std::string format, int timeZone)`` 合并执行上述两步。    
+> 目前， datetime 使用 C 风格的时间处理逻辑，在将来的更新中，可能会更新为 C++ 风格的 std::chrono 时间处理逻辑。
+
+### utilities
+
+包含丰富的工具函数，详情请参阅源码。
 
 ## archivist
 
