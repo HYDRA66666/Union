@@ -4,7 +4,6 @@
 
 #include "PrintCenter.h"
 #include "ThreadLake.h"
-#include "registry.h"
 #include "background.h"
 #include "utility.h"
 #include "commander_exception.h"
@@ -67,7 +66,7 @@ namespace HYDRA15::Union::commander
 
         // 指令注册与使用
     private:
-        archivist::basic_registry<std::string, command_handler> cmdRegistry;
+        std::unordered_map<std::string, command_handler> cmdMap;
         mutable std::shared_mutex cmdRegMutex;
 
     public:

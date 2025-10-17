@@ -17,10 +17,8 @@ namespace HYDRA15::Union::exceptions
             // Command
             static_uint CommandUnknownExpt = 0xA00;
             static_uint CommandNoSuchCommand = 0xA01;
-            static_uint CommandAsyncInputNotAllowed = 0xA02;
+            static_uint CommandCommandExists = 0xA02;
 
-            // entrust
-            static_uint EntrustNotInitFaild = 0xB01;
             
         }iExptCodes;
 
@@ -32,7 +30,7 @@ namespace HYDRA15::Union::exceptions
             // Command
             static_string CommandUnknownExpt = "Unknown Command Exception";
             static_string CommandNoSuchCommand = "No such command > {}";
-            static_string CommandAsyncInputNotAllowed = "Asynchronous command cannot perform input operations";
+            static_string CommandCommandExists = "This connamd already exists > {}";
 
             // entrust
             static_string EntrustNotInitFaild = "Entrust framework not initialized properly, failed with code: {}";
@@ -51,7 +49,7 @@ namespace HYDRA15::Union::exceptions
         // Command
         static commander CommandUnknownExpt() noexcept;
         static commander NoSuchCommand(const std::string& cmdline) noexcept;
-        static commander CommandAsyncInputNotAllowed() noexcept;
+        static commander CommandCommandExists(const std::string& cmd) noexcept;
 
         // entrust 
         static commander EntrustNotInitFaild(int code) noexcept;

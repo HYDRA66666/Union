@@ -170,7 +170,7 @@ namespace HYDRA15::Union::secretary
         }
 
         for(const auto& id : expires)
-            btmMsgTab.unregist(id);
+            btmMsgTab.erase(id);
 
         if(!stickBtmMsg.empty())
         {
@@ -301,19 +301,37 @@ namespace HYDRA15::Union::secretary
         stickBtmMsg = str;
     }
 
+    PrintCenter::ID PrintCenter::find_next_ID()
+    {
+        if (!btmMsgTab.contains(btmMsgNextID))
+            return btmMsgNextID;
+        while (btmMsgTab.contains(btmMsgNextID) && btmMsgNextID != std::numeric_limits<ID>::max())
+            btmMsgNextID++;
+        if (btmMsgTab.contains(btmMsgNextID) && btmMsgNextID == std::numeric_limits<ID>::max()) // 若达到最大值，则重新扫描整整表，查找是否有空缺位置
+            btmMsgNextID = 0;
+        while (btmMsgTab.contains(btmMsgNextID) && btmMsgNextID != std::numeric_limits<ID>::max())
+            btmMsgNextID++;
+        if (btmMsgNextID == std::numeric_limits<ID>::max()) // 找不到空缺位置，则抛出异常
+            throw exceptions::secretary::PrintCenterBtmMsgFull();
+        return btmMsgNextID;
+    }
+
     PrintCenter::ID PrintCenter::new_bottom(bool forceDisplay, bool neverExpire)
     {
         std::lock_guard lk(btmMsgTabLock);
-        try
-        {
-            return btmMsgTab.regist(btmmsg_ctrlblock{time_point::clock::now(), forceDisplay, neverExpire, std::string() });
-        }
-        catch(exceptions::archivist& e)
-        {
-            if (e.exptCode == exceptions::archivist::iException_codes::RegistryTabletFull)
-                throw exceptions::secretary::PrintCenterBtmMsgFull();
-            else throw e;
-        }
+        ID id = find_next_ID();
+        btmMsgTab.emplace(std::pair<ID, btmmsg_ctrlblock>{
+            id,
+                btmmsg_ctrlblock{
+                    time_point::clock::now(),
+                    forceDisplay,
+                    neverExpire,
+                    std::string()
+            }
+        });
+        btmMsgNextID++;
+        return id;
+
     }
 
     void PrintCenter::update_bottom(ID id, const std::string& content)
@@ -321,7 +339,7 @@ namespace HYDRA15::Union::secretary
         btmmsg_ctrlblock* pMsgCtrl;
         std::lock_guard lk(btmMsgTabLock);
 
-        pMsgCtrl = &btmMsgTab.fetch(id);
+        pMsgCtrl = &btmMsgTab.at(id);
         pMsgCtrl->msg = content;
         pMsgCtrl->lastUpdate = time_point::clock::now();
     }
@@ -335,7 +353,7 @@ namespace HYDRA15::Union::secretary
     void PrintCenter::remove_bottom(ID id)
     {
         std::lock_guard lk(btmMsgTabLock);
-        btmMsgTab.unregist(id);
+        btmMsgTab.erase(id);
     }
 
     size_t PrintCenter::file(const std::string& content)

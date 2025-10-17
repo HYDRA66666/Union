@@ -31,26 +31,28 @@ namespace HYDRA15::Union::commander
     void Command::regist(const std::string& cmd, const command_handler& handler)
     {
         std::unique_lock ul(cmdRegMutex);
-        cmdRegistry.regist(cmd, handler);
+        if (cmdMap.contains(cmd))
+            throw exceptions::commander::CommandCommandExists(cmd);
+        cmdMap.emplace(std::pair<std::string, command_handler>{ cmd, handler });
     }
 
     bool Command::unregist(const std::string& cmd)
     {
         std::unique_lock ul(cmdRegMutex);
-        return cmdRegistry.unregist(cmd);
+        return cmdMap.erase(cmd);
     }
 
     bool Command::contains(const std::string& cmd) const
     {
         std::shared_lock sl(cmdRegMutex);
-        return cmdRegistry.contains(cmd);
+        return cmdMap.contains(cmd);
     }
 
     Command::command_handler Command::fetch(const std::string& cmd)
     {
         std::list<std::string> args = assistant::split_by(cmd, " ");
         std::shared_lock sl(cmdRegMutex);
-        return cmdRegistry.fetch(args.front());
+        return cmdMap.at(args.front());
     }
 
     void Command::warp(const command_handler& handler, const std::list<std::string>& args)
@@ -90,10 +92,10 @@ namespace HYDRA15::Union::commander
         command_handler ch;
         {
             std::shared_lock sl(inst.cmdRegMutex);
-            if (inst.cmdRegistry.contains(cmd))
-                ch = inst.cmdRegistry.fetch(cmd);
-            else if (inst.cmdRegistry.contains(std::string()))
-                ch = inst.cmdRegistry.fetch(std::string());
+            if (inst.cmdMap.contains(cmd))
+                ch = inst.cmdMap.at(cmd);
+            else if (inst.cmdMap.contains(std::string()))
+                ch = inst.cmdMap.at(std::string());
             else throw exceptions::commander::NoSuchCommand(cmd);
         }
         std::shared_lock sl(inst.syslock);
@@ -118,10 +120,10 @@ namespace HYDRA15::Union::commander
         command_handler ch;
         {
             std::shared_lock sl(inst.cmdRegMutex);
-            if (inst.cmdRegistry.contains(cmd))
-                ch = inst.cmdRegistry.fetch(cmd);
-            else if (inst.cmdRegistry.contains(std::string()))
-                ch = inst.cmdRegistry.fetch(std::string());
+            if (inst.cmdMap.contains(cmd))
+                ch = inst.cmdMap.at(cmd);
+            else if (inst.cmdMap.contains(std::string()))
+                ch = inst.cmdMap.at(std::string());
             else throw exceptions::commander::NoSuchCommand(cmd);
         }
         ch(cmdline);

@@ -23,7 +23,16 @@ namespace HYDRA15::Union::exceptions
         return expressman(vslz.type.data(),iExptCodes.type);     \
     }
 
-    make(InterfaceUnknownException);
+    make(InterfaceUnknownExpt);
+    make(InterfaceExtensionFunctionNotImplemented);
+    make(InterfaceInvalidFrameSize);
+    make(InterfaceDataTooLarge);
+    make(InterfaceIncompleteData);
+    make(InterfaceIllegalType);
+
+    make(FactoryUnknownExpt);
+    make(FactoryContaminatedData);
+    make(FactoryUnknownClass);
 
     make(BasicMailUnknownException);
     make(BasicMailEmptyCollector);

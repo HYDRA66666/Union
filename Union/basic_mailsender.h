@@ -17,8 +17,8 @@ namespace HYDRA15::Union::expressman
     class basic_mailsender : virtual public collector<A>, public labourer::background
     {
     protected:
-        std::shared_ptr<archivist::factory> pFactory = nullptr;
-        std::shared_ptr<archivist::agent> pRemoteAgent = nullptr;   // 用于发送数据的代理
+        std::shared_ptr<factory> pFactory = nullptr;
+        std::shared_ptr<agent> pRemoteAgent = nullptr;   // 用于发送数据的代理
         std::weak_ptr<collector<A>> pEmployer = nullptr;          // 接收远程数据的雇主
         std::shared_mutex smt;
         std::condition_variable_any cv;
@@ -28,9 +28,9 @@ namespace HYDRA15::Union::expressman
     public:
         basic_mailsender() = delete;
         basic_mailsender(
-            const std::shared_ptr<archivist::agent>& pra, 
+            const std::shared_ptr<agent>& pra, 
             const std::shared_ptr<collector<A>>& pe = nullptr,
-            const std::shared_ptr<archivist::factory> pf = nullptr
+            const std::shared_ptr<factory> pf = nullptr
         )
             :pRemoteAgent(pra), pEmployer(pe), pFactory(pf), labourer::background(1)
         {
@@ -45,20 +45,20 @@ namespace HYDRA15::Union::expressman
             std::shared_lock slk(smt);
             if (pRemoteAgent = nullptr)
                 return false;
-            std::shared_ptr<const archivist::packable> pp = std::dynamic_pointer_cast<const archivist::packable>(pkg);
+            std::shared_ptr<const packable> pp = std::dynamic_pointer_cast<const packable>(pkg);
             if (pp == nullptr)
                 throw exceptions::expressman::BasicMailRequirementNotMet();
             return pRemoteAgent->send(pp->pack());
         }
 
-        void set_remote_agent(const std::shared_ptr<archivist::agent>& pra) { std::unique_lock ulk(smt); pRemoteAgent = pra; }
+        void set_remote_agent(const std::shared_ptr<agent>& pra) { std::unique_lock ulk(smt); pRemoteAgent = pra; }
         void set_employer(const std::weak_ptr<collector<A>>& pr) { std::unique_lock ulk(smt); pEmployer = pr; cv.notify_all(); }
-        void set_factory(const std::shared_ptr<archivist::factory> pf) { std::unique_lock ulk(smt); pFactory = pf; cv.notify_all(); }
+        void set_factory(const std::shared_ptr<factory> pf) { std::unique_lock ulk(smt); pFactory = pf; cv.notify_all(); }
 
         virtual void work(thread_info& info)
         {
             // 第一层 map 为 类名->数据包列表 的映射，第二层 map 为 序列号->数据包列表 的映射
-            std::unordered_map<std::string, std::unordered_map<archivist::archive::uint, std::list<archivist::archive>>> cache;
+            std::unordered_map<std::string, std::unordered_map<archive::uint, std::list<archive>>> cache;
             while (working)
             {
                 std::shared_lock slk(smt);
@@ -67,9 +67,9 @@ namespace HYDRA15::Union::expressman
                     cv.wait(slk);
 
                 // 接收数据
-                std::list<archivist::archive> lst = pRemoteAgent->try_recv();
+                std::list<archive> lst = pRemoteAgent->try_recv();
                 for (const auto& i : lst)
-                    cache[archivist::extract_name(i)][i.header.serialNo].push_back(i);
+                    cache[extract_name(i)][i.header.serialNo].push_back(i);
 
                 // 解析数据
                 std::shared_ptr<collector<A>> pE = pEmployer.lock();
@@ -80,7 +80,7 @@ namespace HYDRA15::Union::expressman
                     {
                         try
                         {
-                            archivist::packable::objects objs = pFactory->build(lst);
+                            packable::objects objs = pFactory->build(lst);
                             for (const auto& pobj : objs)
                             {
                                 std::shared_ptr<const postable<A>> p = std::dynamic_pointer_cast<const postable<A>>(pobj);

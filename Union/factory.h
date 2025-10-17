@@ -4,18 +4,18 @@
 #include "pch.h"
 
 #include "concepts.h"
-#include "archivist_exception.h"
-#include "archivist_interfaces.h"
-#include "registry.h"
+#include "expressman_exception.h"
+#include "expressman_interfaces.h"
 
-namespace HYDRA15::Union::archivist
+namespace HYDRA15::Union::expressman
 {
     // 用于从数据包构造对象的工厂
     // 应当在使用可打包对象之前向工厂注册构造函数
     class factory
     {
     public:
-        using constructor_tab = basic_registry<std::string, std::function<packable::objects(packable::datablocks)>>;
+        using constructor = std::function<packable::objects(packable::datablocks)>;
+        using constructor_tab = std::unordered_map<std::string, constructor>;
 
     private:
         constructor_tab ct;

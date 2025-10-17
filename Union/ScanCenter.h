@@ -5,7 +5,6 @@
 #include "secretary_exception.h"
 #include "background.h"
 #include "utility.h"
-#include "registry.h"
 #include "PrintCenter.h"
 #include "logger.h"
 

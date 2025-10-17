@@ -3,10 +3,9 @@
 提供应用中常用的工具和模块。    
 
 包含的模块：
-- archivist：数据存储相关
 - assistant：工具函数
 - commander：命令行相关
-- expressman：数据传递相关
+- expressman：数据存储、传输、传递相关
 - labourer：多线程相关
 - referee：异常和异常处理
 - secretary：输入输出相关，日志相关
@@ -235,8 +234,6 @@ void my_modual_service(int a, int b)
 ### utilities
 
 包含丰富的工具函数，详情请参阅源码。
-
-## archivist
 
 ## expressman
 

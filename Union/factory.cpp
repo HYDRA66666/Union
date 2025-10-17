@@ -1,6 +1,7 @@
 ﻿#include "factory.h"
+#include "pch.h"
 
-namespace HYDRA15::Union::archivist
+namespace HYDRA15::Union::expressman
 {
     packable::objects factory::build(const std::list<archive>& archlst)
     {
@@ -13,24 +14,26 @@ namespace HYDRA15::Union::archivist
         // 限定列表中只能有一个类
         for (const auto& a : archlst)
             if (extract_name(a) != className)
-                throw exceptions::archivist::FactoryContaminatedData();
+                throw exceptions::expressman::FactoryContaminatedData();
         // 检查构造函数是否存在
-        if (!ct.contains(className) || !ct.fetch(className))
-            throw exceptions::archivist::FactoryUnknownClass();
+        if (!ct.contains(className))
+            throw exceptions::expressman::FactoryUnknownClass();
 
-        return unpack(archlst, ct.fetch(className));
+        return unpack(archlst, ct.at(className));
     }
 
-    void factory::regist(std::string name, const std::function<packable::objects(packable::datablocks)>& constructor)
+    void factory::regist(std::string name, const constructor& cstr)
     {
         std::unique_lock ulk(smt);
-        return ct.regist(name, constructor);
+        if (ct.contains(name))
+            throw exceptions::expressman::FactoryUnknownClass();
+        ct.emplace(std::pair<std::string, constructor>{ name, cstr });
     }
 
     bool factory::unregist(std::string name)
     {
         std::unique_lock ulk(smt);
-        return ct.unregist(name);
+        return ct.erase(name);
     }
 
     bool factory::contains(std::string name)
