@@ -16,29 +16,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "demo", "demo\demo.vcxproj", "{D414F72C-B2B2-49E5-B889-0E0FC50F8301}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "release", "release", "{F3E47D0A-039F-4345-99E7-706045586A94}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "releasetools", "releasetools", "{F3E47D0A-039F-4345-99E7-706045586A94}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "include", "include", "{416DF4EB-DA53-48C6-AD2C-2FB07EC74E11}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{93AC4372-737F-45FB-8BE6-83FE004F954A}"
 	ProjectSection(SolutionItems) = preProject
-		release\include\Union.h = release\include\Union.h
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{0AAFD742-0712-43E3-A94B-C453ED7208F6}"
-	ProjectSection(SolutionItems) = preProject
-		release\scripts\merge_headers.py = release\scripts\merge_headers.py
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "lib", "lib", "{28F6C67E-A418-4366-BB25-EA960725EDED}"
-	ProjectSection(SolutionItems) = preProject
-		release\lib\Union.lib = release\lib\Union.lib
-		release\lib\Union.pdb = release\lib\Union.pdb
-	EndProjectSection
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "debug", "debug", "{6A903DBE-8294-47EB-84B5-4DFC02244434}"
-	ProjectSection(SolutionItems) = preProject
-		release\lib\debug\Union.idb = release\lib\debug\Union.idb
-		release\lib\debug\Union.lib = release\lib\debug\Union.lib
-		release\lib\debug\Union.pdb = release\lib\debug\Union.pdb
+		releasetools\scripts\merge_headers.py = releasetools\scripts\merge_headers.py
 	EndProjectSection
 EndProject
 Global
@@ -78,10 +60,7 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
-		{416DF4EB-DA53-48C6-AD2C-2FB07EC74E11} = {F3E47D0A-039F-4345-99E7-706045586A94}
-		{0AAFD742-0712-43E3-A94B-C453ED7208F6} = {F3E47D0A-039F-4345-99E7-706045586A94}
-		{28F6C67E-A418-4366-BB25-EA960725EDED} = {F3E47D0A-039F-4345-99E7-706045586A94}
-		{6A903DBE-8294-47EB-84B5-4DFC02244434} = {28F6C67E-A418-4366-BB25-EA960725EDED}
+		{93AC4372-737F-45FB-8BE6-83FE004F954A} = {F3E47D0A-039F-4345-99E7-706045586A94}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {05C8EAF8-77C2-4AEF-BDB7-D0454D783843}
