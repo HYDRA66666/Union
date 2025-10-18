@@ -29,14 +29,24 @@ namespace HYDRA15::Union::labourer
                 finishing
             }thread_state = state::undefined;
             std::chrono::steady_clock::time_point workStartTime;
+            std::chrono::steady_clock::time_point lastCheckin;
         };
 
+    private:
         class thread_ctrlblk
         {
         public:
             std::shared_ptr<std::thread> thread; // 线程对象
             std::thread::id thread_id; // 线程ID
             thread_info info; // 线程信息
+        };
+
+        class thread_info_guard
+        {
+            background::thread_info& thrInfo;
+        public:
+            thread_info_guard(background::thread_info& info);
+            ~thread_info_guard();
         };
 
     private:

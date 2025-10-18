@@ -5,13 +5,12 @@ namespace HYDRA15::Union::labourer
 {
     void background::work_shell(thread_info& info)
     {
-        info.thread_state = thread_info::state::undefined;
-        // 等待所有线程准备就绪
+        thread_info_guard tig(info);
+        // 等待启动信号
         checkpoint.arrive_and_wait();
         // 执行工作
         info.workStartTime = std::chrono::steady_clock::now();
         work(info);
-        info.thread_state = thread_info::state::finishing;
         // 等待所有线程完成工作
         auto t = checkpoint.arrive();
     }
@@ -85,5 +84,16 @@ namespace HYDRA15::Union::labourer
     background::iterator background::end()
     {
         return iterator(threads.end());
+    }
+
+    background::thread_info_guard::thread_info_guard(background::thread_info& info)
+        :thrInfo(info)
+    {
+        thrInfo.thread_state = background::thread_info::state::undefined;
+    }
+
+    background::thread_info_guard::~thread_info_guard()
+    {
+        thrInfo.thread_state = background::thread_info::state::finishing;
     }
 }

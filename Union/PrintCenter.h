@@ -6,7 +6,6 @@
 #include "background.h"
 #include "datetime.h"
 #include "utility.h"
-#include "registry.h"
 #include "secretary_streambuf.h"
 
 namespace HYDRA15::Union::secretary
@@ -132,16 +131,24 @@ namespace HYDRA15::Union::secretary
             bool neverExpire = false;
             std::string msg;
         };
-        using btmmsg_tab = archivist::int_registry<btmmsg_ctrlblock>;
+
     public:
-        using ID = btmmsg_tab::uint_index;
+        using ID = unsigned long long;
+    private:
+        using btmmsg_tab = std::unordered_map<ID, btmmsg_ctrlblock>;
+        
 
         // 数据
     private:
         std::string stickBtmMsg;
         btmmsg_tab btmMsgTab;
+        ID btmMsgNextID = 0;
         std::mutex btmMsgTabLock;
         size_t lastBtmLines = 0;
+
+        // 工具函数
+    private:
+        ID find_next_ID();
 
         // 接口
     public:

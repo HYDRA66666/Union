@@ -25,17 +25,8 @@
     <Filter Include="secretary">
       <UniqueIdentifier>{c8a6a01b-75fb-43f1-b847-2020421927f4}</UniqueIdentifier>
     </Filter>
-    <Filter Include="commander">
-      <UniqueIdentifier>{b0da66aa-8484-4451-aa24-4d9c05bc1da5}</UniqueIdentifier>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="archivist_exception.h">
-      <Filter>exceptions</Filter>
-    </ClInclude>
-    <ClInclude Include="archivist_interfaces.h">
-      <Filter>archivist</Filter>
-    </ClInclude>
     <ClInclude Include="assistant_exception.h">
       <Filter>exceptions</Filter>
     </ClInclude>
@@ -63,9 +54,6 @@
     <ClInclude Include="expressman_interfaces.h">
       <Filter>expressman</Filter>
     </ClInclude>
-    <ClInclude Include="factory.h">
-      <Filter>archivist</Filter>
-    </ClInclude>
     <ClInclude Include="framework.h">
       <Filter>framework</Filter>
     </ClInclude>
@@ -87,9 +75,6 @@
     <ClInclude Include="progress.h">
       <Filter>secretary</Filter>
     </ClInclude>
-    <ClInclude Include="registry.h">
-      <Filter>archivist</Filter>
-    </ClInclude>
     <ClInclude Include="ThreadLake.h">
       <Filter>labourer</Filter>
     </ClInclude>
@@ -108,26 +93,20 @@
     <ClInclude Include="logger.h">
       <Filter>secretary</Filter>
     </ClInclude>
-    <ClInclude Include="Command.h">
-      <Filter>commander</Filter>
-    </ClInclude>
-    <ClInclude Include="commander_exception.h">
-      <Filter>exceptions</Filter>
-    </ClInclude>
     <ClInclude Include="ScanCenter.h">
       <Filter>secretary</Filter>
     </ClInclude>
     <ClInclude Include="secretary_streambuf.h">
       <Filter>secretary</Filter>
     </ClInclude>
+    <ClInclude Include="write_first_mutex.h">
+      <Filter>labourer</Filter>
+    </ClInclude>
+    <ClInclude Include="factory.h">
+      <Filter>expressman</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="archivist_exception.cpp">
-      <Filter>exceptions</Filter>
-    </ClCompile>
-    <ClCompile Include="archivist_interfaces.cpp">
-      <Filter>archivist</Filter>
-    </ClCompile>
     <ClCompile Include="assistant_exception.cpp">
       <Filter>exceptions</Filter>
     </ClCompile>
@@ -142,9 +121,6 @@
     </ClCompile>
     <ClCompile Include="expressman_interfaces.cpp">
       <Filter>expressman</Filter>
-    </ClCompile>
-    <ClCompile Include="factory.cpp">
-      <Filter>archivist</Filter>
     </ClCompile>
     <ClCompile Include="iExceptionBase.cpp">
       <Filter>referee</Filter>
@@ -161,9 +137,6 @@
     <ClCompile Include="progress.cpp">
       <Filter>secretary</Filter>
     </ClCompile>
-    <ClCompile Include="registry.cpp">
-      <Filter>archivist</Filter>
-    </ClCompile>
     <ClCompile Include="ThreadLake.cpp">
       <Filter>labourer</Filter>
     </ClCompile>
@@ -179,17 +152,17 @@
     <ClCompile Include="logger.cpp">
       <Filter>secretary</Filter>
     </ClCompile>
-    <ClCompile Include="Command.cpp">
-      <Filter>commander</Filter>
-    </ClCompile>
-    <ClCompile Include="commander_exception.cpp">
-      <Filter>exceptions</Filter>
-    </ClCompile>
     <ClCompile Include="ScanCenter.cpp">
       <Filter>secretary</Filter>
     </ClCompile>
     <ClCompile Include="secretary_streambuf.cpp">
       <Filter>secretary</Filter>
+    </ClCompile>
+    <ClCompile Include="write_first_mutex.cpp">
+      <Filter>labourer</Filter>
+    </ClCompile>
+    <ClCompile Include="factory.cpp">
+      <Filter>expressman</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

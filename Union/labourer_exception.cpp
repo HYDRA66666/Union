@@ -23,4 +23,12 @@ namespace HYDRA15::Union::exceptions
             iExptCodes.threadQueueFull
         );
     }
+
+    labourer labourer::EmptyTask() noexcept
+    {
+        return labourer(
+            vslz.thrdLakeEmptyTask.data(),
+            iExptCodes.emptyTask
+        );
+    }
 }

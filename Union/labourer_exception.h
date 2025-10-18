@@ -15,6 +15,7 @@ namespace HYDRA15::Union::exceptions
             // 线程池
             static_uint threadLake = 0xA00;
             static_uint threadQueueFull = 0xA01;
+            static_uint emptyTask = 0xA02;
         }iExptCodes;
 
     private:
@@ -23,6 +24,7 @@ namespace HYDRA15::Union::exceptions
             // 线程池
             static_string thrdLakeExpt = "ThreadLake Exception";
             static_string thrdLakeQueueFull = "ThreadLake: Task queue is full";
+            static_string thrdLakeEmptyTask = "ThreadLake: Empty task";
         }vslz;
 
     public:
@@ -38,6 +40,7 @@ namespace HYDRA15::Union::exceptions
         static labourer make_exception(const referee::iException_code& exptCode) noexcept;
 
         static labourer TaskQueueFull() noexcept;
+        static labourer EmptyTask() noexcept;
 
     };
 }

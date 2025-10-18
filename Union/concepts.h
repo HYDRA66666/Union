@@ -70,4 +70,8 @@ namespace HYDRA15::Union::framework
         { m.erase(typename M::key_type{}) } -> std::same_as<size_t>;
         { m.at(typename M::key_type{}) } -> std::same_as<typename M::mapped_type&>;
     };
+
+    // 函数指针类型
+    template<typename F>
+    concept is_function_pointer_v = std::is_pointer_v<F> && std::is_function_v<std::remove_pointer_t<F>>;
 }

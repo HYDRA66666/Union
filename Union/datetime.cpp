@@ -3,8 +3,6 @@
 
 namespace HYDRA15::Union::assistant
 {
-    extern int localTimeZone = 8;
-
     datetime::datetime()
         :stamp(std::time(NULL))
     { }

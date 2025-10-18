@@ -8,7 +8,7 @@
 namespace HYDRA15::Union::framework
 {
     static_string libName = "HYDRA15.Union";
-    static_string version = "lib-alpha-0.1.1a";
+    static_string version = "ver.lib.beta.1.0.0";
 
     // 子系统代码
     static struct libID
