@@ -3,7 +3,7 @@
 
 namespace HYDRA15::Union::expressman
 {
-    packable::objects factory::build(const std::list<archive>& archlst)
+    packable::objects factory::build(const std::list<packet>& archlst)
     {
         if (archlst.empty())    // 空列表
             return packable::objects();

@@ -58,7 +58,7 @@ namespace HYDRA15::Union::expressman
         virtual void work(thread_info& info)
         {
             // 第一层 map 为 类名->数据包列表 的映射，第二层 map 为 序列号->数据包列表 的映射
-            std::unordered_map<std::string, std::unordered_map<archive::uint, std::list<archive>>> cache;
+            std::unordered_map<std::string, std::unordered_map<packet::uint, std::list<packet>>> cache;
             while (working)
             {
                 std::shared_lock slk(smt);
@@ -67,7 +67,7 @@ namespace HYDRA15::Union::expressman
                     cv.wait(slk);
 
                 // 接收数据
-                std::list<archive> lst = pRemoteAgent->try_recv();
+                std::list<packet> lst = pRemoteAgent->try_recv();
                 for (const auto& i : lst)
                     cache[extract_name(i)][i.header.serialNo].push_back(i);
 

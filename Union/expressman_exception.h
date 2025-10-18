@@ -48,7 +48,7 @@ namespace HYDRA15::Union::exceptions
 
             // 工厂
             static_string FactoryUnknownExpt = "Unknown Factory Exception";
-            static_string FactoryContaminatedData = "The archive list contains archives from more than one class";
+            static_string FactoryContaminatedData = "The packet list contains archives from more than one class";
             static_string FactoryUnknownClass = "The constructorof specific class is not registered";
 
             // mail

@@ -26,7 +26,7 @@ namespace HYDRA15::Union::expressman
 // 交换数据用的帧格式
 // 一帧大小为 4KB ，其中 96B 头，4000B数据
 // 数据区集中排布在末尾，因此可以放弃传输尾部没有有效数据的部分
-    struct archive
+    struct packet
     {
         using byte = uint8_t;
         using uint = uint16_t;
@@ -48,9 +48,9 @@ namespace HYDRA15::Union::expressman
     class packable
     {
     public:
-        using datablock = std::vector<archive::byte>;
+        using datablock = std::vector<packet::byte>;
         using datablocks = std::list<datablock>;
-        using class_name_array = std::array<char, archive::maxClassNameSize>;
+        using class_name_array = std::array<char, packet::maxClassNameSize>;
         using objects = std::list<std::shared_ptr<packable>>;
     protected:
         // 用户仅需实现 将数据按照自己的设计打包成连续的二进制数据
@@ -58,28 +58,28 @@ namespace HYDRA15::Union::expressman
         virtual datablocks packing() const = 0;
         virtual std::any unpacking(const datablocks&) = 0;
         virtual constexpr class_name_array class_name_pack() const = 0;    // 返回的类名称将填入className字段，作为类的唯一标识符，在重构对象时使用
-        virtual archive::uint serialNo_fetch_and_increase() const = 0;     // 用于标记对象实例的序列号，对于类而言应当是全局静态的
+        virtual packet::uint serialNo_fetch_and_increase() const = 0;     // 用于标记对象实例的序列号，对于类而言应当是全局静态的
 
     public:
         virtual ~packable() = default;
 
-        std::list<archive> pack(size_t maxFrameSize = sizeof(archive)) const;
-        std::any unpack(const std::list<archive>& archives);
+        std::list<packet> pack(size_t maxFrameSize = sizeof(packet)) const;
+        std::any unpack(const std::list<packet>& archives);
 
         // 扩展接口
         virtual size_t obj_size() const;    // 返回对象必需数据的总大小，为对象大小和被对象管理的数据大小之和
     };
-    packable::objects unpack(const std::list<archive>& archives, std::function<packable::objects(const packable::datablocks&)> constructor);
-    std::string extract_name(const archive& arch);
+    packable::objects unpack(const std::list<packet>& archives, std::function<packable::objects(const packable::datablocks&)> constructor);
+    std::string extract_name(const packet& arch);
 
     // 远程数据传输的代理
     // 用于隐藏各种传输方式的底层细节
     class agent
     {
     public:
-        virtual bool send(const std::list<archive>& archives) const = 0;
-        virtual std::list<archive> recv() const = 0;
-        virtual std::list<archive> try_recv() const = 0;
+        virtual bool send(const std::list<packet>& archives) const = 0;
+        virtual std::list<packet> recv() const = 0;
+        virtual std::list<packet> try_recv() const = 0;
 
         virtual ~agent() = default;
     };

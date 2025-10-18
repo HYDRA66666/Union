@@ -93,9 +93,6 @@
     <ClInclude Include="logger.h">
       <Filter>secretary</Filter>
     </ClInclude>
-    <ClInclude Include="commander_exception.h">
-      <Filter>exceptions</Filter>
-    </ClInclude>
     <ClInclude Include="ScanCenter.h">
       <Filter>secretary</Filter>
     </ClInclude>
@@ -154,9 +151,6 @@
     </ClCompile>
     <ClCompile Include="logger.cpp">
       <Filter>secretary</Filter>
-    </ClCompile>
-    <ClCompile Include="commander_exception.cpp">
-      <Filter>exceptions</Filter>
     </ClCompile>
     <ClCompile Include="ScanCenter.cpp">
       <Filter>secretary</Filter>

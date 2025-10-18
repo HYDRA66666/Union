@@ -149,7 +149,6 @@
     <ClInclude Include="basic_mailbox.h" />
     <ClInclude Include="basic_mailrouter.h" />
     <ClInclude Include="basic_mailsender.h" />
-    <ClInclude Include="commander_exception.h" />
     <ClInclude Include="write_first_mutex.h" />
     <ClInclude Include="secretary_streambuf.h" />
     <ClInclude Include="concepts.h" />
@@ -175,7 +174,6 @@
     <ClCompile Include="assistant_exception.cpp" />
     <ClCompile Include="astring.cpp" />
     <ClCompile Include="background.cpp" />
-    <ClCompile Include="commander_exception.cpp" />
     <ClCompile Include="write_first_mutex.cpp" />
     <ClCompile Include="secretary_streambuf.cpp" />
     <ClCompile Include="datetime.cpp" />

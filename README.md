@@ -1,5 +1,7 @@
 ﻿# Union
 
+> HYDRA15.Union ver.lib.beta.1.0.0 @HYDRA15 MIT
+
 提供应用中常用的工具和模块。    
 
 包含的模块：
@@ -230,15 +232,71 @@ void my_modual_service(int a, int b)
 或者使用 ``std::string now_date_time(std::string format, int timeZone)`` 合并执行上述两步。    
 > 目前， datetime 使用 C 风格的时间处理逻辑，在将来的更新中，可能会更新为 C++ 风格的 std::chrono 时间处理逻辑。
 
+用法示例：    
+将当前日期时间格式化到日志中。    
+```cpp
+using namespace HYDRA15::Union;
+
+std::string info(const std::string& title, const std::string& content)
+{
+    return std::format(
+        "[ {0} | INFO ][ {1} ] {2} \n",
+        assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S", 0),     // 一步获取日期时间字符串，第二个参数指定了 utc 时间
+        title,
+        content
+    );
+}
+
+```
+
 ### utilities
 
 包含丰富的工具函数，详情请参阅源码。
 
 ## expressman
 
+提供了数据传输、传递和存储有关的接口、模板类和工具。
+
+### packet & packable & factory
+
+通常情况下，由于有对象外数据的存在，内存中的对象并不能方便的通过二进制流传输、存储，本组组件则设计了一种
+标准的方法来解决此问题。    
+packet 是一种专门为打包对象数据而设计的包结构，除了一般的信息之外，包头中还包含了类名信息。
+packet 被设计为紧凑的二进制数据格式，这使得它可以轻松地通过网络 / 共享内存传递。    
+实现 packable 接口的类支持将自身打包成一个或多个 packet 。在设计中，对象本身需要将自己内部所有的数据
+和自己管理的所有外部数据拷贝至连续的内存块 ``std::vector`` 中，接着，系统会将内存块中的数据打包成一系列
+packet ，这些 packet 则可以直接用于传输或存储。对于相反方向的操作，packable接口也有要求。    
+factory 则用于将数据包还原成对象，其使用包头中的类名作为类的唯一标识符。在收到数据包列表后，其会通过类名
+查找对应的构造方法，并调用此方法将数据包还原成对象。构造方法需要事前向 factory 注册。    
+
+### postable & basic_mailbox & basic_mainrouter & basic_mailsender
+
+本组组件用于对象的传递，或者说“投递”，系统会从对象获取其目的地址，然后按照设计好的路径依次路由，直至到达
+目的地址指向的信箱。这其中可能会经历远程传输，如果有，则要求对象也实现了 packable 接口。    
+实现了 postable 的对象可以让外界以标准的接口获取其目的地址； basic_mailbox 用于接收对象并将其存储在队列中；
+basic_mailrouter 用于转发对象，转发规则需要事先向其注册；basic_mailsender 用于将对象打包成 packet 并发送至
+远程目标，同时其会有后台线程值守负责接收远程数据。
+
 ## referee
 
+提供了一组异常信息存储的标准。    
+
+### iExceptionBase
+
+此类会在异常抛出时存储三个信息：异常类别代码、异常代码和调用栈（可选）。    
+按照设计，同一类别的异常应当以继承自此类的类存储，派生类可以存储个性化的异常信息以供后续异常处理程序使用。
+异常类别代码应当是唯一的，并且与派生类一一对应，以方便异常处理程序对异常对象的转换。    
+> 捕获调用栈使用了 c++23 提供的 ``stack_trace`` 库，启用此库可能会有安全和性能问题。如不想使用此特性，请删除
+``framework.h`` 头文件中的 ``UNION_IEXPT_STACKTRACE_ENABLE`` 宏并重新编译本库。
 
 
 
 
+# 后续更新计划
+
+1. signalman 事件系统
+1. archivist 数据库组件
+1. referee::iExceptionManager 异常处理工具
+1. secretary::progress 添加进度管理功能
+1. （附属）Archives 内存数据库
+1. （附属）Postoffice 跨域消息服务器
