@@ -149,6 +149,7 @@
     <ClInclude Include="basic_mailbox.h" />
     <ClInclude Include="basic_mailrouter.h" />
     <ClInclude Include="basic_mailsender.h" />
+    <ClInclude Include="entry.h" />
     <ClInclude Include="write_first_mutex.h" />
     <ClInclude Include="secretary_streambuf.h" />
     <ClInclude Include="concepts.h" />

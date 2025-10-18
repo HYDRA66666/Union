@@ -105,6 +105,9 @@
     <ClInclude Include="factory.h">
       <Filter>expressman</Filter>
     </ClInclude>
+    <ClInclude Include="entry.h">
+      <Filter>archivist</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="assistant_exception.cpp">
