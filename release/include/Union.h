@@ -1,5 +1,5 @@
 ﻿// === Merged from: pch.h (precompiled header) ===
-// pch.h: 这是预编译标头文件。
+// // pch.h: 这是预编译标头文件。
 // 下方列出的文件仅编译一次，提高了将来生成的生成性能。
 // 这还将影响 IntelliSense 性能，包括代码完成和许多代码浏览功能。
 // 但是，如果此处列出的文件中的任何一个在生成之间有更新，它们全部都将被重新编译。
@@ -44,7 +44,6 @@
 
 
 #endif //PCH_H
-
 
 // === Merged from: astring.h ===
 #pragma once
@@ -358,7 +357,7 @@ namespace HYDRA15::Union::referee
 namespace HYDRA15::Union::framework
 {
     static_string libName = "HYDRA15.Union";
-    static_string version = "lib-alpha-0.1.1a";
+    static_string version = "ver.lib.beta.1.0.0";
 
     // 子系统代码
     static struct libID
@@ -644,103 +643,6 @@ namespace HYDRA15::Union::labourer
 
 
 }
-// === Merged from: archivist_exception.h ===
-#pragma once
-// #include "framework.h"
-// #include "pch.h"
-
-// #include "iExceptionBase.h"
-// #include "libID.h"
-
-namespace HYDRA15::Union::exceptions
-{
-    class archivist :public referee::iExceptionBase
-    {
-    public:
-        static struct iException_codes
-        {
-            static_uint archivist = 0x0000;
-
-            // 注册机
-            static_uint RegistryUnknownExpt = 0xA00;
-            static_uint RegistryTabletInvalidMaxSize = 0xA01;
-            static_uint RegistryTabletFull = 0xA02;
-            static_uint RegistryKeyExists = 0xA03;
-            static_uint RegistryKeyNotFound = 0xA04;
-
-            // 接口
-            static_uint InterfaceUnknownExpt = 0xB00;
-            static_uint InterfaceExtensionFunctionNotImplemented = 0xB01;
-            static_uint InterfaceInvalidFrameSize = 0xB02;
-            static_uint InterfaceDataTooLarge = 0xB03;
-            static_uint InterfaceIncompleteData = 0xB04;
-            static_uint InterfaceIllegalType = 0xB05;
-
-            // 工厂
-            static_uint FactoryUnknownExpt = 0xC00;
-            static_uint FactoryContaminatedData = 0xC01;
-            static_uint FactoryUnknownClass = 0xC02;
-        }iExptCodes;
-
-    private:
-        static struct vslz
-        {
-            static_string archivist = "Unknown Archivist Exception";
-
-            // 注册机
-            static_string RegistryUnknownExpt = "Unknown Registry Exception";
-            static_string RegistryTabletInvalidMaxSize = "Registry: Invalid max size for Registry";
-            static_string RegistryTabletFull = "Registry: Registry is full";
-            static_string RegistryKeyExists = "Registry: Key already exists in Registry";
-            static_string RegistryKeyNotFound = "Registry: Key not found in Registry";
-
-            // 接口
-            static_string InterfaceUnknownExpt = "Unknown Interface exception";
-            static_string InterfaceExtensionFunctionNotImplemented = "This extension function is not implemented";
-            static_string InterfaceInvalidFrameSize = "Prama maxFrameSize is invalid";
-            static_string InterfaceDataTooLarge = "The data to be packaged is too large";
-            static_string InterfaceIncompleteData = "The obtained data is incomplete";
-            static_string InterfaceIllegalType = "Input type not allowed";
-
-            // 工厂
-            static_string FactoryUnknownExpt = "Unknown Factory Exception";
-            static_string FactoryContaminatedData = "The archive list contains archives from more than one class";
-            static_string FactoryUnknownClass = "The constructorof specific class is not registered";
-        }vslz;
-    public:
-        archivist(
-            const std::string& desp = vslz.archivist.data(),
-            const referee::iException_code& code = iExptCodes.archivist
-        ) noexcept;
-        archivist() = delete;
-        virtual ~archivist() noexcept = default;
-
-        // 快速创建异常
-        static archivist make_exception(const referee::iException_code& exptCode = iExptCodes.archivist) noexcept;
-
-        // 注册机
-        static archivist RegistryUnknownExpt() noexcept;
-        static archivist RegistryTabletInvalidMaxSize() noexcept;
-        static archivist RegistryTabletFull() noexcept;
-        static archivist RegistryKeyExists() noexcept;
-        static archivist RegistryKeyNotFound() noexcept;
-
-        // 接口
-        static archivist InterfaceUnknownExpt() noexcept;
-        static archivist InterfaceExtensionFunctionNotImplemented() noexcept;
-        static archivist InterfaceInvalidFrameSize() noexcept;
-        static archivist InterfaceDataTooLarge() noexcept;
-        static archivist InterfaceIncompleteData() noexcept;
-        static archivist InterfaceIllegalType() noexcept;
-
-        // 工厂
-        static archivist FactoryUnknownExpt() noexcept;
-        static archivist FactoryContaminatedData() noexcept;
-        static archivist FactoryUnknownClass() noexcept;
-    };
-
-
-}
 // === Merged from: assistant_exception.h ===
 #pragma once
 // #include "framework.h"
@@ -787,70 +689,6 @@ namespace HYDRA15::Union::exceptions
         static assistant PropretiesParseFaild() noexcept;
     };
 }
-// === Merged from: commander_exception.h ===
-#pragma once
-// #include "framework.h"
-// #include "pch.h"
-
-// #include "iExceptionBase.h"
-// #include "libID.h"
-
-namespace HYDRA15::Union::exceptions
-{
-    class commander :public referee::iExceptionBase
-    {
-    public:
-        static struct iException_codes
-        {
-            static_uint commander = 0x0000;
-
-            // Command
-            static_uint CommandUnknownExpt = 0xA00;
-            static_uint CommandNoSuchCommand = 0xA01;
-            static_uint CommandAsyncInputNotAllowed = 0xA02;
-
-            // entrust
-            static_uint EntrustNotInitFaild = 0xB01;
-            
-        }iExptCodes;
-
-    private:
-        static struct vslz
-        {
-            static_string commander = "Unknown Archivist Exception";
-
-            // Command
-            static_string CommandUnknownExpt = "Unknown Command Exception";
-            static_string CommandNoSuchCommand = "No such command > {}";
-            static_string CommandAsyncInputNotAllowed = "Asynchronous command cannot perform input operations";
-
-            // entrust
-            static_string EntrustNotInitFaild = "Entrust framework not initialized properly, failed with code: {}";
-        }vslz;
-    public:
-        commander(
-            const std::string& desp = vslz.commander.data(),
-            const referee::iException_code& code = iExptCodes.commander
-        ) noexcept;
-        commander() = delete;
-        virtual ~commander() noexcept = default;
-
-        // 快速创建异常
-        static commander make_exception(const referee::iException_code& exptCode = iExptCodes.commander) noexcept;
-
-        // Command
-        static commander CommandUnknownExpt() noexcept;
-        static commander NoSuchCommand(const std::string& cmdline) noexcept;
-        static commander CommandAsyncInputNotAllowed() noexcept;
-
-        // entrust 
-        static commander EntrustNotInitFaild(int code) noexcept;
-
-
-    };
-
-
-}
 // === Merged from: expressman_exception.h ===
 #pragma once
 // #include "framework.h"
@@ -868,13 +706,23 @@ namespace HYDRA15::Union::exceptions
         {
             static_uint expressman = 0x0000;
 
-            // Interface
-            static_uint InterfaceUnknownException = 0xA00;
+            // 接口
+            static_uint InterfaceUnknownExpt = 0xA00;
+            static_uint InterfaceExtensionFunctionNotImplemented = 0xA01;
+            static_uint InterfaceInvalidFrameSize = 0xA02;
+            static_uint InterfaceDataTooLarge = 0xA03;
+            static_uint InterfaceIncompleteData = 0xA04;
+            static_uint InterfaceIllegalType = 0xA05;
+
+            // 工厂
+            static_uint FactoryUnknownExpt = 0xB00;
+            static_uint FactoryContaminatedData = 0xB01;
+            static_uint FactoryUnknownClass = 0xB02;
 
             // mail
-            static_uint BasicMailUnknownException = 0xB00;
-            static_uint BasicMailEmptyCollector = 0xB01;
-            static_uint BasicMailRequirementNotMet = 0xB02;
+            static_uint BasicMailUnknownException = 0xC00;
+            static_uint BasicMailEmptyCollector = 0xC01;
+            static_uint BasicMailRequirementNotMet = 0xC02;
         }iExptCodes;
 
     private:
@@ -882,8 +730,18 @@ namespace HYDRA15::Union::exceptions
         {
             static_string expressman = "Unknown Expressman Exception";
 
-            // Interface
-            static_string InterfaceUnknownException = "Unknown expressman interface exception";
+            // 接口
+            static_string InterfaceUnknownExpt = "Unknown Interface exception";
+            static_string InterfaceExtensionFunctionNotImplemented = "This extension function is not implemented";
+            static_string InterfaceInvalidFrameSize = "Prama maxFrameSize is invalid";
+            static_string InterfaceDataTooLarge = "The data to be packaged is too large";
+            static_string InterfaceIncompleteData = "The obtained data is incomplete";
+            static_string InterfaceIllegalType = "Input type not allowed";
+
+            // 工厂
+            static_string FactoryUnknownExpt = "Unknown Factory Exception";
+            static_string FactoryContaminatedData = "The packet list contains archives from more than one class";
+            static_string FactoryUnknownClass = "The constructorof specific class is not registered";
 
             // mail
             static_string BasicMailUnknownException = "Unknown expressman basic mail exception";
@@ -902,8 +760,18 @@ namespace HYDRA15::Union::exceptions
         // 快速创建异常
         static expressman make_exception(const referee::iException_code& exptCode = iExptCodes.expressman) noexcept;
 
-        // Interface
-        static expressman InterfaceUnknownException() noexcept;
+        // 接口
+        static expressman InterfaceUnknownExpt() noexcept;
+        static expressman InterfaceExtensionFunctionNotImplemented() noexcept;
+        static expressman InterfaceInvalidFrameSize() noexcept;
+        static expressman InterfaceDataTooLarge() noexcept;
+        static expressman InterfaceIncompleteData() noexcept;
+        static expressman InterfaceIllegalType() noexcept;
+
+        // 工厂
+        static expressman FactoryUnknownExpt() noexcept;
+        static expressman FactoryContaminatedData() noexcept;
+        static expressman FactoryUnknownClass() noexcept;
 
         // basic mail
         static expressman BasicMailUnknownException() noexcept;
@@ -1010,141 +878,6 @@ namespace HYDRA15::Union::exceptions
         static secretary PrintCenterBtmMsgNotFound() noexcept;
 
 
-    };
-}
-// === Merged from: registry.h ===
-#pragma once
-// #include "framework.h"
-// #include "pch.h"
-
-// #include "concepts.h"
-// #include "archivist_exception.h"
-
-namespace HYDRA15::Union::archivist
-{
-    // 处理注册相关逻辑
-    // 模板参数 K : 键类型，要求满足哈希键约束
-    // 模板参数 V : 值类型，不做要求
-    // 不负责线程安全，线程安全内容请自行处理
-    // 如果不需要上锁，可以使用 NotALock 作为锁类型，其满足锁约束，但不会进行任何实际操作
-    /***************************** 基 类 *****************************/
-    // 基础注册机模板，支持任意类型的键和值
-    template<framework::hash_key K, typename V, framework::map_container M = std::unordered_map<K,V>>
-    class basic_registry
-    {
-        // 类型定义
-    public:
-        using regtab = M;
-
-
-        // 核心数据
-    protected:
-        regtab tab;
-
-        // 构造与析构
-    public:
-        basic_registry() = default;
-
-        // 注册
-        template<typename Val>
-            requires framework::is_really_same_v<Val,V>
-        void regist(const K& key, Val&& value)
-        {
-            if(!tab.try_emplace(key, std::forward<Val>(value)).second)
-                throw exceptions::archivist::RegistryKeyExists();
-            return;
-        }
-        auto unregist(const K& key)
-        {
-            return tab.erase(key);
-        }
-        V& fetch(const K& key)
-        {
-            try{return tab.at(key);}
-            catch (const std::out_of_range&) { throw exceptions::archivist::RegistryKeyNotFound(); }
-        }
-
-        // 查询
-        bool contains(const K& key) const
-        {
-            return tab.contains(key);
-        }
-        size_t size() const
-        {
-            return tab.size();
-        }
-
-        // 迭代器
-        using iterator = typename regtab::iterator;
-        iterator begin() { return tab.begin(); }
-        iterator end() { return tab.end(); }
-    };
-
-
-    /***************************** 特化类 *****************************/
-    // 整数键注册机，支持被动注册和懒注册
-    template<typename V, framework::map_container M = std::unordered_map<unsigned long long, V>>
-    class int_registry : public basic_registry<unsigned long long, V, M>
-    {
-        // 类型定义
-    public:
-        using uint_index = unsigned long long;
-        // 核心数据
-        std::atomic<uint_index> current = 0;
-        const uint_index start = 0;
-        using basic_registry<uint_index, V>::tab;
-
-        // 构造与析构
-    public:
-        int_registry(uint_index startKey = 0)
-            : basic_registry<uint_index, V, M>(), start(startKey), current(startKey)
-        {
-        }
-
-        // 辅助函数
-    private:
-        uint_index find_next_key()
-        {
-            while(true)
-            {
-                uint_index c = current, old = c;
-                if (c != std::numeric_limits<uint_index>::max())
-                    c++;   // 默认currentKey已使用
-                while (c != std::numeric_limits<uint_index>::max() && tab.contains(c))
-                    c++;
-                if (c == std::numeric_limits<uint_index>::max() && tab.contains(c)) // 若达到最大值，则重新扫描整整表，查找是否有空缺位置
-                    c = start;
-                while (c != std::numeric_limits<uint_index>::max() && tab.contains(c))
-                    c++;
-                if (c == std::numeric_limits<uint_index>::max()) // 找不到空缺位置，则抛出异常
-                    throw exceptions::archivist::RegistryTabletFull();
-                if (current.compare_exchange_strong(old, c))
-                    return current;
-            }
-        }
-
-        // 注册
-    public:
-        // 被动注册：传入值，注册机分配键
-        template<typename Val>
-            requires framework::is_really_same_v<Val, V>
-        uint_index regist(Val&& value)
-        {
-            using pair = decltype(tab.try_emplace(0, std::forward<Val>(value)));
-            pair p;
-            while ((p = tab.try_emplace(find_next_key(), std::forward<Val>(value))).second)
-                return p.first->first;
-            throw exceptions::archivist::RegistryTabletFull();
-        }
-
-        // 懒注册：不传入值，注册机分配键和默认值
-        uint_index regist()
-        {
-            using pair = decltype(tab.try_emplace(0, V()));
-            pair p;
-            while ((p = tab.try_emplace(find_next_key(), V())).second)
-                return p.first->first;
-        }
     };
 }
 // === Merged from: datetime.h ===
@@ -1384,17 +1117,17 @@ namespace HYDRA15::Union::labourer
     };
 }
 
-// === Merged from: archivist_interfaces.h ===
+// === Merged from: expressman_interfaces.h ===
 #pragma once
 // #include "framework.h"
 // #include "pch.h"
 
-// #include "archivist_exception.h"
+// #include "concepts.h"
+// #include "expressman_exception.h"
 // #include "utility.h"
 
-namespace HYDRA15::Union::archivist
+namespace HYDRA15::Union::expressman
 {
-    /***************************** 类型擦除相关 *****************************/
     // 用于类型擦除的基础接口
     class notype
     {
@@ -1409,48 +1142,11 @@ namespace HYDRA15::Union::archivist
         virtual size_t class_size() const;    // 获取类本身的大小，不包含对象管理的外部数据，基本上就是 size_of(class)
     };
 
-    // 可作为比较键，通常用于 std::map
-    class comparable : virtual public notype
-    {
-    protected:
-        // 用户仅需实现相同类型的比较逻辑
-        virtual bool less_than(std::shared_ptr<comparable> other) const = 0;
-        virtual bool greater_than(std::shared_ptr<comparable> other) const = 0;
-
-    public:
-        virtual ~comparable() = default;
-
-        // 如果是相同类型，交由用于定义的逻辑比较。如果类型不同，比较 typeid 的 hash 值
-        bool operator<(std::shared_ptr<comparable> other) const;
-        bool operator>(std::shared_ptr<comparable> other) const;
-    };
-
-    // 可作为哈希键，通常用于 std::unordered_map
-    class hashable : virtual public notype
-    {
-    protected:
-        virtual ~hashable() = default;
-
-        // 用户仅需实现相同类型的比较逻辑
-        virtual bool equal_to(std::shared_ptr<hashable> other) const = 0;
-
-    public:
-        // 如果是相同类型，交由用于定义的逻辑比较。如果类型不同，返回false
-        bool operator==(std::shared_ptr<hashable> other) const;
-        virtual size_t hash() const = 0;
-    };
-
-    // 可作为索引，支持排序和快速查找
-    class indexable :virtual public hashable, virtual public comparable
-    {
-
-    };
-
-    /***************************** 数据交换相关 *****************************/
-    // 交换数据用的帧格式
-    // 一帧大小为 4KB ，其中 96B 头，4000B数据
-    // 数据区集中排布在末尾，因此可以放弃传输尾部没有有效数据的部分
-    struct archive
+    /***************************** 数据传输相关 *****************************/
+// 交换数据用的帧格式
+// 一帧大小为 4KB ，其中 96B 头，4000B数据
+// 数据区集中排布在末尾，因此可以放弃传输尾部没有有效数据的部分
+    struct packet
     {
         using byte = uint8_t;
         using uint = uint16_t;
@@ -1461,7 +1157,7 @@ namespace HYDRA15::Union::archivist
         {
             uint frameNo = 0;
             uint frameTotal = 0;
-            uint serialNo = 0;          
+            uint serialNo = 0;
             uint dataLength = 0;
             char className[maxClassNameSize] = {};
         }header;
@@ -1470,11 +1166,11 @@ namespace HYDRA15::Union::archivist
 
     // 可将对象内部的全部数据打包成标准的帧，用于数据交换和数据持久化
     class packable
-    { 
+    {
     public:
-        using datablock = std::vector<archive::byte>;
+        using datablock = std::vector<packet::byte>;
         using datablocks = std::list<datablock>;
-        using class_name_array = std::array<char, archive::maxClassNameSize>;
+        using class_name_array = std::array<char, packet::maxClassNameSize>;
         using objects = std::list<std::shared_ptr<packable>>;
     protected:
         // 用户仅需实现 将数据按照自己的设计打包成连续的二进制数据
@@ -1482,48 +1178,66 @@ namespace HYDRA15::Union::archivist
         virtual datablocks packing() const = 0;
         virtual std::any unpacking(const datablocks&) = 0;
         virtual constexpr class_name_array class_name_pack() const = 0;    // 返回的类名称将填入className字段，作为类的唯一标识符，在重构对象时使用
-        virtual archive::uint serialNo_fetch_and_increase() const = 0;     // 用于标记对象实例的序列号，对于类而言应当是全局静态的
+        virtual packet::uint serialNo_fetch_and_increase() const = 0;     // 用于标记对象实例的序列号，对于类而言应当是全局静态的
 
     public:
         virtual ~packable() = default;
 
-        std::list<archive> pack(size_t maxFrameSize = sizeof(archive)) const;
-        std::any unpack(const std::list<archive>& archives);
+        std::list<packet> pack(size_t maxFrameSize = sizeof(packet)) const;
+        std::any unpack(const std::list<packet>& archives);
 
         // 扩展接口
         virtual size_t obj_size() const;    // 返回对象必需数据的总大小，为对象大小和被对象管理的数据大小之和
     };
-    packable::objects unpack(const std::list<archive>& archives, std::function<packable::objects(const packable::datablocks&)> constructor);
-    std::string extract_name(const archive& arch);
+    packable::objects unpack(const std::list<packet>& archives, std::function<packable::objects(const packable::datablocks&)> constructor);
+    std::string extract_name(const packet& arch);
 
     // 远程数据传输的代理
     // 用于隐藏各种传输方式的底层细节
     class agent
     {
     public:
-        virtual bool send(const std::list<archive>& archives) const = 0;
-        virtual std::list<archive> recv() const = 0;
-        virtual std::list<archive> try_recv() const = 0;
+        virtual bool send(const std::list<packet>& archives) const = 0;
+        virtual std::list<packet> recv() const = 0;
+        virtual std::list<packet> try_recv() const = 0;
 
         virtual ~agent() = default;
     };
 
-}
 
-// 对 std 默认 hash 算法提供支持
-namespace std
-{
-    using namespace HYDRA15::Union::archivist;
-    template<>
-    struct hash<hashable>
+    /***************************** 数据传递相关 *****************************/
+    // 可被投递的接口
+    // 模板参数为地址类型
+    template<framework::hash_key A>
+    class postable : virtual public notype
     {
-        size_t operator()(const hashable& k) const
-        {
-            return k.hash();
-        }
-    };
-}
+    public:
+        virtual A origin() const { return std::string(); }  // 指示源地址
+        virtual A destination() const = 0;   // 指示目标地址
 
+        // 可选：指定路由路径时使用
+        // 使得指示目的地的指针在路由路径列表中向后移动一位，如果成功返回true，
+        // 否则，如不存在路由路径或者已经达到最终目的地，返回false
+        virtual bool next_route() const { return false; }
+
+        virtual ~postable() = default;
+    };
+
+
+    // 实现此接口的类可以接收 postable 或其子类
+    // 用于在多级路由中抹除层级差异
+    // 模板参数为地址类型
+    template<framework::hash_key A>
+    class collector
+    {
+    public:
+        virtual unsigned int post(const std::shared_ptr<const postable<A>>& pkg) = 0;    
+
+        virtual ~collector() = default;
+    };
+
+    
+}
 // === Merged from: PrintCenter.h ===
 #pragma once
 // #include "framework.h"
@@ -1533,7 +1247,6 @@ namespace std
 // #include "background.h"
 // #include "datetime.h"
 // #include "utility.h"
-// #include "registry.h"
 // #include "secretary_streambuf.h"
 
 namespace HYDRA15::Union::secretary
@@ -1659,16 +1372,24 @@ namespace HYDRA15::Union::secretary
             bool neverExpire = false;
             std::string msg;
         };
-        using btmmsg_tab = archivist::int_registry<btmmsg_ctrlblock>;
+
     public:
-        using ID = btmmsg_tab::uint_index;
+        using ID = unsigned long long;
+    private:
+        using btmmsg_tab = std::unordered_map<ID, btmmsg_ctrlblock>;
+        
 
         // 数据
     private:
         std::string stickBtmMsg;
         btmmsg_tab btmMsgTab;
+        ID btmMsgNextID = 0;
         std::mutex btmMsgTabLock;
         size_t lastBtmLines = 0;
+
+        // 工具函数
+    private:
+        ID find_next_ID();
 
         // 接口
     public:
@@ -1697,137 +1418,6 @@ namespace HYDRA15::Union::secretary
     };
 }
 
-// === Merged from: expressman_interfaces.h ===
-#pragma once
-// #include "framework.h"
-// #include "pch.h"
-
-// #include "concepts.h"
-// #include "archivist_interfaces.h"
-// #include "expressman_exception.h"
-
-namespace HYDRA15::Union::expressman
-{
-    // 可被投递的接口
-    // 模板参数为地址类型
-    template<framework::hash_key A>
-    class postable : virtual public archivist::notype
-    {
-    public:
-        virtual A origin() const { return std::string(); }  // 指示源地址
-        virtual A destination() const = 0;   // 指示目标地址
-
-        // 可选：指定路由路径时使用
-        // 使得指示目的地的指针在路由路径列表中向后移动一位，如果成功返回true，
-        // 否则，如不存在路由路径或者已经达到最终目的地，返回false
-        virtual bool next_route() const { return false; }
-
-        virtual ~postable() = default;
-    };
-
-    // 基本包裹可投递、可发送
-    template<framework::hash_key A>
-    class basic_package : virtual public postable<A>, virtual public archivist::packable
-    { };
-
-    using package = basic_package<std::string>;
-
-
-    // 实现此接口的类可以接收 postable 或其子类
-    // 用于在多级路由中抹除层级差异
-    // 模板参数为地址类型
-    template<framework::hash_key A>
-    class collector
-    {
-    public:
-        virtual unsigned int post(const std::shared_ptr<const postable<A>>& pkg) = 0;    
-
-        virtual ~collector() = default;
-    };
-
-    
-}
-// === Merged from: factory.h ===
-#pragma once
-#pragma once
-// #include "framework.h"
-// #include "pch.h"
-
-// #include "concepts.h"
-// #include "archivist_exception.h"
-// #include "archivist_interfaces.h"
-// #include "registry.h"
-
-namespace HYDRA15::Union::archivist
-{
-    // 用于从数据包构造对象的工厂
-    // 应当在使用可打包对象之前向工厂注册构造函数
-    class factory
-    {
-    public:
-        using constructor_tab = basic_registry<std::string, std::function<packable::objects(packable::datablocks)>>;
-
-    private:
-        constructor_tab ct;
-        std::shared_mutex smt;
-
-    public:
-        packable::objects build(const std::list<archive>& archlst);    // 构造对象，给定的列表中只能由一个类，并且需要有完整的数据
-
-        void regist(std::string name, const std::function<packable::objects(packable::datablocks)>& constructor);  // 注册构造函数
-        bool unregist(std::string name);    // 移除构造函数
-        bool contains(std::string name);    // 检查构造函数
-    };
-}
-// === Merged from: log.h ===
-#pragma once
-// #include "framework.h"
-// #include "pch.h"
-
-// #include "secretary_exception.h"
-// #include "PrintCenter.h"
-
-namespace HYDRA15::Union::secretary
-{
-    // 格式化日志字符串
-    // 返回格式化后的字符串，用户需要自行处理输出
-    class log
-    {
-        // 禁止构造
-    private:
-        log() = delete;
-        log(const log&) = delete;
-        ~log() = delete;
-
-        // 私有数据
-    private:
-        static struct visualize
-        {
-            static_string info = "\033[0m[ {0} | INFO ] [ {1} ] {2}\033[0m";
-            static_string warn = "\033[0m[ {0} | \033[33mWARN\033[0m ] [ {1} ] {2}\033[0m";
-            static_string error = "\033[0m[ {0} | \033[35mERROR\033[0m ][ {1} ] {2}\033[0m";
-            static_string fatal = "\033[0m[ {0} | \033[31mFATAL\033[0m ][ {1} ] \033[31m{2}\033[0m";
-            static_string debug = "\033[0m[ {0} | \033[2mDEBUG\033[0m ][ {1} ] {2}\033[0m";
-            static_string trace = "\033[0m[ {0} | \033[34mTRACE\033[0m ][ {1} ] {2}\033[0m";
-        }vslz;
-
-        
-        
-        // 公有接口
-    public:
-        static std::string info(const std::string& title, const std::string& content);
-        static std::string warn(const std::string& title, const std::string& content);
-        static std::string error(const std::string& title, const std::string& content);
-        static std::string fatal(const std::string& title, const std::string& content);
-        static std::string debug(const std::string& title, const std::string& content);
-        static std::string trace(const std::string& title, const std::string& content);
-
-        // 配置项
-    public:
-        inline static std::function<void(const std::string&)> print;
-        static inline bool enableDebug = HYDRA15::Union::debug;
-    };
-}
 // === Merged from: basic_mailbox.h ===
 #pragma once
 // #include "framework.h"
@@ -1995,6 +1585,87 @@ namespace HYDRA15::Union::expressman
         auto try_lock() { return smt.try_lock(); }
     };
 }
+// === Merged from: factory.h ===
+#pragma once
+#pragma once
+// #include "framework.h"
+// #include "pch.h"
+
+// #include "concepts.h"
+// #include "expressman_exception.h"
+// #include "expressman_interfaces.h"
+
+namespace HYDRA15::Union::expressman
+{
+    // 用于从数据包构造对象的工厂
+    // 应当在使用可打包对象之前向工厂注册构造函数
+    class factory
+    {
+    public:
+        using constructor = std::function<packable::objects(packable::datablocks)>;
+        using constructor_tab = std::unordered_map<std::string, constructor>;
+
+    private:
+        constructor_tab ct;
+        std::shared_mutex smt;
+
+    public:
+        packable::objects build(const std::list<packet>& archlst);    // 构造对象，给定的列表中只能由一个类，并且需要有完整的数据
+
+        void regist(std::string name, const std::function<packable::objects(packable::datablocks)>& constructor);  // 注册构造函数
+        bool unregist(std::string name);    // 移除构造函数
+        bool contains(std::string name);    // 检查构造函数
+    };
+}
+// === Merged from: log.h ===
+#pragma once
+// #include "framework.h"
+// #include "pch.h"
+
+// #include "secretary_exception.h"
+// #include "PrintCenter.h"
+
+namespace HYDRA15::Union::secretary
+{
+    // 格式化日志字符串
+    // 返回格式化后的字符串，用户需要自行处理输出
+    class log
+    {
+        // 禁止构造
+    private:
+        log() = delete;
+        log(const log&) = delete;
+        ~log() = delete;
+
+        // 私有数据
+    private:
+        static struct visualize
+        {
+            static_string info = "\033[0m[ {0} | INFO ] [ {1} ] {2}\033[0m";
+            static_string warn = "\033[0m[ {0} | \033[33mWARN\033[0m ] [ {1} ] {2}\033[0m";
+            static_string error = "\033[0m[ {0} | \033[35mERROR\033[0m ][ {1} ] {2}\033[0m";
+            static_string fatal = "\033[0m[ {0} | \033[31mFATAL\033[0m ][ {1} ] \033[31m{2}\033[0m";
+            static_string debug = "\033[0m[ {0} | \033[2mDEBUG\033[0m ][ {1} ] {2}\033[0m";
+            static_string trace = "\033[0m[ {0} | \033[34mTRACE\033[0m ][ {1} ] {2}\033[0m";
+        }vslz;
+
+        
+        
+        // 公有接口
+    public:
+        static std::string info(const std::string& title, const std::string& content);
+        static std::string warn(const std::string& title, const std::string& content);
+        static std::string error(const std::string& title, const std::string& content);
+        static std::string fatal(const std::string& title, const std::string& content);
+        static std::string debug(const std::string& title, const std::string& content);
+        static std::string trace(const std::string& title, const std::string& content);
+
+        // 配置项
+    public:
+        inline static std::function<void(const std::string&)> print;
+        static inline bool enableDebug = HYDRA15::Union::debug;
+    };
+}
 // === Merged from: basic_mailsender.h ===
 #pragma once
 #pragma once
@@ -2015,8 +1686,8 @@ namespace HYDRA15::Union::expressman
     class basic_mailsender : virtual public collector<A>, public labourer::background
     {
     protected:
-        std::shared_ptr<archivist::factory> pFactory = nullptr;
-        std::shared_ptr<archivist::agent> pRemoteAgent = nullptr;   // 用于发送数据的代理
+        std::shared_ptr<factory> pFactory = nullptr;
+        std::shared_ptr<agent> pRemoteAgent = nullptr;   // 用于发送数据的代理
         std::weak_ptr<collector<A>> pEmployer = nullptr;          // 接收远程数据的雇主
         std::shared_mutex smt;
         std::condition_variable_any cv;
@@ -2026,9 +1697,9 @@ namespace HYDRA15::Union::expressman
     public:
         basic_mailsender() = delete;
         basic_mailsender(
-            const std::shared_ptr<archivist::agent>& pra, 
+            const std::shared_ptr<agent>& pra, 
             const std::shared_ptr<collector<A>>& pe = nullptr,
-            const std::shared_ptr<archivist::factory> pf = nullptr
+            const std::shared_ptr<factory> pf = nullptr
         )
             :pRemoteAgent(pra), pEmployer(pe), pFactory(pf), labourer::background(1)
         {
@@ -2043,20 +1714,20 @@ namespace HYDRA15::Union::expressman
             std::shared_lock slk(smt);
             if (pRemoteAgent = nullptr)
                 return false;
-            std::shared_ptr<const archivist::packable> pp = std::dynamic_pointer_cast<const archivist::packable>(pkg);
+            std::shared_ptr<const packable> pp = std::dynamic_pointer_cast<const packable>(pkg);
             if (pp == nullptr)
                 throw exceptions::expressman::BasicMailRequirementNotMet();
             return pRemoteAgent->send(pp->pack());
         }
 
-        void set_remote_agent(const std::shared_ptr<archivist::agent>& pra) { std::unique_lock ulk(smt); pRemoteAgent = pra; }
+        void set_remote_agent(const std::shared_ptr<agent>& pra) { std::unique_lock ulk(smt); pRemoteAgent = pra; }
         void set_employer(const std::weak_ptr<collector<A>>& pr) { std::unique_lock ulk(smt); pEmployer = pr; cv.notify_all(); }
-        void set_factory(const std::shared_ptr<archivist::factory> pf) { std::unique_lock ulk(smt); pFactory = pf; cv.notify_all(); }
+        void set_factory(const std::shared_ptr<factory> pf) { std::unique_lock ulk(smt); pFactory = pf; cv.notify_all(); }
 
         virtual void work(thread_info& info)
         {
             // 第一层 map 为 类名->数据包列表 的映射，第二层 map 为 序列号->数据包列表 的映射
-            std::unordered_map<std::string, std::unordered_map<archivist::archive::uint, std::list<archivist::archive>>> cache;
+            std::unordered_map<std::string, std::unordered_map<packet::uint, std::list<packet>>> cache;
             while (working)
             {
                 std::shared_lock slk(smt);
@@ -2065,9 +1736,9 @@ namespace HYDRA15::Union::expressman
                     cv.wait(slk);
 
                 // 接收数据
-                std::list<archivist::archive> lst = pRemoteAgent->try_recv();
+                std::list<packet> lst = pRemoteAgent->try_recv();
                 for (const auto& i : lst)
-                    cache[archivist::extract_name(i)][i.header.serialNo].push_back(i);
+                    cache[extract_name(i)][i.header.serialNo].push_back(i);
 
                 // 解析数据
                 std::shared_ptr<collector<A>> pE = pEmployer.lock();
@@ -2078,7 +1749,7 @@ namespace HYDRA15::Union::expressman
                     {
                         try
                         {
-                            archivist::packable::objects objs = pFactory->build(lst);
+                            packable::objects objs = pFactory->build(lst);
                             for (const auto& pobj : objs)
                             {
                                 std::shared_ptr<const postable<A>> p = std::dynamic_pointer_cast<const postable<A>>(pobj);
@@ -2152,7 +1823,6 @@ namespace HYDRA15::Union::secretary
 // #include "secretary_exception.h"
 // #include "background.h"
 // #include "utility.h"
-// #include "registry.h"
 // #include "PrintCenter.h"
 // #include "logger.h"
 
@@ -2236,93 +1906,4 @@ namespace HYDRA15::Union::secretary
 
 
     };
-}
-
-// === Merged from: Command.h ===
-#pragma once
-// #include "pch.h"
-// #include "framework.h"
-
-// #include "PrintCenter.h"
-// #include "ThreadLake.h"
-// #include "registry.h"
-// #include "background.h"
-// #include "utility.h"
-// #include "commander_exception.h"
-// #include "logger.h"
-// #include "ScanCenter.h"
-
-namespace HYDRA15::Union::commander
-{
-    // 程序需要在启动初期注册指令和对应的处理函数，指令为空的处理函数为默认处理函数
-    // 处理函数不得有返回值，输入为参数列表，列表的首项一致为命令本身
-    class Command
-    {
-        using command_handler = std::function<void(const std::list<std::string>& args)>;
-        /***************************** 快捷命令 *****************************/
-    public:
-        static void regist_command(const std::string& cmd, const command_handler& handler);
-        static void regist_default_command(const command_handler& handler);
-        // 启动后台线程执行 默认的执行方式
-        static void excute(const std::string& cmdline);
-        static void excute(const std::list<std::string>& cmdline);
-        // 在调用线程执行
-        static void excute_sync(const std::string& cmdline);
-        static void excute_sync(const std::list<std::string>& cmdline);
-
-        /***************************** 公  用 *****************************/
-        // 单例
-    private:
-        Command();
-        Command(const Command&) = delete;
-        Command(Command&&) = delete;
-
-    public:
-        ~Command();
-        static Command& get_instance();
-
-        // 配置
-    private:
-        static struct visualize
-        {
-            static_string prompt = "> ";
-            static_string onExit = "Press enter to exit...";
-            static_string threadpoolNotDefined = "No thread pool specified, which may cause performance impact.";
-            static_string unknownExptDuringExcute = "Unknown exception occured during excuting command > {}";
-        }vslz;
-
-        // 日志
-    private:
-        secretary::logger lgr{ "Commander" };
-
-        // 系统锁
-    private:
-        std::shared_mutex syslock;
-
-        /***************************** 指令处理 *****************************/
-        // 线程池相关
-    private:
-        std::shared_ptr<labourer::ThreadLake> pthreadpool = nullptr;
-    public:
-        void threadpool(std::shared_ptr<labourer::ThreadLake> p);
-
-        // 指令注册与使用
-    private:
-        archivist::basic_registry<std::string, command_handler> cmdRegistry;
-        mutable std::shared_mutex cmdRegMutex;
-
-    public:
-        void regist(const std::string& cmd, const command_handler& handler);
-        bool unregist(const std::string& cmd);
-        bool contains(const std::string& cmd) const;
-        command_handler fetch(const std::string& cmd);
-
-
-        // 指令处理
-    private:
-        static void warp(const command_handler& handler, const std::list<std::string>& args);
-
-
-    };
-    
 }
