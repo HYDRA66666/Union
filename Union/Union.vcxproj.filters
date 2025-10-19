@@ -108,6 +108,9 @@
     <ClInclude Include="archivist_interfaces.h">
       <Filter>archivist</Filter>
     </ClInclude>
+    <ClInclude Include="iExceptionManager.h">
+      <Filter>referee</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="assistant_exception.cpp">
