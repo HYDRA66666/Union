@@ -143,13 +143,13 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="archivist_interfaces.h" />
     <ClInclude Include="assistant_exception.h" />
     <ClInclude Include="astring.h" />
     <ClInclude Include="background.h" />
     <ClInclude Include="basic_mailbox.h" />
     <ClInclude Include="basic_mailrouter.h" />
     <ClInclude Include="basic_mailsender.h" />
-    <ClInclude Include="entry.h" />
     <ClInclude Include="write_first_mutex.h" />
     <ClInclude Include="secretary_streambuf.h" />
     <ClInclude Include="concepts.h" />

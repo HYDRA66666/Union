@@ -19,9 +19,6 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "releasetools", "releasetools", "{F3E47D0A-039F-4345-99E7-706045586A94}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{93AC4372-737F-45FB-8BE6-83FE004F954A}"
-	ProjectSection(SolutionItems) = preProject
-		releasetools\scripts\merge_headers.py = releasetools\scripts\merge_headers.py
-	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

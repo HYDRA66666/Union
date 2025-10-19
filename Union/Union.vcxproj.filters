@@ -105,7 +105,7 @@
     <ClInclude Include="factory.h">
       <Filter>expressman</Filter>
     </ClInclude>
-    <ClInclude Include="entry.h">
+    <ClInclude Include="archivist_interfaces.h">
       <Filter>archivist</Filter>
     </ClInclude>
   </ItemGroup>
