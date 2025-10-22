@@ -90,7 +90,7 @@ namespace HYDRA15::Union::expressman
                             }
                             cache[name].erase(serNo);
                         }
-                        catch (exceptions::archivist& e)
+                        catch (exceptions::expressman& e)
                         {
                             if (e.exptCode == e.iExptCodes.InterfaceIncompleteData)
                                 continue;

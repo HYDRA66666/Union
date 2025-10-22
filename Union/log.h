@@ -21,13 +21,23 @@ namespace HYDRA15::Union::secretary
     private:
         static struct visualize
         {
+            static_string info = "[ {0} | INFO ] [ {1} ] {2}";
+            static_string warn = "[ {0} | WARN ] [ {1} ] {2}";
+            static_string error = "[ {0} | ERROR ][ {1} ] {2}";
+            static_string fatal = "[ {0} | FATAL ][ {1} ] {2}";
+            static_string debug = "[ {0} | DEBUG ][ {1} ] {2}";
+            static_string trace = "[ {0} | TRACE ][ {1} ] {2}";
+        }vslz;
+
+        static struct visualize_color
+        {
             static_string info = "\033[0m[ {0} | INFO ] [ {1} ] {2}\033[0m";
             static_string warn = "\033[0m[ {0} | \033[33mWARN\033[0m ] [ {1} ] {2}\033[0m";
             static_string error = "\033[0m[ {0} | \033[35mERROR\033[0m ][ {1} ] {2}\033[0m";
             static_string fatal = "\033[0m[ {0} | \033[31mFATAL\033[0m ][ {1} ] \033[31m{2}\033[0m";
             static_string debug = "\033[0m[ {0} | \033[2mDEBUG\033[0m ][ {1} ] {2}\033[0m";
             static_string trace = "\033[0m[ {0} | \033[34mTRACE\033[0m ][ {1} ] {2}\033[0m";
-        }vslz;
+        }vslzclr;
 
         
         
@@ -44,5 +54,6 @@ namespace HYDRA15::Union::secretary
     public:
         inline static std::function<void(const std::string&)> print;
         static inline bool enableDebug = HYDRA15::Union::debug;
+        static inline bool colourful = true;
     };
 }
