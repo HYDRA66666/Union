@@ -8,21 +8,15 @@ namespace HYDRA15::Union::archivist
 {
     /******************************* 数据层接口 *******************************/
     // 字段信息
-    class field_spec
+    struct field_spec
     {
-    public:
-        virtual ~field_spec() = default;
-
-        // 获取字段数据
-    public:
-        virtual types::ID ID() = 0;
-        virtual std::string name() = 0;
-        virtual types::type type() = 0;
-        virtual std::array<types::BYTE, 3> marks() = 0;
+        types::ID id;   // 仅用于内部加速
+        std::string name;
+        types::type type;
     };
 
 
-    // 数据行的包装器类，应当可以通过此对象修改表中的原始数据
+    // 数据行
     class entry
     {
     public:
@@ -31,19 +25,16 @@ namespace HYDRA15::Union::archivist
         // 获取、写入记录项
     public:
         virtual types::field at(const field_spec&) = 0;
-        virtual entry set(const field_spec&, const types::field&) = 0;
+        virtual entry& set(const field_spec&, const types::field&) = 0;
 
         // 信息接口
     public:
         virtual types::ID ID() = 0;
-        virtual std::array<types::BYTE, 4> marks() = 0;
 
         // 将数据行对象直接作为迭代器使用，需要支持迭代器的操作
     public:
         virtual entry& operator++() = 0;
-        virtual entry& operator--() = 0;
-        virtual bool operator==(const entry&) = 0;
-        virtual bool operator!=(const entry&) = 0;
+        virtual std::strong_ordering operator<=>(const entry&) = 0;
 
         // 行锁
     public:
@@ -60,16 +51,15 @@ namespace HYDRA15::Union::archivist
 
         // 获取字段信息接口
     public:
-        virtual field_spec get_field_spec(types::ID) = 0;           // 通过字段ID获取
         virtual field_spec get_field_spec(const std::string&) = 0;  // 通过字段名获取
 
         // 增删改查接口
     public:
         // 查询返回表记录的引用，应当可以通过引用修改表项
-        virtual entry at(types::ID) = 0;                                    // 通过 ID 查询
-        virtual std::list<entry> at(std::function<bool(const entry&)>) = 0; // 通过过滤器查找
-        virtual entry create() = 0;             // 创建新表项，返回新建的表项，从返回的对象向其中写入数据
-        virtual void drop(const entry&) = 0;    // 删除表项
+        virtual entry& at(types::ID) = 0;   // 通过 ID 查询
+        virtual std::list<std::reference_wrapper<entry>> at(std::function<bool(const entry&)>) = 0; // 通过过滤器查找
+        virtual entry& create() = 0;        // 创建新表项，返回新建的表项，从返回的对象向其中写入数据
+        virtual void drop(types::ID) = 0;   // 删除表项
 
         // 信息和控制接口
     public:
@@ -82,8 +72,8 @@ namespace HYDRA15::Union::archivist
 
         // 迭代器接口
     public:
-        virtual entry begin() = 0;
-        virtual entry end() = 0;
+        virtual entry& begin() = 0;
+        virtual entry& end() = 0;
 
         // 表锁
     public:
