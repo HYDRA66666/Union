@@ -55,7 +55,7 @@ namespace HYDRA15::Union::archivist
 
         // 增删改查接口
     public:
-        // 查询返回表记录的引用，应当可以通过引用修改表项
+        // 查询返回表记录，应当可以通过返回的对象修改表中数据
         virtual entry& create() = 0;        // 创建新表项，返回新建的表项，从返回的对象向其中写入数据
         virtual void drop(types::ID) = 0;   // 删除表项
         virtual std::shared_ptr<entry> at(types::ID) = 0;                                   // 通过 ID 查询
