@@ -111,12 +111,6 @@
     <ClInclude Include="iExceptionManager.h">
       <Filter>referee</Filter>
     </ClInclude>
-    <ClInclude Include="archivist_types.h">
-      <Filter>archivist</Filter>
-    </ClInclude>
-    <ClInclude Include="incidents.h">
-      <Filter>archivist</Filter>
-    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="assistant_exception.cpp">
