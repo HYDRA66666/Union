@@ -9,43 +9,32 @@ namespace HYDRA15::Union::archivist
     /******************************* 数据层接口 *******************************/
     // 数据层：组织存储数据、管理磁盘io、提供表访问接口
     // 字段信息
-    class field_spec
+    struct field_spec
     {
-    public:
-        virtual ~field_spec() = default;
-
-        // 获取字段数据
-    public:
-        virtual types::ID ID() = 0;
-        virtual std::string name() = 0;
-        virtual types::type type() = 0;
-        virtual std::array<types::BYTE, 3> marks() = 0;
+        types::ID id;   // 仅用于内部加速
+        std::string name;
+        types::type type;
     };
 
 
-    // 数据行的包装器类，应当可以通过此对象修改表中的原始数据
+    // 数据行
     class entry
     {
     public:
         virtual ~entry() = default;
 
         // 获取、写入记录项
-    public:
-        virtual types::field at(field_spec) = 0;
-        virtual std::shared_ptr<entry> set(field_spec, const types::field&) = 0;
+        virtual types::field at(const field_spec&) = 0;
+        virtual entry& set(const field_spec&, const types::field&) = 0;
 
         // 信息接口
     public:
         virtual types::ID ID() = 0;
-        virtual types::ID last_ver() = 0;
-        virtual std::array<types::BYTE, 8> marks() = 0;
 
         // 将数据行对象直接作为迭代器使用，需要支持迭代器的操作
     public:
         virtual entry& operator++() = 0;
-        virtual entry& operator--() = 0;
-        virtual bool operator==(const entry&) = 0;
-        virtual bool operator!=(const entry&) = 0;
+        virtual std::strong_ordering operator<=>(const entry&) = 0;
 
         // 行锁
     public:
@@ -60,9 +49,15 @@ namespace HYDRA15::Union::archivist
     public:
         virtual ~tablet() = default;
 
+        // 获取字段信息接口
+    public:
+        virtual field_spec get_field_spec(const std::string&) = 0;  // 通过字段名获取
+
         // 增删改查接口
     public:
         // 查询返回表记录的引用，应当可以通过引用修改表项
+        virtual entry& create() = 0;        // 创建新表项，返回新建的表项，从返回的对象向其中写入数据
+        virtual void drop(types::ID) = 0;   // 删除表项
         virtual std::shared_ptr<entry> at(types::ID) = 0;                                   // 通过 ID 查询
         virtual std::list<std::shared_ptr<entry>> at(std::function<bool(const entry&)>) = 0;// 通过过滤器查找
 

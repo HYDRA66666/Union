@@ -194,6 +194,21 @@ namespace HYDRA15::Union::assistant
         return str;
     }
 
+    std::string byte_to_hex(const unsigned char* pBegin, unsigned int size)
+    {
+        static char lut[16] = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F' };
+
+        std::string res;
+        res.reserve(2LL * size);
+        for (const unsigned char* p = pBegin; p < pBegin + size; p++)
+        {
+            res.push_back(lut[(*p) & 0xF]);
+            res.push_back(lut[((*p) >> 4)]);
+        }
+
+        return res;
+    }
+
     std::unordered_map<std::string, std::string> parse_propreties(const std::string& ppts)
     {
 
@@ -282,6 +297,37 @@ namespace HYDRA15::Union::assistant
             if (entryPair.size() != 2)
                 throw exceptions::assistant::PropretiesParseFaild();
             res.emplace(std::pair{ std::move(entryPair.front()),std::move(entryPair.back()) });
+        }
+
+        return res;
+    }
+
+    std::list<std::list<std::string>> parse_csv(const std::string& csv)
+    {
+        std::list<std::list<std::string>> res;
+
+        std::list<std::string> lines = split_by(csv, "\n");
+        for (const auto& line : lines)
+        {
+            std::list<std::string> entries = split_by(line, ",");
+            auto ientry = entries.begin();
+            while (ientry != entries.end()) // 处理引号不分割
+            {
+                if (strip(*ientry).front() = '"')
+                {
+                    auto next = ientry;
+                    next++;
+                    while (next != entries.end() && strip(*next).back() != '"')
+                    {
+                        (*ientry).append(*next);
+                        next = entries.erase(next);
+                    }
+                    if (next != entries.end())
+                        (*ientry).append(*next);
+                }
+                ientry++;
+            }
+            res.push_back(entries);
         }
 
         return res;

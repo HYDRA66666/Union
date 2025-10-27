@@ -49,12 +49,19 @@ namespace HYDRA15::Union::assistant
     std::list<std::string> split_by(const std::string& str, const std::list<std::string>& deliniters);
 
 
-    //向控制台输出十六进制的原始数据和对应的ascii字符
+    // 向控制台输出十六进制的原始数据和对应的ascii字符
     std::string hex_heap(const unsigned char* pBegin, unsigned int size, const std::string& title = "Hex Heap", unsigned int preLine = 32);
+
+    // 将字节转换为十六进制（高效版）
+    std::string byte_to_hex(const unsigned char* pBegin, unsigned int size);
     
     // 解析 propreties 文件
     // 强制要求键值分隔符为 = ，unicode字符保持原样，
     std::unordered_map<std::string, std::string> parse_propreties(const std::string& ppts);
+
+    // 解析 csv 文件
+    // 支持引号不分割，但是不删除引号
+    std::list<std::list<std::string>> parse_csv(const std::string& csv);
 
     // 内存拷贝
     template<typename T>
