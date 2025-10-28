@@ -87,6 +87,7 @@ namespace HYDRA15::Union::labourer
 
         // 方法3：提交裸函数指针和参数，不建议使用此方法，仅留做备用
         template<typename F, typename ... Args>
+            requires std::invocable<F, Args...>
         auto submit(F&& f, Args &&...args)
             -> std::future<std::invoke_result_t<F, Args...>>
         {
