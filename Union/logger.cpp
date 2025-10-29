@@ -1,4 +1,5 @@
-﻿#include "logger.h"
+﻿#include "pch.h"
+#include "logger.h"
 
 namespace HYDRA15::Union::secretary
 {

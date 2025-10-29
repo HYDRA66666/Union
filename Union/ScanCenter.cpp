@@ -1,4 +1,5 @@
-﻿#include "ScanCenter.h"
+﻿#include "pch.h"
+#include "ScanCenter.h"
 
 namespace HYDRA15::Union::secretary
 {
