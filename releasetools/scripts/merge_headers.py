@@ -15,10 +15,13 @@ except ImportError:
     print("提示: 未安装 graphviz 库，将仅输出 .dot 源文件（可手动渲染）", file=sys.stderr)
 
 
-# 全局变量
-headers = []
+# 全局参数
 mainRoot = ''
 roots = []
+antiCollisionMarcoDefine = False
+
+# 全局变量
+headers = []
 sortedHeaders = []
 
 # debug标志
@@ -192,21 +195,31 @@ def wirte_dot_file(dotPath):
         print(f'创建依赖图失败：{e}')
 
 
+def upper_marco_for_header(headerFullPath):
+    return '_' + os.path.basename(os.path.dirname(headerFullPath)).replace('.','_').upper() + '_' + os.path.basename(headerFullPath).replace('.','_').upper() + '_'
+
+
 def generate_header_file(output):
     global sortedHeaders
     global debug
     with open(output,'w',encoding='utf-8-sig') as f:
+        f.write('#pragma once\n')
+        f.write(f'#ifndef {upper_marco_for_header(mainRoot)}\n#define {upper_marco_for_header(mainRoot)}\n')
         for h in sortedHeaders:
             content = f'\n\n\n/*************** 合并自 {os.path.basename(h.nameWithPath)} ***************/\n'
+            content += f'#ifndef {upper_marco_for_header(h.nameWithPath)}\n#define {upper_marco_for_header(h.nameWithPath)}\n'
             with open(h.nameWithPath,'r',encoding='utf-8-sig') as s:
                 content += s.read()
+                content = content.replace('#pragma once','// #pragma once')
                 for r in h.includeLineTobeDelete:
                     if debug:
                         print(f'替换include行：{r}')
                     content = content.replace(r,f'// {r}')
+            content += '\n#endif\n'
             f.write(content)
             if debug:
                 print(f'已将文件 {h.nameWithPath} 添加到合并结果中')
+        f.write('#endif')
     print(f'已完成合并，共合并 {len(sortedHeaders)} 个文件')
 
 
@@ -217,19 +230,24 @@ def main():
     argParser.add_argument('-o','--output',required=True,help='输出文件名')
     argParser.add_argument('-m','--main-root',required=True,help='主根目录')
     argParser.add_argument('-r','--root',nargs='+',required=True,help='根目录')
+    argParser.add_argument('-c','--anticollision-marco',action='store_true',help='启用放冲突宏定义')
 
     args = argParser.parse_args()
 
     global mainRoot
     global roots
+    global antiCollisionMarcoDefine
     mainRoot = os.path.abspath(args.main_root.replace('\\','/'))
     roots += [os.path.abspath(i.replace('\\','/')) for i in args.root]
     output = args.output
+    antiCollisionMarcoDefine = args.anticollision_marco
+
 
     if debug:
         print(f'使用主根目录：{mainRoot}')
         print(f'使用根目录：{roots}')
         print(f'使用输出文件：{output}')
+        print('防冲突宏定义已启用' if antiCollisionMarcoDefine else '防冲突宏定义未启用')
     
     parse_rely()
     sort_headers()

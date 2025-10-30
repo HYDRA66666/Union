@@ -187,9 +187,8 @@ int main()
 log 是一个静态类，用于生成格式化的日志字符串。    
 日志分为 info、warn、error、fatal、debug、trace 六个等级，分别用不同的颜色标识。日志内容包含 日期和时间、
 等级、标题和内容四个部分，其中日期和时间在生成日志时由系统生成，等级由调用的接口决定，标题和内容由用户输入。    
-> log使用 ansi 转义串来控制内容的颜色，这要求控制台必须支持 ansi 转义。如果不想使用此特性，可以使用
-> ``std::string assistant::strip_ansi_color(const std::string& str)`` 函数来去除所有的颜色信息，
-> 此函数被包含于 ``assistant`` 模块中。
+> log使用 ansi 转义串来控制内容的颜色，这要求控制台必须支持 ansi 转义。如果不想使用此特性，可以将 ``bool log::colorful``
+> 设置为 false 来关闭颜色。
 
 logger 通常在模块内部为模块发布日志提供帮助，其在创建时存储传入的 标题 字段，并自动将此字段添加至每一个
 日志中。你可以使用 ``assistant::logger lgr = UNION_CREATE_LOGGER()`` 来自动捕获创建 logger 时的函数名。
