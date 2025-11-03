@@ -2,29 +2,32 @@
 #include "framework.h"
 #include "pch.h"
 
+#include "expressman_interfaces.h"
+
 
 namespace HYDRA15::Union::archivist
 {
-    /******************************* 数 据 *******************************/
-    // 字段类型：uint, dfloat, uint_array, dfloat_array, bytes, object
-    // 内存中的类型：uint64_t, double, std::vector<uint64_t>, std::vector<double>, std::vector<uint8_t>, std::list<packet>
-    // 文件中的数据：8 Bytes, 8 Bytes, 4 Bytes pointer + 4 Bytes length, 4 Bytes pointer + 4 Bytes length, 4 Bytes pointer + 4 Bytes length, 4 Bytes pointer + 4 Bytes length
+    /**************************** 设 计 ****************************/
 
-    // 内部使用的数据类型
-    using ID = uint32_t;
-    using BYTE = uint8_t;
+    /**************************** 基 础 ****************************/
+    // 内部数据类型
+    using ID = uint64_t;    // 主键
+    using BYTE = uint8_t;   // 字节
 
-    // 六种字段类型
-    using NODATA = std::monostate;
-    using UINT = uint64_t;
+    // 字段数据类型
+    using NOTHING = std::monostate;
+    using INT = int64_t;
     using FLOAT = double;
-    using UINTS = std::vector<uint64_t>;
-    using FLOATS = std::vector<double>;
+    using INTS = std::vector<INT>;
+    using FLOATS = std::vector<FLOAT>;
     using BYTES = std::vector<BYTE>;
-    using OBJECTS = std::list<expressman::packet>;
+    using OBJECT = std::list<expressman::packet>;
 
-    // 存储字段数据的容器
-    using field = std::variant<NODATA, UINT, FLOAT, UINTS, FLOATS, BYTES, OBJECTS>;
+    // 版本号
+    using version_id = ID;
+
+    // 字段
+    using field = std::variant<NOTHING, INT, FLOAT, INTS, FLOATS, BYTES, OBJECT>;
 
     // 字段信息
     struct field_spec
@@ -32,110 +35,180 @@ namespace HYDRA15::Union::archivist
         // 字段类型枚举
         enum class field_type :char
         {
-            NODATA = '0', UINT = 'I', FLOAT = 'F',
-            UINTS = 'U', FLOATS = 'D', BYTES = 'B', OBJECTS = 'P'
+            NOTHING = '0', INT = 'I', FLOAT = 'F',
+            INTS = 'U', FLOATS = 'D', BYTES = 'B', OBJECTS = 'P'
         };
 
-        ID id;
         std::string name;
         field_type type;
+        uint8_t mark[7];
+        std::string comment;
+    };
+    using field_specs = std::list<field_spec>;
+
+    
+
+    
+    /**************************** 持久层 ****************************/
+    /*
+    * 持久层：负责数据存储，提供表加载相关接口，定义数据在硬盘或其他介质中的布局
+    * 分页加载：
+    *   仅针对表的数据部分。
+    *   页被定义为连续的一部分记录，大小（以记录数计）在加载时确定
+    * 索引：
+    *   索引在传递时只传递记录的 ID，ID排序按照索引列增序排列
+    *   索引一次性加载，不分页
+    */
+
+    // 表页
+    struct page
+    {
+        ID no;                  // 页号
+        ID start;               // 页中首条记录的 ID
+        std::vector<field> data;
+    };
+    struct index    // 持久层和数据层传递索引的结构
+    {
+        std::string name;       // 索引表名
+        field_specs fields;     // 索引列
+        std::vector<ID> data;   // 按照索引顺序排列的记录 ID 数据
+    };
+    
+    class loader
+    {
+    public:
+        virtual ~loader() = default;
+
+        // 信息相关
+        virtual size_t size() const = 0;    // 返回完整的数据大小
+        virtual ID tab_size() const = 0;    // 返回表行数
+        virtual ID page_size() const = 0;   // 返回页大小（以记录数计）
+
+        // 字段信息相关
+        virtual field_specs field_tab() const = 0;  // 返回完整的字段表
+        virtual void field_tab(field_specs) = 0;    // 更新字段表，可能会触发表结构更新
+
+        // 表数据相关
+        // 逐行
+        virtual std::vector<field> row(ID) const = 0;   // 返回指定的记录
+        virtual void row(ID, std::vector<field>) = 0;   // 写入指定的记录
+        // 逐页
+        virtual page rows(ID) const = 0;    // 返回包含指定页号的页
+        virtual void rows(page) = 0;        // 写入整页数据
+
+        // 索引相关
+        virtual void index_tab(index) = 0;              // 保存索引表（包含创建）
+        virtual index index_tab(std::string) const = 0; // 加载索引表
     };
 
-    /******************************* 数据层 *******************************/
-    // 数据层：组织存储数据、管理磁盘io
-    // 向上提供表访问接口
 
-    // 数据行
+    /**************************** 数据层 ****************************/
+    /*
+    * 数据层：负责数据组织，提供数据表操作相关接口，定义数据在内存中的布局
+    * 条目 entry ：
+    *   逻辑上即一行记录。
+    *   技术上应当类似迭代器，持有一行数据的引用，用户应当可以通过条目对象直接操作表中实际的数据
+    * 事件 incident ：
+    *   二进制格式封装的增删改查操作，避免接口频繁调用造成的性能浪费，也方便表内部算法优化
+    *   执行一系列事件（incidents）时，要求下一个事件都在上一个事件的结果的基础上执行。
+    *   如 查 - 查 - 改 系列事件，第一次查询获得结果集 A ，第二次查询在 A 的基础上筛选获得结果集 B ，最后只修改 B 中的记录
+    *   执行到分隔事件时，将当前结果暂存，然后以全表为基础执行后续的事件，当前结果和后续事件的结果应当一起返回。
+    * 表迭代器和 range ：
+    *   数据表支持迭代器，迭代器即 entry 对象本身。
+    *   使用迭代器，配合 stl range 相关算法，实现对整表结果的筛选、修改
+    */
+
     class entry
     {
     public:
         virtual ~entry() = default;
+        virtual std::unique_ptr<entry> clone() = 0;
+
+        // 记录信息
+        virtual bool writable() = 0;// 返回 是否可通过此对象写数据
 
         // 获取、写入记录项
-        virtual field at(const field_spec&) = 0;
-        virtual entry& set(const field_spec&, const field&) = 0;
-
-        // 信息接口
-    public:
-        virtual ID id() = 0;
+        virtual field at(const std::string&) const = 0;             // 返回 指定字段的数据
+        virtual entry& set(const std::string&, const field&) = 0;   // 写入指定字段
 
         // 将数据行对象直接作为迭代器使用，需要支持迭代器的操作
-    public:
-        virtual entry& operator++() = 0;
-        virtual std::strong_ordering operator<=>(const entry&) = 0;
+        virtual entry& operator++() const = 0;
+        virtual entry& operator--() const = 0;
+        virtual std::strong_ordering operator<=>(const entry&) const = 0;
 
         // 行锁
-    public:
         virtual void lock() = 0;
         virtual void unlock() = 0;
         virtual bool try_lock() = 0;
     };
 
-    // 事件（数据层，底层加速）
     struct incident
     {
-        enum class incident_type { nothing, create, drop, modify, search };
-        struct condition_param
+        // 事件类型：增删改查
+        enum class incident_type { nothing, separate, create, drop, modify, search };
+        // 事件参数
+        struct condition_param  // 条件参数
         {
             enum class condition_type { nothing, equal, dequal, less, greater };
-            field_spec target_field;    // 目标字段
-            condition_type type;        // 条件类型：等于，不等于，小于，大于
-            field reference;            // 参考值
+            std::string targetField;// 目标字段
+            condition_type type;    // 条件类型：等于，不等于，小于，大于
+            field reference;        // 参考值
         };
-        using incident_param = std::variant<std::monostate, std::shared_ptr<entry>, std::list<condition_param>>;
+        struct modify_param     // 修改参数
+        {
+            std::string targetField;//目标字段
+            field value;            // 目标值
+        };
+        using incident_param = std::variant<
+            std::monostate,         // 用于无操作
+            std::unique_ptr<entry>, // 用于 增
+            condition_param,        // 用于 删、查
+            modify_param            // 用于 改
+        >;
 
         incident_type type;
         incident_param param;
     };
+    using incidents = std::list<incident>;
 
-    // 数据表
-    class tablet
+    class table
     {
     public:
-        virtual ~tablet() = default;
+        virtual ~table() = default;
 
-        // 获取字段信息接口
-    public:
-        virtual field_spec get_field_spec(const std::string&) = 0;  // 通过字段名获取
+        // 表信息与控制
+        virtual ID size() const = 0;        // 返回 记录条数
+        virtual ID trim() = 0;              // 优化表记录，返回优化后的记录数
+        virtual size_t memsize() const = 0; // 返回 表当前所占内存大小
+        virtual size_t memoptimize() = 0;   // 优化内存，返回优化后表所占内存大小
+        virtual field_specs field_tab() const = 0;  // 返回完整的字段表
+        virtual void field_tab(field_specs) = 0;    // 写入完整的字段表，可能触发表结构调整
+        virtual field_spec get_field_spec(const std::string&) const = 0;// 通过字段名获取指定的字段信息
 
-        // 增删改查接口
-    public:
-        virtual std::shared_ptr<entry> create() = 0;    // 创建新表项，返回新建的表项，从返回的对象向其中写入数据
-        virtual void drop(ID) = 0;      // 删除表项
-        // 修改和查询集成在一起，查询返回的对象应当能通过其操作原始数据
-        virtual std::shared_ptr<entry> at(ID) = 0;                                          // 通过 ID 查询
-        virtual std::list<std::shared_ptr<entry>> at(std::function<bool(const entry&)>) = 0;// 通过过滤器查找
-        // 执行事件，用于底层加速
-        virtual std::list<std::shared_ptr<entry>> excute(const incident&) = 0;
+        // 行访问接口
+        virtual std::unique_ptr<entry> create() = 0;                                                // 增：创建一条记录，返回相关的条目对象
+        virtual void drop(std::unique_ptr<entry>) = 0;                                              // 删：通过条目对象删除记录
+        virtual std::list<std::unique_ptr<entry>> at(const std::function<void(const entry&)>) = 0;  // 改、查：通过过滤器查找记录
+        virtual std::list<std::unique_ptr<entry>> excute(const incidents&) = 0;                     // 执行一系列事件，返回执行结果
 
-        // 信息和控制接口
-    public:
-        virtual ID size() = 0;   // 返回表记录条数
-        virtual size_t memsize() = 0;   // 返回表所占内存大小
+        // 索引接口
+        virtual void create_index(std::string, field_specs) = 0;// 创建指定名称、基于指定字段的索引
+        virtual void drop_index(std::string) = 0;               // 删除索引
 
         // 迭代器接口
-    public:
-        virtual std::shared_ptr<entry> begin() = 0;
-        virtual std::shared_ptr<entry> end() = 0;
+        virtual std::unique_ptr<entry> begin() = 0;
+        virtual std::unique_ptr<entry> end() = 0;
+        virtual std::unique_ptr<entry> cbegin() = 0;
+        virtual std::unique_ptr<entry> cend() = 0;
 
         // 表锁
     public:
         virtual void lock() = 0;
         virtual void unlock() = 0;
         virtual bool try_lock() = 0;
+        virtual void lock_shared() const = 0;
+        virtual void unlock_shared() const = 0;
+        virtual void try_lock_shared() const = 0;
     };
 
-
-
-
-    /******************************* 事务层 *******************************/
-    // 事务层：处理事务、处理算法、管理和操作数据表和索引
-    // 向上提供数据库访问接口
-
-
-
-
-    /******************************* 服务层 *******************************/
-    // 服务层：将多种协议的访问请求转换为事务层接口调用
-    // 对外提供服务接口
 }
