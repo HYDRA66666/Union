@@ -23,6 +23,7 @@ namespace HYDRA15::Union::exceptions
     make(DateTimeInvalidTimeZone);
     make(UtilityInvalidChar);
     make(PropretiesParseFaild);
+    make(LocalByteOrderUncertain);
 
 #undef make
 

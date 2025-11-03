@@ -16,6 +16,7 @@ namespace HYDRA15::Union::exceptions
             static_uint DateTimeInvalidTimeZone = 0x001;
             static_uint UtilityInvalidChar = 0x002;
             static_uint PropretiesParseFaild = 0x003;
+            static_uint LocalByteOrderUncertain = 0x004;
         }iExptCodes;
 
     private:
@@ -25,6 +26,7 @@ namespace HYDRA15::Union::exceptions
             static_string DateTimeInvalidTimeZone = "DateTime: Invalid Time Zone";
             static_string UtilityInvalidChar = "Invalid character detected";
             static_string PropretiesParseFaild = "Faild to parse propreties.";
+            static_string LocalByteOrderUncertain = "Local byte order is uncertain";
         }vslz;
 
     public:
@@ -41,5 +43,6 @@ namespace HYDRA15::Union::exceptions
         static assistant DateTimeInvalidTimeZone() noexcept;
         static assistant UtilityInvalidChar() noexcept;
         static assistant PropretiesParseFaild() noexcept;
+        static assistant LocalByteOrderUncertain() noexcept;
     };
 }

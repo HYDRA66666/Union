@@ -84,7 +84,7 @@
     <ClInclude Include="shared_container_base.h">
       <Filter>labourer</Filter>
     </ClInclude>
-    <ClInclude Include="utility.h">
+    <ClInclude Include="utilities.h">
       <Filter>assistant</Filter>
     </ClInclude>
     <ClInclude Include="astring.h">
@@ -110,6 +110,24 @@
     </ClInclude>
     <ClInclude Include="iExceptionManager.h">
       <Filter>referee</Filter>
+    </ClInclude>
+    <ClInclude Include="memory_table.h">
+      <Filter>archivist</Filter>
+    </ClInclude>
+    <ClInclude Include="archivist_exception.h">
+      <Filter>exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="single_loader.h">
+      <Filter>archivist</Filter>
+    </ClInclude>
+    <ClInclude Include="random_access_fstream.h">
+      <Filter>archivist</Filter>
+    </ClInclude>
+    <ClInclude Include="string_utilities.h">
+      <Filter>assistant</Filter>
+    </ClInclude>
+    <ClInclude Include="byteswap.h">
+      <Filter>assistant</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -149,7 +167,7 @@
     <ClCompile Include="secretary_exception.cpp">
       <Filter>exceptions</Filter>
     </ClCompile>
-    <ClCompile Include="utility.cpp">
+    <ClCompile Include="utilities.cpp">
       <Filter>assistant</Filter>
     </ClCompile>
     <ClCompile Include="astring.cpp">
@@ -169,6 +187,18 @@
     </ClCompile>
     <ClCompile Include="factory.cpp">
       <Filter>expressman</Filter>
+    </ClCompile>
+    <ClCompile Include="random_access_fstream.cpp">
+      <Filter>archivist</Filter>
+    </ClCompile>
+    <ClCompile Include="archivist_exception.cpp">
+      <Filter>exceptions</Filter>
+    </ClCompile>
+    <ClCompile Include="string_utilities.cpp">
+      <Filter>assistant</Filter>
+    </ClCompile>
+    <ClCompile Include="single_loader.cpp">
+      <Filter>archivist</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

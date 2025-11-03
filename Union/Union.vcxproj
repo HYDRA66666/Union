@@ -111,7 +111,7 @@
       <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>Create</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
@@ -133,7 +133,7 @@
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>Create</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
@@ -147,6 +147,10 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="byteswap.h" />
+    <ClInclude Include="random_access_fstream.h" />
+    <ClInclude Include="single_loader.h" />
+    <ClInclude Include="archivist_exception.h" />
     <ClInclude Include="archivist_interfaces.h" />
     <ClInclude Include="assistant_exception.h" />
     <ClInclude Include="astring.h" />
@@ -155,6 +159,8 @@
     <ClInclude Include="basic_mailrouter.h" />
     <ClInclude Include="basic_mailsender.h" />
     <ClInclude Include="iExceptionManager.h" />
+    <ClInclude Include="memory_table.h" />
+    <ClInclude Include="string_utilities.h" />
     <ClInclude Include="write_first_mutex.h" />
     <ClInclude Include="secretary_streambuf.h" />
     <ClInclude Include="concepts.h" />
@@ -174,12 +180,16 @@
     <ClInclude Include="secretary_exception.h" />
     <ClInclude Include="shared_container_base.h" />
     <ClInclude Include="ThreadLake.h" />
-    <ClInclude Include="utility.h" />
+    <ClInclude Include="utilities.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="archivist_exception.cpp" />
     <ClCompile Include="assistant_exception.cpp" />
     <ClCompile Include="astring.cpp" />
     <ClCompile Include="background.cpp" />
+    <ClCompile Include="random_access_fstream.cpp" />
+    <ClCompile Include="single_loader.cpp" />
+    <ClCompile Include="string_utilities.cpp" />
     <ClCompile Include="write_first_mutex.cpp" />
     <ClCompile Include="secretary_streambuf.cpp" />
     <ClCompile Include="datetime.cpp" />
@@ -195,7 +205,7 @@
     <ClCompile Include="ScanCenter.cpp" />
     <ClCompile Include="secretary_exception.cpp" />
     <ClCompile Include="ThreadLake.cpp" />
-    <ClCompile Include="utility.cpp" />
+    <ClCompile Include="utilities.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

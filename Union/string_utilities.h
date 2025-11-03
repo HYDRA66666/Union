@@ -1,11 +1,12 @@
 ﻿#pragma once
-#include "framework.h"
 #include "pch.h"
+#include "framework.h"
 
 #include "assistant_exception.h"
 
 namespace HYDRA15::Union::assistant
 {
+    // 将一个字符串重复数遍
     std::string operator*(std::string str, size_t count);
 
     // 删除头尾的空字符，默认删除所有非可打印字符和空格
@@ -19,13 +20,13 @@ namespace HYDRA15::Union::assistant
         std::function<bool(char)> is_valid = [](char c) {return c > 0x20 && c < 0x7F; }
     );
 
-    std::string strip(     
+    std::string strip(
         const std::string& str,
         std::function<bool(char)> is_valid = [](char c) {return c > 0x20 && c < 0x7F; }
     );
 
     // 删除字符串中所有的空字符，默认删除所有非可打印字符和空格
-    std::string strip_all(  
+    std::string strip_all(
         const std::string& str,
         std::function<bool(char)> is_valid = [](char c) {return c > 0x20 && c < 0x7F; }
     );
@@ -47,37 +48,4 @@ namespace HYDRA15::Union::assistant
     std::list<std::string> split_by(const std::string& str, const std::string& delimiter = " ");
 
     std::list<std::string> split_by(const std::string& str, const std::list<std::string>& deliniters);
-
-
-    // 向控制台输出十六进制的原始数据和对应的ascii字符
-    std::string hex_heap(const unsigned char* pBegin, unsigned int size, const std::string& title = "Hex Heap", unsigned int preLine = 32);
-
-    // 将字节转换为十六进制（高效版）
-    std::string byte_to_hex(const unsigned char* pBegin, unsigned int size);
-    
-    // 解析 propreties 文件
-    // 强制要求键值分隔符为 = ，unicode字符保持原样，
-    std::unordered_map<std::string, std::string> parse_propreties(const std::string& ppts);
-
-    // 解析 csv 文件
-    // 支持引号不分割，但是不删除引号
-    std::list<std::list<std::string>> parse_csv(const std::string& csv);
-
-    // 内存拷贝
-    template<typename T>
-    void memcpy(const T* src, T* dest, size_t size)
-    {
-        for (size_t i = 0; i < size; i++)
-            dest[i] = src[i];
-    }
-
-
-    // 打印多个参数到控制台
-    template<typename ... Args>
-    std::ostream& print(Args ... args)
-    {
-        return (std::cout << ... << args);
-    }
-
-
 }

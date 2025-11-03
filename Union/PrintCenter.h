@@ -5,7 +5,7 @@
 #include "secretary_exception.h"
 #include "background.h"
 #include "datetime.h"
-#include "utility.h"
+#include "string_utilities.h"
 #include "secretary_streambuf.h"
 
 namespace HYDRA15::Union::secretary
