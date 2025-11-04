@@ -34,7 +34,7 @@ namespace HYDRA15::Union::archivist
     * 
     *       表记录节：
     *           32N 表记录：
-    *               4 数据包编号，4 标记，8N 字段数据
+    *               8 数据包编号，8N 字段数据
     *               字段数据：
     *                   NOTHING：8 空字节，INT：8 小端序，数据；FLOAT：8 IEEE，数据
     *                   INTS：4 起始指针，4 元素数；FLOATS：4 起始指针，4 元素数
@@ -153,13 +153,13 @@ namespace HYDRA15::Union::archivist
         class cached_datapack_seg
         {
             const single_loader_v1& ins;
-            uint32_t datapackNo = 0;
+            uint64_t datapackNo = 0;
             uint64_t segStart = 0;
             uint64_t segCount = 0;
             std::vector<byte> data;
         public:
             cached_datapack_seg(const single_loader_v1& ins);
-            std::vector<byte> load_frome_cache(uint32_t dpNo, uint32_t pointer, uint32_t length);
+            std::vector<byte> load_frome_cache(uint64_t dpNo, uint32_t pointer, uint32_t length);
         };
         friend class cached_datapack_seg;
 
@@ -230,7 +230,7 @@ namespace HYDRA15::Union::archivist
     public:
         single_loader_v1(const std::string& dbFilePath);// 从数据库文件构造
         single_loader_v1(const field_specs& fields, ID preserved,    // 新建文件，需要指定字段、预留的空间（记录数计）
-            uint32_t segSize = 4096, uint32_t segMaxCount = std::numeric_limits<uint32_t>::max());  // 可以指定段大小、最大段数
+            uint64_t segSize = 4096, uint64_t segMaxCount = std::numeric_limits<uint64_t>::max());  // 可以指定段大小、最大段数
 
         // 备份相关
         void create_backup(const std::string&) const;   // 创建备份文件，传入文件名

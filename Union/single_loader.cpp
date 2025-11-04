@@ -353,7 +353,7 @@ namespace HYDRA15::Union::archivist
         : ins(ins)
     { }
 
-    std::vector<single_loader_v1::byte> single_loader_v1::cached_datapack_seg::load_frome_cache(uint32_t dpNo, uint32_t pointer, uint32_t length)
+    std::vector<single_loader_v1::byte> single_loader_v1::cached_datapack_seg::load_frome_cache(uint64_t dpNo, uint32_t pointer, uint32_t length)
     {
         uint64_t segSize = ins.rootSection.headers.segmentSize;
         uint64_t reqSegStart = pointer / segSize;
@@ -524,7 +524,7 @@ namespace HYDRA15::Union::archivist
         cached_datapack_seg cdps(*this);
         for (size_t rowNo = 0; rowNo < res.count; rowNo++)
         {
-            uint32_t datapackNo = read_int<uint32_t>(pageData, rowNo * bytesPerRow);
+            uint64_t datapackNo = read_int<uint64_t>(pageData, rowNo * bytesPerRow);
             for (size_t fieldNo = 0; fieldNo < fieldCount; fieldNo++)
             {
                 switch (rootSection.fields.fetch(fieldNo).type)
