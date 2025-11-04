@@ -40,4 +40,6 @@
 #include <expected>
 #include <filesystem>
 #include <bit>
+#include <numeric>
+#include <unordered_set>
 

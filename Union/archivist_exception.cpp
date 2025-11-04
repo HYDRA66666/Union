@@ -20,8 +20,11 @@ namespace HYDRA15::Union::exceptions
         return archivist(vslz.type.data(),iExptCodes.type);     \
     }
 
-    make(RAFstreamFileNotAccessable);
+    make(FileNotAccessable);
     make(FileFormatIncorrect);
+    make(FileFull);
+    make(FileIOError);
+    make(FileInvalidAccess);
 
 #undef make
 

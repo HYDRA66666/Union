@@ -13,6 +13,7 @@ namespace HYDRA15::Union::archivist
     // 内部数据类型
     using ID = uint64_t;    // 主键
     using BYTE = uint8_t;   // 字节
+    using OBJECT = expressman::packet;
 
     // 字段数据类型
     using NOTHING = std::monostate;
@@ -21,13 +22,13 @@ namespace HYDRA15::Union::archivist
     using INTS = std::vector<INT>;
     using FLOATS = std::vector<FLOAT>;
     using BYTES = std::vector<BYTE>;
-    using OBJECT = std::list<expressman::packet>;
+    using OBJECTS = std::list<OBJECT>;
 
     // 版本号
     using version_id = ID;
 
     // 字段
-    using field = std::variant<NOTHING, INT, FLOAT, INTS, FLOATS, BYTES, OBJECT>;
+    using field = std::variant<NOTHING, INT, FLOAT, INTS, FLOATS, BYTES, OBJECTS>;
 
     // 字段信息
     struct field_spec
@@ -35,14 +36,14 @@ namespace HYDRA15::Union::archivist
         // 字段类型枚举
         enum class field_type :char
         {
-            NOTHING = '0', INT = 'I', FLOAT = 'F',
+            NOTHING = 0, INT = 'I', FLOAT = 'F',
             INTS = 'U', FLOATS = 'D', BYTES = 'B', OBJECTS = 'P'
         };
 
-        std::string name;
-        field_type type;
-        uint8_t mark[7];
-        std::string comment;
+        std::string name{};
+        field_type type = field_type::NOTHING;
+        uint8_t mark[7]{};
+        std::string comment{};
     };
     using field_specs = std::list<field_spec>;
 
@@ -63,8 +64,10 @@ namespace HYDRA15::Union::archivist
     // 表页
     struct page
     {
-        ID no;                  // 页号
-        ID start;               // 页中首条记录的 ID
+        ID no;      // 页号
+        ID start;   // 页中首条记录的 ID
+        ID count;   // 页内有效记录条数
+        std::unordered_set<ID> modified; // 修改过的记录列表
         std::vector<field> data;
     };
     struct index    // 持久层和数据层传递索引的结构
@@ -83,22 +86,15 @@ namespace HYDRA15::Union::archivist
         virtual size_t size() const = 0;    // 返回完整的数据大小
         virtual ID tab_size() const = 0;    // 返回表行数
         virtual ID page_size() const = 0;   // 返回页大小（以记录数计）
-
-        // 字段信息相关
-        virtual field_specs field_tab() const = 0;  // 返回完整的字段表
-        virtual void field_tab(field_specs) = 0;    // 更新字段表，可能会触发表结构更新
+        virtual field_specs fields() const = 0;             // 返回完整的字段表
 
         // 表数据相关
-        // 逐行
-        virtual std::vector<field> row(ID) const = 0;   // 返回指定的记录
-        virtual void row(ID, std::vector<field>) = 0;   // 写入指定的记录
-        // 逐页
         virtual page rows(ID) const = 0;    // 返回包含指定页号的页
-        virtual void rows(page) = 0;        // 写入整页数据
+        virtual void rows(const page&) = 0; // 写入整页数据
 
         // 索引相关
-        virtual void index_tab(index) = 0;              // 保存索引表（包含创建）
-        virtual index index_tab(std::string) const = 0; // 加载索引表
+        virtual void index_tab(index) = 0;                      // 保存索引表（包含创建）
+        virtual index index_tab(const std::string&) const = 0;  // 加载索引表
     };
 
 
@@ -182,7 +178,6 @@ namespace HYDRA15::Union::archivist
         virtual size_t memsize() const = 0; // 返回 表当前所占内存大小
         virtual size_t memoptimize() = 0;   // 优化内存，返回优化后表所占内存大小
         virtual field_specs field_tab() const = 0;  // 返回完整的字段表
-        virtual void field_tab(field_specs) = 0;    // 写入完整的字段表，可能触发表结构调整
         virtual field_spec get_field_spec(const std::string&) const = 0;// 通过字段名获取指定的字段信息
 
         // 行访问接口
