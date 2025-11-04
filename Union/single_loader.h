@@ -168,7 +168,7 @@ namespace HYDRA15::Union::archivist
     private:
         random_access_fstream raf;
         root_section rootSection;
-        std::mutex mtx;
+        mutable std::mutex mtx;
         // 一些缓存
         const uint64_t segsPerPage; // 每页包含几段
         const ID rowsPerPage;       // 每页包含多少记录

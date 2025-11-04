@@ -4,7 +4,7 @@
 namespace HYDRA15::Union::archivist
 {
     random_access_fstream::random_access_fstream(const std::string& fileName)
-        : random_access_fstream(fileName)
+        : random_access_fstream(std::filesystem::path(fileName))
     {
     }
 
@@ -119,6 +119,7 @@ namespace HYDRA15::Union::archivist
         open();
         if (is_open() || ec)
             throw exceptions::archivist::FileIOError();
+        return true;
     }
 
 

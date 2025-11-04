@@ -356,8 +356,8 @@ namespace HYDRA15::Union::archivist
     std::vector<single_loader_v1::byte> single_loader_v1::cached_datapack_seg::load_frome_cache(uint32_t dpNo, uint32_t pointer, uint32_t length)
     {
         uint64_t segSize = ins.rootSection.headers.segmentSize;
-        uint32_t reqSegStart = pointer / segSize;
-        uint32_t reqSegCount = (pointer + length) / segSize + 1;
+        uint64_t reqSegStart = pointer / segSize;
+        uint64_t reqSegCount = (pointer + length) / segSize + 1;
 
         // 从磁盘加载
         if (dpNo == datapackNo)
