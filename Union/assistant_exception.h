@@ -17,6 +17,11 @@ namespace HYDRA15::Union::exceptions
             static_uint UtilityInvalidChar = 0x002;
             static_uint PropretiesParseFaild = 0x003;
             static_uint LocalByteOrderUncertain = 0x004;
+
+            // files
+            static_uint files = 0xA00;
+            static_uint FileIOError = 0xA01;
+            static_uint FileNotAccessable = 0xA02;
         }iExptCodes;
 
     private:
@@ -27,6 +32,11 @@ namespace HYDRA15::Union::exceptions
             static_string UtilityInvalidChar = "Invalid character detected";
             static_string PropretiesParseFaild = "Faild to parse propreties.";
             static_string LocalByteOrderUncertain = "Local byte order is uncertain";
+
+            static_string FileIOError = "Error occures during file io operation";
+            static_string FileIOErrorFormat = "Error occures during file io operation: {}:{}";
+            static_string FileNotAccessable = "File not accessable";
+            static_string FileNotAccessableFormat = "File not accessable: {}:{}";
         }vslz;
 
     public:
@@ -44,5 +54,10 @@ namespace HYDRA15::Union::exceptions
         static assistant UtilityInvalidChar() noexcept;
         static assistant PropretiesParseFaild() noexcept;
         static assistant LocalByteOrderUncertain() noexcept;
+
+        static assistant FileIOError(const std::error_code& ec) noexcept;
+        static assistant FileIOError() noexcept;
+        static assistant FileNotAccessable(const std::error_code& ec) noexcept;
+        static assistant FileNotAccessable() noexcept;
     };
 }

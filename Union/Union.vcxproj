@@ -148,8 +148,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="byteswap.h" />
-    <ClInclude Include="random_access_fstream.h" />
-    <ClInclude Include="single_loader.h" />
     <ClInclude Include="archivist_exception.h" />
     <ClInclude Include="archivist_interfaces.h" />
     <ClInclude Include="assistant_exception.h" />
@@ -158,8 +156,10 @@
     <ClInclude Include="basic_mailbox.h" />
     <ClInclude Include="basic_mailrouter.h" />
     <ClInclude Include="basic_mailsender.h" />
+    <ClInclude Include="files.h" />
     <ClInclude Include="iExceptionManager.h" />
     <ClInclude Include="memory_table.h" />
+    <ClInclude Include="single_loader.h" />
     <ClInclude Include="string_utilities.h" />
     <ClInclude Include="write_first_mutex.h" />
     <ClInclude Include="secretary_streambuf.h" />
@@ -187,8 +187,7 @@
     <ClCompile Include="assistant_exception.cpp" />
     <ClCompile Include="astring.cpp" />
     <ClCompile Include="background.cpp" />
-    <ClCompile Include="random_access_fstream.cpp" />
-    <ClCompile Include="single_loader.cpp" />
+    <ClCompile Include="files.cpp" />
     <ClCompile Include="string_utilities.cpp" />
     <ClCompile Include="write_first_mutex.cpp" />
     <ClCompile Include="secretary_streambuf.cpp" />
