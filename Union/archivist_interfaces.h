@@ -106,7 +106,8 @@ namespace HYDRA15::Union::archivist
     *   二进制格式封装的增删改查操作，避免接口频繁调用造成的性能浪费，也方便表内部算法优化
     *   执行一系列事件（incidents）时，要求下一个事件都在上一个事件的结果的基础上执行。
     *   如 查 - 查 - 改 系列事件，第一次查询获得结果集 A ，第二次查询在 A 的基础上筛选获得结果集 B ，最后只修改 B 中的记录
-    *   执行到分隔事件时，将当前结果暂存，然后以全表为基础执行后续的事件，当前结果和后续事件的结果应当一起返回。
+    *   执行到分隔事件时，将当前结果暂存，然后以全表为基础执行后续的事件；
+    *   执行到联合事件时，将当前结果和暂存的结果结合，然后后续事件在结合的基础上执行
     * 表迭代器和 range ：
     *   数据表支持迭代器，迭代器即 entry 对象本身。
     *   使用迭代器，配合 stl range 相关算法，实现对整表结果的筛选、修改
@@ -138,8 +139,11 @@ namespace HYDRA15::Union::archivist
 
     struct incident
     {
-        // 事件类型：增删改查
-        enum class incident_type { nothing, separate, create, drop, modify, search };
+        // 事件类型
+        enum class incident_type { 
+            nothing, separate, join, limit, order,  // 无操作，分割，联合，限制条数，排序
+            create, drop, modify, search            // 增，删，改，查
+        };
         // 事件参数
         struct condition_param  // 条件参数
         {
@@ -153,11 +157,18 @@ namespace HYDRA15::Union::archivist
             std::string targetField;//目标字段
             field value;            // 目标值
         };
+        struct order_param    // 排序参数
+        {
+            std::string targetField;// 目标字段
+            bool increaseSeq;       // 是否增序
+        };
         using incident_param = std::variant<
             std::monostate,         // 用于无操作
             std::unique_ptr<entry>, // 用于 增
-            condition_param,        // 用于 删、查
-            modify_param            // 用于 改
+            condition_param,        // 用于 查
+            modify_param,           // 用于 改
+            ID,                     // 用于限制
+            order_param             // 用于排序
         >;
 
         incident_type type;
@@ -187,12 +198,6 @@ namespace HYDRA15::Union::archivist
         // 索引接口
         virtual void create_index(std::string, field_specs) = 0;// 创建指定名称、基于指定字段的索引
         virtual void drop_index(std::string) = 0;               // 删除索引
-
-        // 迭代器接口
-        virtual std::unique_ptr<entry> begin() = 0;
-        virtual std::unique_ptr<entry> end() = 0;
-        virtual std::unique_ptr<entry> cbegin() = 0;
-        virtual std::unique_ptr<entry> cend() = 0;
 
         // 表锁
     public:

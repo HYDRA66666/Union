@@ -188,6 +188,7 @@
     <ClCompile Include="astring.cpp" />
     <ClCompile Include="background.cpp" />
     <ClCompile Include="files.cpp" />
+    <ClCompile Include="single_loader.cpp" />
     <ClCompile Include="string_utilities.cpp" />
     <ClCompile Include="write_first_mutex.cpp" />
     <ClCompile Include="secretary_streambuf.cpp" />

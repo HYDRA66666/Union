@@ -25,6 +25,7 @@ namespace HYDRA15::Union::assistant
 
         bfstream() = delete;
         bfstream(const std::filesystem::path&); // 只能从文件路径构建
+        bfstream(bfstream&&);
 
         // 控制和信息接口
         bool is_new_file() const;
@@ -52,7 +53,7 @@ namespace HYDRA15::Union::assistant
         {
             std::unique_lock ul{ mtx };
             file.seekp(pos);
-            file.write(reinterpret_cast<char*>(&T), sizeof(T));
+            file.write(reinterpret_cast<const char*>(&t), sizeof(T));
             file.flush();
             if (!file)
                 throw exceptions::assistant::FileIOError();

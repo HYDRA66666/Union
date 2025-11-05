@@ -41,6 +41,11 @@ namespace HYDRA15::Union::assistant
         open();
     }
 
+    bfstream::bfstream(bfstream&& oth)
+        : file(std::move(oth.file)), path(std::move(oth.path))
+    {
+    }
+
     bool bfstream::is_new_file() const
     {
         return newFile;
