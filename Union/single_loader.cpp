@@ -102,6 +102,8 @@ namespace HYDRA15::Union::archivist
             segmentList.push_back(ins.header.usedSegCount);
             ins.header.usedSegCount++;
         }
+
+        ins.flush_root_sec();
     }
 
     void single_loader_v1::section::load_cache(uint64_t segMid)
@@ -111,7 +113,7 @@ namespace HYDRA15::Union::archivist
 
         // 计算缓存区间
         uint64_t segEndToCache = segmentList.size() - segMid > cache.preferCacheSegCount / 2 ? segMid + cache.preferCacheSegCount : segmentList.size();
-        uint64_t segStartToCache = segMid > cache.preferCacheSegCount / 2 ? 0 : segMid - cache.preferCacheSegCount / 2;
+        uint64_t segStartToCache = segMid > cache.preferCacheSegCount / 2 ? segMid - cache.preferCacheSegCount / 2 : 0;
 
         // 分配空间
         cache.segStart = 0;
@@ -128,9 +130,20 @@ namespace HYDRA15::Union::archivist
         cache.segEnd = segEndToCache;
     }
 
+    size_t single_loader_v1::section::seg_count() const
+    {
+        return segmentList.size();
+    }
+
+    std::deque<uint64_t>& single_loader_v1::section::access()
+    {
+        return segmentList;
+    }
+
     void single_loader_v1::section::load(const std::vector<uint64_t>& lst)
     {
         segmentList = std::deque(lst.begin(), lst.end());
+        load_cache(0);
     }
 
     std::vector<uint64_t> single_loader_v1::section::store() const
@@ -144,11 +157,64 @@ namespace HYDRA15::Union::archivist
 
     }
 
+    void single_loader_v1::section_manager::create(const std::string& name)
+    {
+        sectionTab.emplace(name, ins);
+        ins.flush_root_sec();
+    }
+
+    single_loader_v1::section& single_loader_v1::section_manager::fetch(const std::string& name)
+    {
+        return sectionTab.at(name);
+    }
+
+    bool single_loader_v1::section_manager::contains(const std::string& name) const
+    {
+        return sectionTab.contains(name);
+    }
+
+    void single_loader_v1::section_manager::remove(const std::string& name)
+    {
+        sectionTab.erase(name);
+        ins.flush_root_sec();
+    }
+
+    void single_loader_v1::section_manager::optimize()
+    {
+        std::vector<std::optional<std::reference_wrapper<uint64_t>>> usedSegMap(ins.header.usedSegCount, std::optional<std::reference_wrapper<uint64_t>>());
+        uint64_t realUsedSegCount = 0;
+
+        // 统计使用过的节
+        for(auto& [k,v]:sectionTab)
+            for (auto& seg : v.access())
+            {
+                usedSegMap[seg] = std::ref(seg);
+                realUsedSegCount++;
+            }
+
+        // 移动节
+        uint64_t currentSeg = 0;
+        for (auto& seg : usedSegMap)
+            if (seg.has_value() && seg.value() != currentSeg)
+            {
+                ins.bfs.write_array<BYTE>(
+                    currentSeg * ins.header.segSize,
+                    ins.bfs.read_array<BYTE>(seg.value() * ins.header.segSize, ins.header.segSize)
+                );
+                seg.value() = currentSeg;
+                currentSeg++;
+            }
+
+        // 更新头数据并修改文件大小
+        ins.header.usedSegCount = realUsedSegCount;
+        ins.flush_root_sec();
+        ins.bfs.resize(realUsedSegCount * ins.header.segSize);
+    }
+
     void single_loader_v1::section_manager::load()
     {
         // 先加载根节
         rootSection.load(ins.bfs.read_array<uint64_t>(96, ins.header.rootSecSegCount));
-        rootSection.load_cache(0);
 
         // 再加载后续的节
         for (uint64_t i = 0; i < ins.header.secCount; i++)
@@ -182,9 +248,9 @@ namespace HYDRA15::Union::archivist
         for (const auto& [k, v] : sectionTab)
         {
             uint64_t nameSize = assistant::multiple_m_not_less_than_n(32, k.size() + 1);
-            uint64_t seglstSize = assistant::multiple_m_not_less_than_n(32, v.segmentList.size() * 8);
+            uint64_t seglstSize = assistant::multiple_m_not_less_than_n(32, v.seg_count() * 8);
 
-            std::vector<uint64_t> row{ currentNamePos,currentSeglstPos,v.segmentList.size(),0 };
+            std::vector<uint64_t> row{ currentNamePos,currentSeglstPos,v.seg_count(),0};
             assistant::byteswap::to_little_endian_vector(row);
             std::vector<BYTE> nameVec(nameSize, 0);
             assistant::memcpy(reinterpret_cast<const BYTE*>(k.c_str()), nameVec.data(), k.size() + 1);
@@ -206,7 +272,7 @@ namespace HYDRA15::Union::archivist
     {
         uint64_t size = 0;
         for (const auto& [k, v] : sectionTab)
-            size += 32 + k.size() + 1 + v.segmentList.size() * 8;
+            size += 32 + k.size() + 1 + v.seg_count() * 8;
         return size;
     }
 

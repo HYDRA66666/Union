@@ -85,14 +85,18 @@ namespace HYDRA15::Union::archivist
             struct cache
             {
                 static constexpr uint64_t preferCacheSegCount = 8;
-                uint64_t segStart;  // 含
-                uint64_t segEnd;    // 不含
-                std::vector<BYTE> data;
+                uint64_t segStart = 0;  // 含
+                uint64_t segEnd = 0;    // 不含
+                std::vector<BYTE> data{};
             };
-        public:
+        private:    // 数据
             single_loader_v1& ins;
-            std::deque<uint64_t> segmentList;
+            std::deque<uint64_t> segmentList{};
             mutable cache cache;    // 缓存逻辑：尽量缓存 8 个段，尽量把请求末尾放在缓存中间。只缓存读
+        private:    // 工具函数
+            void expand(uint64_t segCount); // 扩展指定段数
+            void load_cache(uint64_t segMid);   // 加载缓存
+        public:     // 接口
             // 随机读写，自动处理段映射和缓存，不负责字节序转换
             template<typename T>
                 requires std::is_trivial_v<T>
@@ -101,9 +105,9 @@ namespace HYDRA15::Union::archivist
                 requires std::is_trivial_v<T>
             void write_array(uint64_t pos, const std::vector<T>& data);
             std::string read_string(uint64_t pos) const;
-            // 工具函数
-            void expand(uint64_t segCount); // 扩展指定段数
-            void load_cache(uint64_t segMid);   // 加载缓存
+            // 信息
+            size_t seg_count() const;
+            std::deque<uint64_t>& access(); // 带有修改权限的访问 seg 列表
             // 加载与存储
             void load(const std::vector<uint64_t>&);// 加载段列表（将原有列表替换为参数）
             std::vector<uint64_t> store() const;    // 存储段列表
@@ -117,10 +121,17 @@ namespace HYDRA15::Union::archivist
 
         class section_manager
         {
-        public:
+        private:
             single_loader_v1& ins;
             std::unordered_map<std::string, section> sectionTab;
             section rootSection;
+        public:
+            // 访问
+            void create(const std::string&);            // 创建节
+            section& fetch(const std::string&);         // 获取节对象
+            bool contains(const std::string&) const;    // 检查包含
+            void remove(const std::string&);            // 移除节（不移除数据）
+            void optimize();                            // 优化文件（删除不需的段）
             // 存取
             void load();
             void store();
@@ -132,10 +143,11 @@ namespace HYDRA15::Union::archivist
 
         class field_table
         {
-        public:
+        private:
             single_loader_v1& ins;
             std::unordered_map<std::string, ID> fieldNameTab;
             std::vector<field_spec> fieldTab;
+        public:
             // 获取
             field_spec fetch(const std::string& name);
             // 加载与存储
@@ -144,6 +156,7 @@ namespace HYDRA15::Union::archivist
             uint64_t size() const;  // 返回字节大小
             uint64_t count() const; // 返回条目数
             field_table(single_loader_v1&);
+            field_table(single_loader_v1&, field_specs);
         };
 
     private: // 工具函数
@@ -187,6 +200,8 @@ namespace HYDRA15::Union::archivist
         // 备份相关：备份将以文件的形式呈现，传入完整的文件名
         void create_backup(const std::filesystem::path&);
         void load_bakcup(const std::filesystem::path&);
+        // 根节
+        void flush_root_sec();  // 根节数据落盘
     };
 
 
