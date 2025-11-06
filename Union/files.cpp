@@ -42,7 +42,7 @@ namespace HYDRA15::Union::assistant
     }
 
     bfstream::bfstream(bfstream&& oth)
-        : file(std::move(oth.file)), path(std::move(oth.path))
+        : file(std::move(oth.file)), path(oth.path)
     {
     }
 
@@ -73,5 +73,21 @@ namespace HYDRA15::Union::assistant
             throw exceptions::assistant::FileIOError(ec);
         file.open(path);
     }
+
+    void bfstream::read(size_t pos, size_t size, byte* buf)
+    {
+        std::unique_lock ul{ mtx };
+        file.seekg(pos);
+        file.read(reinterpret_cast<char*>(buf), size);
+    }
+
+    void bfstream::write(size_t pos, size_t size, const byte* buf)
+    {
+        std::unique_lock ul{ mtx };
+        file.seekp(pos);
+        file.write(reinterpret_cast<const char*>(buf), size);
+    }
+
+
 
 }
