@@ -84,7 +84,7 @@ namespace HYDRA15::Union::archivist
         virtual size_t size() const = 0;    // 返回完整的数据大小
         virtual ID tab_size() const = 0;    // 返回表行数
         virtual ID page_size() const = 0;   // 返回页大小（以记录数计）
-        virtual field_specs fields() const = 0;             // 返回完整的字段表
+        virtual field_specs fields() const = 0; // 返回完整的字段表
 
         // 表数据相关
         virtual page rows(ID) const = 0;    // 返回包含指定页号的页
