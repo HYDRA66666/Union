@@ -127,11 +127,12 @@ namespace HYDRA15::Union::archivist
             section rootSection;
         public:
             // 访问
-            void create(const std::string&);            // 创建节
-            section& fetch(const std::string&);         // 获取节对象
-            bool contains(const std::string&) const;    // 检查包含
-            void remove(const std::string&);            // 移除节（不移除数据）
-            void optimize();                            // 优化文件（删除不需的段）
+            void create(const std::string&);        // 创建节
+            section& fetch(const std::string&);     // 获取节对象
+            section& fetch_root();                  // 获取根节
+            bool contains(const std::string&) const;// 检查包含
+            void remove(const std::string&);        // 移除节（不移除数据）
+            void optimize();                        // 优化文件（删除不需的段）
             // 存取
             void load();
             void store();

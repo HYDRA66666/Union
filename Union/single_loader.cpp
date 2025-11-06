@@ -168,6 +168,11 @@ namespace HYDRA15::Union::archivist
         return sectionTab.at(name);
     }
 
+    single_loader_v1::section& single_loader_v1::section_manager::fetch_root()
+    {
+        return rootSection;
+    }
+
     bool single_loader_v1::section_manager::contains(const std::string& name) const
     {
         return sectionTab.contains(name);
