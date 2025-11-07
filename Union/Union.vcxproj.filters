@@ -99,9 +99,6 @@
     <ClInclude Include="secretary_streambuf.h">
       <Filter>secretary</Filter>
     </ClInclude>
-    <ClInclude Include="write_first_mutex.h">
-      <Filter>labourer</Filter>
-    </ClInclude>
     <ClInclude Include="factory.h">
       <Filter>expressman</Filter>
     </ClInclude>
@@ -164,9 +161,6 @@
     <ClCompile Include="utilities.cpp">
       <Filter>assistant</Filter>
     </ClCompile>
-    <ClCompile Include="astring.cpp">
-      <Filter>framework</Filter>
-    </ClCompile>
     <ClCompile Include="logger.cpp">
       <Filter>secretary</Filter>
     </ClCompile>
@@ -175,9 +169,6 @@
     </ClCompile>
     <ClCompile Include="secretary_streambuf.cpp">
       <Filter>secretary</Filter>
-    </ClCompile>
-    <ClCompile Include="write_first_mutex.cpp">
-      <Filter>labourer</Filter>
     </ClCompile>
     <ClCompile Include="factory.cpp">
       <Filter>expressman</Filter>
@@ -188,5 +179,6 @@
     <ClCompile Include="string_utilities.cpp">
       <Filter>assistant</Filter>
     </ClCompile>
+    <ClCompile Include="..\pch\pch.cpp" />
   </ItemGroup>
 </Project>

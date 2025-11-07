@@ -1,6 +1,6 @@
 ﻿#pragma once
-#include "framework.h"
 #include "pch.h"
+#include "framework.h"
 
 #include "assistant_exception.h"
 #include "string_utilities.h"
