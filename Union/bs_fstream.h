@@ -3,7 +3,6 @@
 #include "framework.h"
 
 #include "archivist_interfaces.h"
-#include "write_first_mutex.h"
 #include "background.h"
 
 namespace HYDRA15::Union::archivist
