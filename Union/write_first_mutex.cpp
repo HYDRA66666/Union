@@ -1,7 +1,7 @@
 ﻿#include "pch.h"
 #include "write_first_mutex.h"
 
-namespace HYDRA15::Foundation::labourer
+namespace HYDRA15::Union::labourer
 {
     void write_first_mutex::lock()
     {

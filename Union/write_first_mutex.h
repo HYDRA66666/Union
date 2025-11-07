@@ -3,7 +3,7 @@
 #include "framework.h"
 
 
-namespace HYDRA15::Foundation::labourer
+namespace HYDRA15::Union::labourer
 {
     // 写优先锁满足条件：
     //    - 使用 std::shared_lock 上锁视为读取操作，使用 std::unique_lock 上锁视为写入操作
@@ -22,6 +22,8 @@ namespace HYDRA15::Foundation::labourer
 
     public:
         write_first_mutex() = default;
+        write_first_mutex(const write_first_mutex&) = delete;
+        write_first_mutex(write_first_mutex&&) = default;
         ~write_first_mutex() = default;
 
         void lock();

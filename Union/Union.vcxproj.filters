@@ -111,9 +111,6 @@
     <ClInclude Include="iExceptionManager.h">
       <Filter>referee</Filter>
     </ClInclude>
-    <ClInclude Include="memory_table.h">
-      <Filter>archivist</Filter>
-    </ClInclude>
     <ClInclude Include="archivist_exception.h">
       <Filter>exceptions</Filter>
     </ClInclude>
@@ -123,10 +120,7 @@
     <ClInclude Include="byteswap.h">
       <Filter>assistant</Filter>
     </ClInclude>
-    <ClInclude Include="files.h">
-      <Filter>assistant</Filter>
-    </ClInclude>
-    <ClInclude Include="single_loader.h">
+    <ClInclude Include="bs_fstream.h">
       <Filter>archivist</Filter>
     </ClInclude>
   </ItemGroup>
@@ -193,12 +187,6 @@
     </ClCompile>
     <ClCompile Include="string_utilities.cpp">
       <Filter>assistant</Filter>
-    </ClCompile>
-    <ClCompile Include="files.cpp">
-      <Filter>assistant</Filter>
-    </ClCompile>
-    <ClCompile Include="single_loader.cpp">
-      <Filter>archivist</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -11,7 +11,7 @@ namespace HYDRA15::Union::labourer
 {
 
     // 线程池
-    class ThreadLake :background
+    class ThreadLake :public background
     {
         // 任务和任务包定义
     public:

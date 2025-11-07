@@ -13,7 +13,7 @@ namespace HYDRA15::Union::secretary
     // 统一输出接口
     // 提供滚动消息、底部消息和写入文件三种输出方式
     // 提交消息之后，调用 notify() 方法通知后台线程处理，这在连续提交消息时可以解约开销
-    class PrintCenter final :labourer::background
+    class PrintCenter final :protected labourer::background
     {
         /***************************** 快速接口 *****************************/
     public:
