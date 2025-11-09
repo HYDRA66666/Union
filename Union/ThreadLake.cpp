@@ -67,7 +67,7 @@ namespace HYDRA15::Union::labourer
         if (!taskPkg.content)
             throw exceptions::labourer::EmptyTask();
 
-        if (tskQueMaxSize != 0 && taskQueue.size() >= tskQueMaxSize) // 队列已满
+        if (taskQueue.size() >= tskQueMaxSize) // 队列已满
             throw exceptions::labourer::TaskQueueFull();
 
         std::lock_guard<std::mutex> lock(queueMutex);

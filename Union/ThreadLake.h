@@ -44,7 +44,7 @@ namespace HYDRA15::Union::labourer
 
         //接口
     public:
-        ThreadLake(unsigned int threadCount, size_t tskQueMaxSize = 0);
+        ThreadLake(unsigned int threadCount, size_t tskQueMaxSize = std::numeric_limits<size_t>::max());
         ThreadLake() = delete;
         ThreadLake(const ThreadLake&) = delete;
         ThreadLake(ThreadLake&&) = delete;
@@ -65,7 +65,7 @@ namespace HYDRA15::Union::labourer
             // 插入任务包
             {
                 std::lock_guard<std::mutex> lock(queueMutex);
-                if (tskQueMaxSize != 0 && taskQueue.size() >= tskQueMaxSize) // 队列已满
+                if (taskQueue.size() >= tskQueMaxSize) // 队列已满
                     throw exceptions::labourer::TaskQueueFull();
                 taskQueue.push(
                     {
@@ -101,7 +101,7 @@ namespace HYDRA15::Union::labourer
             // 插入任务包
             {
                 std::lock_guard<std::mutex> lock(queueMutex);
-                if (tskQueMaxSize != 0 && taskQueue.size() >= tskQueMaxSize) // 队列已满
+                if (taskQueue.size() >= tskQueMaxSize) // 队列已满
                     throw exceptions::labourer::TaskQueueFull();
 
                 taskQueue.push(
