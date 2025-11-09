@@ -57,7 +57,7 @@ namespace HYDRA15::Union::archivist
         uint64_t maxSegCount;
         uint64_t segCount;
         uint64_t segMaxCacheCount;
-        std::vector<segment> segments;
+        std::deque<segment> segments;
 
         // 缓存和异步 IO 相关
     private:
@@ -74,10 +74,22 @@ namespace HYDRA15::Union::archivist
     private:
         std::vector<BYTE> seg_read(uint64_t id, uint64_t offset, uint64_t size);
         void seg_write(uint64_t id, uint64_t offset, const std::vector<BYTE>& data);
+        void seg_new(uint64_t count);
 
         // 初始化
     private:
-        void segment_manager(uint64_t segSize, uint64_t maxSegCount, uint64_t segCount, uint64_t segMaxCacheCount);
+        void segment_manager(uint64_t segSize, uint64_t maxSegCount, uint64_t segCount);
 
+
+
+        /********************** 节管理器 **********************/
+        // 节读写、自动扩展
+    private:
+        struct section
+        {
+            std::shared_mutex mtx;
+            std::deque<uint64_t> segList;
+        };
+        
     };
 }
