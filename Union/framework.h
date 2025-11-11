@@ -1,13 +1,8 @@
 ﻿#pragma once
-
-
-
 // 常用类型定义
 #include "astring.h"
 #define static_string static constexpr HYDRA15::Union::framework::astring
 #define static_uint static constexpr unsigned int
-
-
 
 
 // 自定义配置内容
@@ -19,17 +14,24 @@
 
 // 启用栈跟踪支持
 // 启用可能会影响安全性和性能
+#ifndef UNION_IEXPT_STACKTRACE_DISABLE
 #define UNION_IEXPT_STACKTRACE_ENABLE 
+#endif
 
 // 默认线程池线程数目
 #define UNION_DEFAULT_THREAD_COUNT std::thread::hardware_concurrency() / 2
 
 namespace HYDRA15::Union
 {
+    // 类型定义
+    using byte = uint8_t;   // 字节类型
+
     // 全局 debug 变量
 #ifdef _DEBUG
     inline bool debug = true;
 #else 
     inline bool debug = false;
 #endif
+
+    
 }

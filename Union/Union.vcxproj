@@ -147,7 +147,8 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="bs_fstream.h" />
+    <ClInclude Include="lockless_queue.h" />
+    <ClInclude Include="sfstream.h" />
     <ClInclude Include="byteswap.h" />
     <ClInclude Include="archivist_exception.h" />
     <ClInclude Include="archivist_interfaces.h" />
@@ -157,6 +158,7 @@
     <ClInclude Include="basic_mailbox.h" />
     <ClInclude Include="basic_mailrouter.h" />
     <ClInclude Include="basic_mailsender.h" />
+    <ClInclude Include="files.h" />
     <ClInclude Include="iExceptionManager.h" />
     <ClInclude Include="string_utilities.h" />
     <ClInclude Include="secretary_streambuf.h" />
@@ -189,6 +191,7 @@
     <ClCompile Include="archivist_exception.cpp" />
     <ClCompile Include="assistant_exception.cpp" />
     <ClCompile Include="background.cpp" />
+    <ClCompile Include="files.cpp" />
     <ClCompile Include="string_utilities.cpp" />
     <ClCompile Include="secretary_streambuf.cpp" />
     <ClCompile Include="datetime.cpp" />

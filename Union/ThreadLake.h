@@ -9,7 +9,6 @@
 
 namespace HYDRA15::Union::labourer
 {
-
     // 线程池
     class ThreadLake :public background
     {

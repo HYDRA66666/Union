@@ -117,8 +117,14 @@
     <ClInclude Include="byteswap.h">
       <Filter>assistant</Filter>
     </ClInclude>
-    <ClInclude Include="bs_fstream.h">
+    <ClInclude Include="sfstream.h">
       <Filter>archivist</Filter>
+    </ClInclude>
+    <ClInclude Include="files.h">
+      <Filter>assistant</Filter>
+    </ClInclude>
+    <ClInclude Include="lockless_queue.h">
+      <Filter>labourer</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -180,5 +186,8 @@
       <Filter>assistant</Filter>
     </ClCompile>
     <ClCompile Include="..\pch\pch.cpp" />
+    <ClCompile Include="files.cpp">
+      <Filter>assistant</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>
