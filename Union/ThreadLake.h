@@ -19,6 +19,7 @@ namespace HYDRA15::Union::labourer
             { 
                 { q.push(pkg) };                            // 应当是阻塞式
                 { q.pop() }-> std::convertible_to<mission>; // 应当是阻塞式
+                { q.size() }->std::convertible_to<size_t>;
                 { q.notify_exit() };                        // 用于结束时使用，通知等待线程应该退出
             }
     class thread_lake : public background
@@ -56,6 +57,9 @@ namespace HYDRA15::Union::labourer
         auto submit(F&& f, Args&& ... args) 
             -> std::shared_future<std::expected<std::invoke_result_t<F, Args...>, std::exception_ptr>>;
 
+
+        size_t waiting() const; // 等待中的任务数
+
     };
 
     using ThreadLake = thread_lake<basic_blockable_queue>;
@@ -67,6 +71,7 @@ namespace HYDRA15::Union::labourer
     {
         { q.push(pkg) };
         { q.pop() }-> std::convertible_to<mission>;
+        { q.size() }->std::convertible_to<size_t>;
         { q.notify_exit() };    // 用于结束时使用，通知等待线程应该退出
     }
     inline void thread_lake<Q>::work(background::thread_info& info)
@@ -97,6 +102,7 @@ namespace HYDRA15::Union::labourer
     {
         { q.push(pkg) };
         { q.pop() }-> std::convertible_to<mission>;
+        { q.size() }->std::convertible_to<size_t>;
         { q.notify_exit() };    // 用于结束时使用，通知等待线程应该退出
     }
     inline thread_lake<Q>::thread_lake(unsigned int threadCount)
@@ -110,6 +116,7 @@ namespace HYDRA15::Union::labourer
     {
         { q.push(pkg) };
         { q.pop() }-> std::convertible_to<mission>;
+        { q.size() }->std::convertible_to<size_t>;
         { q.notify_exit() };    // 用于结束时使用，通知等待线程应该退出
     }
     inline thread_lake<Q>::~thread_lake()
@@ -125,6 +132,7 @@ namespace HYDRA15::Union::labourer
     {
         { q.push(pkg) };
         { q.pop() }-> std::convertible_to<mission>;
+        { q.size() }->std::convertible_to<size_t>;
         { q.notify_exit() };    // 用于结束时使用，通知等待线程应该退出
     }
     inline void thread_lake<Q>::submit(const mission& mis)
@@ -137,6 +145,7 @@ namespace HYDRA15::Union::labourer
     {
         { q.push(pkg) };
         { q.pop() }-> std::convertible_to<mission>;
+        { q.size() }->std::convertible_to<size_t>;
         { q.notify_exit() };    // 用于结束时使用，通知等待线程应该退出
     }
     template<typename ret>
@@ -175,6 +184,7 @@ namespace HYDRA15::Union::labourer
     {
         { q.push(pkg) };
         { q.pop() }-> std::convertible_to<mission>;
+        { q.size() }->std::convertible_to<size_t>;
         { q.notify_exit() };    // 用于结束时使用，通知等待线程应该退出
     }
     template<typename F, typename ...Args>
@@ -186,5 +196,18 @@ namespace HYDRA15::Union::labourer
         return submit<ret>(
             std::function<ret()>(std::bind(std::forward<F>(f), std::forward<Args>(args)...))
         );
+    }
+
+    template<template<typename ...> typename Q>
+        requires requires(Q<mission> q, mission pkg)
+    {
+        { q.push(pkg) };
+        { q.pop() }-> std::convertible_to<mission>;
+        { q.size() }->std::convertible_to<size_t>;
+        { q.notify_exit() };    // 用于结束时使用，通知等待线程应该退出
+    }
+    inline size_t thread_lake<Q>::waiting() const
+    {
+        return queue.size();
     }
 }
