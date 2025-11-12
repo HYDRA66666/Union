@@ -66,7 +66,7 @@ namespace HYDRA15::Union::secretary
 
     ScanCenter::~ScanCenter()
     {
-        working = false;
+        working.store(false, std::memory_order_relaxed);
 
         // 等待输入任务全部完成
         std::unique_lock ul(queueLock);
@@ -90,7 +90,7 @@ namespace HYDRA15::Union::secretary
     {
         try
         {
-            while (working)
+            while (working.load(std::memory_order_relaxed))
             {
                 {
                     std::unique_lock ul(queueLock);

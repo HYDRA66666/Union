@@ -126,6 +126,9 @@
     <ClInclude Include="lockless_queue.h">
       <Filter>labourer</Filter>
     </ClInclude>
+    <ClInclude Include="basic_blockable_queue.h">
+      <Filter>labourer</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="assistant_exception.cpp">
@@ -157,9 +160,6 @@
     </ClCompile>
     <ClCompile Include="progress.cpp">
       <Filter>secretary</Filter>
-    </ClCompile>
-    <ClCompile Include="ThreadLake.cpp">
-      <Filter>labourer</Filter>
     </ClCompile>
     <ClCompile Include="secretary_exception.cpp">
       <Filter>exceptions</Filter>

@@ -147,6 +147,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="basic_blockable_queue.h" />
     <ClInclude Include="lockless_queue.h" />
     <ClInclude Include="sfstream.h" />
     <ClInclude Include="byteswap.h" />
@@ -206,7 +207,6 @@
     <ClCompile Include="progress.cpp" />
     <ClCompile Include="ScanCenter.cpp" />
     <ClCompile Include="secretary_exception.cpp" />
-    <ClCompile Include="ThreadLake.cpp" />
     <ClCompile Include="utilities.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

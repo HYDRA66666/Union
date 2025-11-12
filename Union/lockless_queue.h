@@ -23,6 +23,7 @@ namespace HYDRA15::Union::labourer
         alignas(64) std::unique_ptr<cell[]> buffer = std::make_unique<cell[]>(bufSize);
         alignas(64) std::atomic<size_t> pNextEnque = 0;
         alignas(64) std::atomic<size_t> pNextDeque = 0;
+        std::atomic_bool working = true;
 
     public:
         lockless_queue();
@@ -39,8 +40,10 @@ namespace HYDRA15::Union::labourer
         bool try_push(U&&);
         std::pair<bool, T> try_pop();
 
+        // 信息和控制
         size_t size() const;
-        size_t is_empty() const;
+        size_t empty() const;
+        void notify_exit();
     };
 
 
@@ -56,7 +59,7 @@ namespace HYDRA15::Union::labourer
         requires framework::is_really_same_v<T, U>
     inline void lockless_queue<T, bufSize>::push(U&& item)
     {
-        while (true)
+        while (working.load(std::memory_order_relaxed))
         {
             for (size_t i = 0; i < retryTimesBeforeYield; i++)
                 if (try_push(std::forward<U>(item)))
@@ -68,13 +71,14 @@ namespace HYDRA15::Union::labourer
     template<typename T, size_t bufSize>
     inline T lockless_queue<T, bufSize>::pop()
     {
-        while (true)
+        while (working.load(std::memory_order_relaxed))
         {
             for (size_t i = 0; i < retryTimesBeforeYield; i++)
                 if (auto [success, item] = try_pop(); success)
                     return item;
             std::this_thread::yield();
         }
+        return T{};
     }
 
     template<typename T, size_t bufSize>
@@ -104,7 +108,7 @@ namespace HYDRA15::Union::labourer
             return { false,T{} };
         T item = std::move(buffer[p].data);
         buffer[p].seqNo.store(seq + bufSize, std::memory_order_release);
-        return { true,item };
+        return { true,std::move(item) };
     }
 
     template<typename T, size_t bufSize>
@@ -116,8 +120,14 @@ namespace HYDRA15::Union::labourer
     }
 
     template<typename T, size_t bufSize>
-    inline size_t lockless_queue<T, bufSize>::is_empty() const
+    inline size_t lockless_queue<T, bufSize>::empty() const
     {
         return size() == 0;
+    }
+
+    template<typename T, size_t bufSize>
+    inline void lockless_queue<T, bufSize>::notify_exit()
+    {
+        working.store(false, std::memory_order_relaxed);
     }
 }

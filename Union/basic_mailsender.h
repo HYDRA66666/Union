@@ -23,7 +23,7 @@ namespace HYDRA15::Union::expressman
         std::shared_mutex smt;
         std::condition_variable_any cv;
         std::chrono::microseconds queryInterval = std::chrono::microseconds(1000);
-        bool working;
+        std::atomic_bool working;
 
     public:
         basic_mailsender() = delete;
@@ -38,7 +38,7 @@ namespace HYDRA15::Union::expressman
         }
         basic_mailsender(const basic_mailsender&) = delete;
         basic_mailsender(basic_mailsender&&) = delete;
-        virtual ~basic_mailsender() { working = false; cv.notify_all(); wait_for_end(); }
+        virtual ~basic_mailsender() { working.store(false, std::memory_order_relaxed); cv.notify_all(); wait_for_end(); }
 
         virtual unsigned int post(const std::shared_ptr<const postable<A>>& pkg) override
         {
@@ -59,11 +59,11 @@ namespace HYDRA15::Union::expressman
         {
             // 第一层 map 为 类名->数据包列表 的映射，第二层 map 为 序列号->数据包列表 的映射
             std::unordered_map<std::string, std::unordered_map<packet::uint, std::list<packet>>> cache;
-            while (working)
+            while (working.load(std::memory_order_relaxed))
             {
                 std::shared_lock slk(smt);
                 cv.wait_for(slk, queryInterval);
-                while ((pEmployer.expired() || !pFactory ) && working)
+                while ((pEmployer.expired() || !pFactory ) && working.load(std::memory_order_relaxed))
                     cv.wait(slk);
 
                 // 接收数据

@@ -5,119 +5,186 @@
 #include "background.h"
 #include "labourer_exception.h"
 #include "concepts.h"
+#include "basic_blockable_queue.h"
 
 
 namespace HYDRA15::Union::labourer
 {
-    // 线程池
-    class ThreadLake :public background
+    using mission = std::pair<std::function<void()>, std::function<void()>>;
+
+    // 线程池传入的模板参数为可阻塞、线程安全的队列类型，其调度行为由队列类型确定
+    // 当析构时，正在执行的任务会继续执行完成，队列中剩余的任务会被丢弃
+    template<template<typename ...> typename Q>
+        requires requires(Q<mission> q, mission pkg) 
+            { 
+                { q.push(pkg) };                            // 应当是阻塞式
+                { q.pop() }-> std::convertible_to<mission>; // 应当是阻塞式
+                { q.notify_exit() };                        // 用于结束时使用，通知等待线程应该退出
+            }
+    class thread_lake : public background
     {
-        // 任务和任务包定义
-    public:
-        struct package
-        {
-            std::function<void()> content;
-            std::function<void()> callback;	// 任务完成后的回调
-        };
+    private:
+        Q<mission> queue;
 
     private:
-        // 回调函数壳
-        template<typename ret_type>
-        void callback_shell(std::function<void(ret_type)> callback, std::shared_future<ret_type> sfut)
-        {
-            try { callback(sfut.get()); }
-            catch (...) { return; }
-        }
-
-        //任务队列
-    private:
-        std::queue <package> taskQueue; //任务队列
-        const size_t tskQueMaxSize = 0; //任务队列最大大小，0表示无限制
-        std::mutex queueMutex;
-        std::condition_variable queueCv;
-
         //后台任务
-    private:
-        bool working = false;
+        std::atomic_bool working = true;
         virtual void work(background::thread_info& info) override;
 
-        //接口
     public:
-        ThreadLake(unsigned int threadCount, size_t tskQueMaxSize = std::numeric_limits<size_t>::max());
-        ThreadLake() = delete;
-        ThreadLake(const ThreadLake&) = delete;
-        ThreadLake(ThreadLake&&) = delete;
-        virtual ~ThreadLake();
+        thread_lake() = delete;
+        thread_lake(const thread_lake&) = delete;
+        thread_lake(thread_lake&&) = delete;
+        thread_lake(unsigned int threadCount);
+        ~thread_lake();
 
-        //提交任务
-        // 方法1：提交任务函数 std::function 和回调函数 std::function，推荐使用此方法
-        template<typename ret_type>
-        auto submit(const std::function<ret_type()>& content, const std::function<void(ret_type)>& callback = std::function<void(ret_type)>())
-            -> std::shared_future<ret_type>
-        {
-            if (!content)
-                throw exceptions::labourer::EmptyTask();
 
-            auto pkgedTask = std::make_shared<std::packaged_task<ret_type()>>(content);
-            auto sfut = pkgedTask->get_future().share();
+        // 提交任务接口
+        // 基本方法：提交任务包
+        void submit(const mission&);
 
-            // 插入任务包
-            {
-                std::lock_guard<std::mutex> lock(queueMutex);
-                if (taskQueue.size() >= tskQueMaxSize) // 队列已满
-                    throw exceptions::labourer::TaskQueueFull();
-                taskQueue.push(
-                    {
-                        std::function<void()>([pkgedTask] { (*pkgedTask)(); }),
-                        callback ? [sfut, callback]() {callback(sfut.get()); } : std::function<void()>{}
-                    }
-                );
-                queueCv.notify_one();
-            }
+        // 提交任务函数和回调函数
+        template<typename ret>
+        auto submit(
+            const std::function<ret()>& task,
+            const std::function<void(std::expected<ret, std::exception_ptr>)>& callback = std::function<void(std::expected<ret, std::exception_ptr>)>()
+        ) -> std::shared_future<std::expected<ret, std::exception_ptr>>;
 
-            return sfut;
-        }
-
-        // 方法1特化的无返回值版本
-        std::future<void> submit(const std::function<void()>& content, const std::function<void()>& callback = std::function<void()>{});
-
-        //方法2：直接提交任务包
-        void submit(const package& taskPkg);
-
-        // 方法3：提交裸函数指针和参数，不建议使用此方法，仅留做备用
+        // 提交函数和参数，此方法不支持回调
         template<typename F, typename ... Args>
-            requires std::invocable<F, Args...>
-        auto submit(F&& f, Args &&...args)
-            -> std::future<std::invoke_result_t<F, Args...>>
-        {
-            using return_type = typename std::invoke_result<F, Args...>::type;
+            requires std::invocable<F,Args...>
+        auto submit(F&& f, Args&& ... args) 
+            -> std::shared_future<std::expected<std::invoke_result_t<F, Args...>, std::exception_ptr>>;
 
-            auto pkgedTask =
-                std::make_shared<std::packaged_task<return_type()>>(
-                    std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-                );
-
-            // 插入任务包
-            {
-                std::lock_guard<std::mutex> lock(queueMutex);
-                if (taskQueue.size() >= tskQueMaxSize) // 队列已满
-                    throw exceptions::labourer::TaskQueueFull();
-
-                taskQueue.push(
-                    {
-                        std::function<void()>([pkgedTask] { (*pkgedTask)(); }),
-                        std::function<void()>()
-                    }
-                );
-                queueCv.notify_one();
-            }
-
-            return pkgedTask->get_future();
-        }
-
-        // 迭代器访问每一个线程信息
-        using background::iterator;
-        using background::begin;
-        using background::end;
     };
+
+    using ThreadLake = thread_lake<basic_blockable_queue>;
+
+
+
+    template<template<typename ...> typename Q>
+        requires requires(Q<mission> q, mission pkg)
+    {
+        { q.push(pkg) };
+        { q.pop() }-> std::convertible_to<mission>;
+        { q.notify_exit() };    // 用于结束时使用，通知等待线程应该退出
+    }
+    inline void thread_lake<Q>::work(background::thread_info& info)
+    {
+        mission mis;
+        info.thread_state = background::thread_info::state::idle;
+
+        while (working.load(std::memory_order_relaxed))
+        {
+            // 取任务
+            info.thread_state = background::thread_info::state::waiting;
+            mis = queue.pop();
+
+            // 执行任务
+            info.thread_state = background::thread_info::state::working;
+            info.workStartTime = std::chrono::steady_clock::now();
+            try
+            {
+                if (mis.first) mis.first();
+                if (mis.second)mis.second();
+            }
+            catch (...) {}
+        }
+    }
+
+    template<template<typename ...> typename Q>
+        requires requires(Q<mission> q, mission pkg)
+    {
+        { q.push(pkg) };
+        { q.pop() }-> std::convertible_to<mission>;
+        { q.notify_exit() };    // 用于结束时使用，通知等待线程应该退出
+    }
+    inline thread_lake<Q>::thread_lake(unsigned int threadCount)
+        :background(threadCount)
+    {
+        background::start();
+    }
+
+    template<template<typename ...> typename Q>
+        requires requires(Q<mission> q, mission pkg)
+    {
+        { q.push(pkg) };
+        { q.pop() }-> std::convertible_to<mission>;
+        { q.notify_exit() };    // 用于结束时使用，通知等待线程应该退出
+    }
+    inline thread_lake<Q>::~thread_lake()
+    {
+        working.store(false, std::memory_order_relaxed);
+        queue.notify_exit();
+        std::atomic_thread_fence(std::memory_order_release);
+        background::wait_for_end();
+    }
+
+    template<template<typename ...> typename Q>
+        requires requires(Q<mission> q, mission pkg)
+    {
+        { q.push(pkg) };
+        { q.pop() }-> std::convertible_to<mission>;
+        { q.notify_exit() };    // 用于结束时使用，通知等待线程应该退出
+    }
+    inline void thread_lake<Q>::submit(const mission& mis)
+    {
+        queue.push(mis);
+    }
+
+    template<template<typename ...> typename Q>
+        requires requires(Q<mission> q, mission pkg)
+    {
+        { q.push(pkg) };
+        { q.pop() }-> std::convertible_to<mission>;
+        { q.notify_exit() };    // 用于结束时使用，通知等待线程应该退出
+    }
+    template<typename ret>
+    auto thread_lake<Q>::submit(
+        const std::function<ret()>& task,
+        const std::function<void(std::expected<ret, std::exception_ptr>)>& callback
+    ) -> std::shared_future<std::expected<ret, std::exception_ptr>>
+    {
+        auto ppkgedTask = std::make_shared<std::packaged_task<std::expected<ret, std::exception_ptr>()>>(
+            [task]() -> std::expected<ret, std::exception_ptr> {
+                try { 
+                    if constexpr (std::is_void_v<ret>) { task(); return {}; }
+                    else return task();
+                }
+                catch (...) { return std::unexpected(std::current_exception()); }
+            }
+        );
+        auto sft = ppkgedTask->get_future().share();
+        auto ppkgedCallback = std::make_shared<std::packaged_task<void()>>(
+            [callback, sft]()->void {
+                try { if (callback)callback(sft.get()); }
+                catch (...) { return; }
+            }
+        );
+        
+        submit(std::move(mission{
+            [p = std::move(ppkgedTask)]() {(*p)(); },
+            [p = std::move(ppkgedCallback)]() {(*p)(); }
+            }));
+
+        return sft;
+    }
+
+    template<template<typename ...> typename Q>
+        requires requires(Q<mission> q, mission pkg)
+    {
+        { q.push(pkg) };
+        { q.pop() }-> std::convertible_to<mission>;
+        { q.notify_exit() };    // 用于结束时使用，通知等待线程应该退出
+    }
+    template<typename F, typename ...Args>
+        requires std::invocable<F, Args...>
+    inline auto thread_lake<Q>::submit(F&& f, Args&& ...args) 
+        -> std::shared_future<std::expected<std::invoke_result_t<F, Args ...>, std::exception_ptr>>
+    {
+        using ret = std::invoke_result_t<F, Args...>;
+        return submit<ret>(
+            std::function<ret()>(std::bind(std::forward<F>(f), std::forward<Args>(args)...))
+        );
+    }
 }
