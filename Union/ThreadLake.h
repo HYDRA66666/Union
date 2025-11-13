@@ -5,7 +5,7 @@
 #include "background.h"
 #include "labourer_exception.h"
 #include "concepts.h"
-#include "basic_blockable_queue.h"
+#include "shared_container.h"
 
 
 namespace HYDRA15::Union::labourer
@@ -154,9 +154,7 @@ namespace HYDRA15::Union::labourer
         const std::function<void(std::shared_future<ret>)>& callback
     ) -> std::shared_future<ret>
     {
-        auto ppkgedTask = std::make_shared<std::packaged_task<ret()>>(
-            [task]()->ret {if (task)return task(); }
-        );
+        auto ppkgedTask = std::make_shared<std::packaged_task<ret()>>(task);
         auto sft = ppkgedTask->get_future().share();
         auto ppkgedCallback = std::make_shared<std::packaged_task<void()>>(
             [callback, sft]() {if (callback)callback(sft); }

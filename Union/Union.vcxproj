@@ -147,9 +147,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="basic_blockable_queue.h" />
-    <ClInclude Include="lockless_queue.h" />
-    <ClInclude Include="sfstream.h" />
     <ClInclude Include="byteswap.h" />
     <ClInclude Include="archivist_exception.h" />
     <ClInclude Include="archivist_interfaces.h" />
@@ -161,6 +158,8 @@
     <ClInclude Include="basic_mailsender.h" />
     <ClInclude Include="files.h" />
     <ClInclude Include="iExceptionManager.h" />
+    <ClInclude Include="iMutexies.h" />
+    <ClInclude Include="shared_container.h" />
     <ClInclude Include="string_utilities.h" />
     <ClInclude Include="secretary_streambuf.h" />
     <ClInclude Include="concepts.h" />
@@ -178,7 +177,6 @@
     <ClInclude Include="progress.h" />
     <ClInclude Include="ScanCenter.h" />
     <ClInclude Include="secretary_exception.h" />
-    <ClInclude Include="shared_container_base.h" />
     <ClInclude Include="ThreadLake.h" />
     <ClInclude Include="utilities.h" />
   </ItemGroup>

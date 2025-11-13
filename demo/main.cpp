@@ -1,6 +1,6 @@
 ﻿#include "pch.h"
 
-#include "Union/lockless_queue.h"
+#include "Union/shared_container.h"
 #include "Union/ThreadLake.h"
 
 using namespace  HYDRA15::Union::labourer;
@@ -8,8 +8,8 @@ using namespace  HYDRA15::Union::labourer;
 template<typename T>
 using lockless = lockless_queue<T, 1024 * 1024>;
 
-//thread_lake<lockless> thrlake(4);
-ThreadLake thrlake(4);
+thread_lake<lockless> thrlake(4);
+//ThreadLake thrlake(4);
 std::atomic<size_t> submitCounter;
 std::atomic<size_t> workCounter;
 
@@ -29,7 +29,7 @@ void submit_work()
 
 int main()
 {
-    for (size_t i = 0; i < 4; i++)
+    for (size_t i = 0; i < 32; i++)
         std::thread(submit_work).detach();
 
     auto lastRefresh = std::chrono::steady_clock::now();

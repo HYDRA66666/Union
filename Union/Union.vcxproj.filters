@@ -81,9 +81,6 @@
     <ClInclude Include="secretary_exception.h">
       <Filter>exceptions</Filter>
     </ClInclude>
-    <ClInclude Include="shared_container_base.h">
-      <Filter>labourer</Filter>
-    </ClInclude>
     <ClInclude Include="utilities.h">
       <Filter>assistant</Filter>
     </ClInclude>
@@ -117,16 +114,13 @@
     <ClInclude Include="byteswap.h">
       <Filter>assistant</Filter>
     </ClInclude>
-    <ClInclude Include="sfstream.h">
-      <Filter>archivist</Filter>
-    </ClInclude>
     <ClInclude Include="files.h">
       <Filter>assistant</Filter>
     </ClInclude>
-    <ClInclude Include="lockless_queue.h">
+    <ClInclude Include="shared_container.h">
       <Filter>labourer</Filter>
     </ClInclude>
-    <ClInclude Include="basic_blockable_queue.h">
+    <ClInclude Include="iMutexies.h">
       <Filter>labourer</Filter>
     </ClInclude>
   </ItemGroup>

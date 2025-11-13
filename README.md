@@ -38,8 +38,8 @@
 
 如你所见，这是一个线程池。    
 创建时需要指定后台工作的线程数，而后你便可使用多种方法提交任务。    
-根据提交的方式不同，每次提交任务都将返回一个``std::shared_future``或一个``std::future``
-对象，你可以从中获取任务的返回值，任务所抛出的异常也会在获取返回值时重新抛出。    
+每次提交任务都将返回一个``std::shared_future``对象，你可以从中获取任务的返回值，
+任务所抛出的异常也会在获取返回值时重新抛出。    
 通过特别的提交接口，你可以注册任务执行完成后执行的回调函数。    
 可以通过迭代器接口访问每一个线程的``labourer::background::thread_info``
 结构，用于监控每个线程的健康状态。
@@ -75,50 +75,6 @@ int main()
 }
 
 ```
-
-### wirte_first_mutex
-
-写优先的锁。   
-标准库的``std::shared_mutex``无法处理读多写少的情况，
-写线程很容易被大量读线程永远挡在门外。``wirte_first_mutex``支持在有
-写线程等待时，禁止新的读线程继续上锁，只有没有写线程等待时读线程才可自由上锁。    
-与``std::shared_mutex``类似，``wirte_first_mutex``拥有``lock()``
-和``lock_shared()``两种上锁接口。使用前者上锁将视为写线程，
-使用后者则会被视为读线程。
-你可以和使用``std::shared_mutex``一样使用本锁。
-
-用法示例：    
-实现了一个字典类，提供了查字典与添加字典条目的接口
-```cpp
-using namespace HYDRA15::Union;
-
-class dictionary
-{
-private:
-    std::unordered_map<std::string, std::string> dict;
-    labourer::write_first_mutex mtx;
-
-public:
-    void modify(std::string key, std::string value)
-    {
-        std::unique_lock ul(mtx);   // 使用 lock guard 类来管理锁周期，unique_lock 为写锁
-        dict[key] = value;
-    }
-
-    std::string lookup(std::string key)
-    {
-        std::shared_lock sl(mtx);   // shared_lock 为读锁
-        return dict.at(key);
-    }
-}
-
-```
-
-### shared_container_base
-
-一个线程安全的容的模板类，使用其接口调用容器接口时会按照需要自动上锁。    
-> 由于过度包装，其使用极其复杂，此处不做过多介绍，
-> 具体的使用方法在源码注释中有介绍
 
 ## secretary
 

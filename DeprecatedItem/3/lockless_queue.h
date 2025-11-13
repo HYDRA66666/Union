@@ -108,7 +108,7 @@ namespace HYDRA15::Union::labourer
             return { false,T{} };
         T item = std::move(buffer[p].data);
         buffer[p].seqNo.store(seq + bufSize, std::memory_order_release);
-        return { true,std::move(item) };
+        return { true,item };
     }
 
     template<typename T, size_t bufSize>
