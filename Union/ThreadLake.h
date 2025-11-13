@@ -48,14 +48,14 @@ namespace HYDRA15::Union::labourer
         template<typename ret>
         auto submit(
             const std::function<ret()>& task,
-            const std::function<void(std::expected<ret, std::exception_ptr>)>& callback = std::function<void(std::expected<ret, std::exception_ptr>)>()
-        ) -> std::shared_future<std::expected<ret, std::exception_ptr>>;
+            const std::function<void(std::shared_future<ret>)>& callback = std::function<void(std::shared_future<ret>)>()
+        ) -> std::shared_future<ret>;
 
         // 提交函数和参数，此方法不支持回调
         template<typename F, typename ... Args>
             requires std::invocable<F,Args...>
         auto submit(F&& f, Args&& ... args) 
-            -> std::shared_future<std::expected<std::invoke_result_t<F, Args...>, std::exception_ptr>>;
+            -> std::shared_future<std::invoke_result_t<F, Args...>>;
 
 
         size_t waiting() const; // 等待中的任务数
@@ -151,24 +151,15 @@ namespace HYDRA15::Union::labourer
     template<typename ret>
     auto thread_lake<Q>::submit(
         const std::function<ret()>& task,
-        const std::function<void(std::expected<ret, std::exception_ptr>)>& callback
-    ) -> std::shared_future<std::expected<ret, std::exception_ptr>>
+        const std::function<void(std::shared_future<ret>)>& callback
+    ) -> std::shared_future<ret>
     {
-        auto ppkgedTask = std::make_shared<std::packaged_task<std::expected<ret, std::exception_ptr>()>>(
-            [task]() -> std::expected<ret, std::exception_ptr> {
-                try { 
-                    if constexpr (std::is_void_v<ret>) { task(); return {}; }
-                    else return task();
-                }
-                catch (...) { return std::unexpected(std::current_exception()); }
-            }
+        auto ppkgedTask = std::make_shared<std::packaged_task<ret()>>(
+            [task]()->ret {if (task)return task(); }
         );
         auto sft = ppkgedTask->get_future().share();
         auto ppkgedCallback = std::make_shared<std::packaged_task<void()>>(
-            [callback, sft]()->void {
-                try { if (callback)callback(sft.get()); }
-                catch (...) { return; }
-            }
+            [callback, sft]() {if (callback)callback(sft); }
         );
         
         submit(std::move(mission{
@@ -190,7 +181,7 @@ namespace HYDRA15::Union::labourer
     template<typename F, typename ...Args>
         requires std::invocable<F, Args...>
     inline auto thread_lake<Q>::submit(F&& f, Args&& ...args) 
-        -> std::shared_future<std::expected<std::invoke_result_t<F, Args ...>, std::exception_ptr>>
+        -> std::shared_future<std::invoke_result_t<F, Args ...>>
     {
         using ret = std::invoke_result_t<F, Args...>;
         return submit<ret>(
