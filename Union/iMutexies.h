@@ -8,7 +8,7 @@ namespace HYDRA15::Union::labourer
     // 性能测试：
     //                           debug       release
     //  无锁（纯 std::atomic）4450w tps     6360w tps
-    //  std::mutex             480w tps      670w tps
+    //  std::shared_mutex      480w tps      670w tps
     //  atomic_shared_mutex    920w tps     1470w tps
     template<size_t retreatFreq = 32>
     class atomic_shared_mutex
