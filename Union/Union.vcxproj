@@ -159,7 +159,7 @@
     <ClInclude Include="files.h" />
     <ClInclude Include="iExceptionManager.h" />
     <ClInclude Include="iMutexies.h" />
-    <ClInclude Include="shared_container.h" />
+    <ClInclude Include="shared_containers.h" />
     <ClInclude Include="string_utilities.h" />
     <ClInclude Include="secretary_streambuf.h" />
     <ClInclude Include="concepts.h" />
