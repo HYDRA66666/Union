@@ -4,7 +4,7 @@
 
 #include "concepts.h"
 #include "expressman_exception.h"
-#include "utility.h"
+#include "utilities.h"
 
 namespace HYDRA15::Union::expressman
 {
@@ -28,7 +28,6 @@ namespace HYDRA15::Union::expressman
 // 数据区集中排布在末尾，因此可以放弃传输尾部没有有效数据的部分
     struct packet
     {
-        using byte = uint8_t;
         using uint = uint16_t;
         static constexpr size_t maxClassNameSize = 88;
         static constexpr size_t maxFrameDataSize = 4000;
@@ -48,7 +47,7 @@ namespace HYDRA15::Union::expressman
     class packable
     {
     public:
-        using datablock = std::vector<packet::byte>;
+        using datablock = std::vector<byte>;
         using datablocks = std::list<datablock>;
         using class_name_array = std::array<char, packet::maxClassNameSize>;
         using objects = std::list<std::shared_ptr<packable>>;

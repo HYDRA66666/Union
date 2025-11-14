@@ -16,19 +16,39 @@ namespace HYDRA15::Union::assistant
 
         // 构造和析构
     public:
-        datetime();
-        datetime(time_t t);
+        datetime() :stamp(std::time(NULL)){}
+        datetime(time_t t) :stamp(t){}
         datetime(const datetime&) = default;
         datetime& operator=(const datetime&) = default;
         ~datetime() = default;
 
         // 输出
     public:
-        std::string date_time(std::string format = "%Y-%m-%d %H:%M:%S", int timeZone = localTimeZone) const;
+        std::string date_time(
+            std::string format = "%Y-%m-%d %H:%M:%S",
+            int timeZone = localTimeZone
+        ) const {
+            if (timeZone < -12 || timeZone > 14)
+                throw exceptions::assistant::DateTimeInvalidTimeZone();
+
+            time_t localStamp = stamp + timeZone * 3600;
+            tm local;
+            gmtime_s(&local, &localStamp);
+            std::string str;
+            str.resize(format.size() * 2 + 20, '\0');
+            size_t len = strftime(str.data(), str.size(), format.data(), &local);
+            str.resize(len);
+            return str;
+        }
 
         // 静态工具函数
     public:
-        static datetime now();
-        static std::string now_date_time(std::string format = "%Y-%m-%d %H:%M:%S", int timeZone = localTimeZone);
+        static datetime now(){ return datetime(); }
+        static std::string now_date_time(
+            std::string format = "%Y-%m-%d %H:%M:%S", 
+            int timeZone = localTimeZone
+        ){
+            return datetime().date_time(format, timeZone);
+        }
     };
 }

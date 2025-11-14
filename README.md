@@ -16,8 +16,13 @@
 
 本库全部内容都在 ``HYDRA15::Union`` 命名空间下，
 每个模块单独拥有自己的命名空间，模块命名空间和模块名相同。    
-以下文档分模块简要介绍本库内容，并给出使用示例，
-详细的使用方式请阅读源代码及其中的注释。
+本库 release 文件仅提供 x64-windows 版本，其他平台请自行编译。    
+
+要使用本库：    
+1. 包含 Union 目录下你想要的头文件，或者直接包含单头文件 Union.h
+1. 链接对应版本的静态库 Union.lib
+
+以下文档分模块简要介绍本库内容，并给出使用示例，详细的使用方式请阅读源代码及其中的注释。
 
 ## labourer
 
@@ -38,8 +43,8 @@
 
 如你所见，这是一个线程池。    
 创建时需要指定后台工作的线程数，而后你便可使用多种方法提交任务。    
-根据提交的方式不同，每次提交任务都将返回一个``std::shared_future``或一个``std::future``
-对象，你可以从中获取任务的返回值，任务所抛出的异常也会在获取返回值时重新抛出。    
+每次提交任务都将返回一个``std::future``对象，你可以从中获取任务的返回值，
+任务所抛出的异常也会在获取返回值时重新抛出。    
 通过特别的提交接口，你可以注册任务执行完成后执行的回调函数。    
 可以通过迭代器接口访问每一个线程的``labourer::background::thread_info``
 结构，用于监控每个线程的健康状态。
@@ -76,49 +81,26 @@ int main()
 
 ```
 
-### wirte_first_mutex
+ThreadLake 被定义成三个层级：    
+1. mission_base & thread_pool：定义任务接口和线程池，此层级仅实现了线程池基本行为，即提交（任务基类）和后台执行任务。
+1. lake_mission & thread_lake：定义了任务的包装类和线程池的常规提交接口，此层级完全实现了线程池的基本功能。
+1. ThreadLake：其被指定为使用基本阻塞队列的 thread_lake ，用于拆箱即用。
+后续开发中，如果涉及任务调度相关的内容，可以通过定义不同的队列类型、任务类型和自定义提交接口来实现。
 
-写优先的锁。   
-标准库的``std::shared_mutex``无法处理读多写少的情况，
-写线程很容易被大量读线程永远挡在门外。``wirte_first_mutex``支持在有
-写线程等待时，禁止新的读线程继续上锁，只有没有写线程等待时读线程才可自由上锁。    
-与``std::shared_mutex``类似，``wirte_first_mutex``拥有``lock()``
-和``lock_shared()``两种上锁接口。使用前者上锁将视为写线程，
-使用后者则会被视为读线程。
-你可以和使用``std::shared_mutex``一样使用本锁。
+### shared_containers 各种共享容器模板
 
-用法示例：    
-实现了一个字典类，提供了查字典与添加字典条目的接口
-```cpp
-using namespace HYDRA15::Union;
+此模块包含一些可多线程访问的容器模板，它们包含不同的行为
 
-class dictionary
-{
-private:
-    std::unordered_map<std::string, std::string> dict;
-    labourer::write_first_mutex mtx;
+``basic_blockable_queue``: 使用 std::queue std::mutex std::conditional_variable 实现的可阻塞队列。
+只提供了多线程互斥、空队列等待等基本功能，基本没有优化。程序结束时，可以使用 ``notify_exit()`` 
+通知等待的线程退出。    
+``lockless_queue``: 采用定长环形缓冲区、序号标记实现的无锁队列，提供线程安全、空队列等待等基本功能，
+以及 ``notify_exit()`` 接口。无锁队列拥有比基本可阻塞队列有更好的性能。    
 
-public:
-    void modify(std::string key, std::string value)
-    {
-        std::unique_lock ul(mtx);   // 使用 lock guard 类来管理锁周期，unique_lock 为写锁
-        dict[key] = value;
-    }
+### iMutexies 各种互斥锁
 
-    std::string lookup(std::string key)
-    {
-        std::shared_lock sl(mtx);   // shared_lock 为读锁
-        return dict.at(key);
-    }
-}
-
-```
-
-### shared_container_base
-
-一个线程安全的容的模板类，使用其接口调用容器接口时会按照需要自动上锁。    
-> 由于过度包装，其使用极其复杂，此处不做过多介绍，
-> 具体的使用方法在源码注释中有介绍
+``atomic_shared_mutex``: 使用原子变量实现的轻量读写锁，调度策略倾向于写优先。通常情况下比 std::shared_mutex
+有更好的性能，但是由于采用了固定退避频率的自旋等待策略，因此有忙等问题。
 
 ## secretary
 
@@ -187,9 +169,8 @@ int main()
 log 是一个静态类，用于生成格式化的日志字符串。    
 日志分为 info、warn、error、fatal、debug、trace 六个等级，分别用不同的颜色标识。日志内容包含 日期和时间、
 等级、标题和内容四个部分，其中日期和时间在生成日志时由系统生成，等级由调用的接口决定，标题和内容由用户输入。    
-> log使用 ansi 转义串来控制内容的颜色，这要求控制台必须支持 ansi 转义。如果不想使用此特性，可以使用
-> ``std::string assistant::strip_ansi_color(const std::string& str)`` 函数来去除所有的颜色信息，
-> 此函数被包含于 ``assistant`` 模块中。
+> log使用 ansi 转义串来控制内容的颜色，这要求控制台必须支持 ansi 转义。如果不想使用此特性，可以将 ``bool log::colorful``
+> 设置为 false 来关闭颜色。
 
 logger 通常在模块内部为模块发布日志提供帮助，其在创建时存储传入的 标题 字段，并自动将此字段添加至每一个
 日志中。你可以使用 ``assistant::logger lgr = UNION_CREATE_LOGGER()`` 来自动捕获创建 logger 时的函数名。
@@ -249,9 +230,20 @@ std::string info(const std::string& title, const std::string& content)
 
 ```
 
-### utilities
+### utilities & string_utilities_
 
 包含丰富的工具函数，详情请参阅源码。
+
+### byteswap
+
+包装的标准库字节序转换函数，提供 指定字节序 -> 本机字节序 和 本机字节序 -> 指定字节序 的转换函数，
+转换行为在编译期确定。    
+
+### files
+
+提供一些经过包装的 fstream 对象，拥有更便捷的调用接口。
+
+``bfstream``: 提供 std::vector 版本的字节读写接口，以及任意平凡类型的 std::vector<T> 版本的读写接口
 
 ## expressman
 
@@ -280,6 +272,17 @@ basic_mailrouter 用于转发对象，转发规则需要事先向其注册；bas
 ## referee
 
 提供了一组异常信息存储的标准。    
+
+### iExceptionManager
+
+提供了异常处理相关的工具。
+
+异常包装器：    
+使用``try...catch``块包装指定的函数，保护程序在执行时不会因为未处理的异常而崩溃。
+异常包装器返回 ``std::expected<ret_type, std::exception_ptr>`` 对象，可以从其中获取返回值或者异常信息。    
+不同的包装器提供了不同的行为：``warp`` 是最基础的包装器，不提供任何额外行为；``warp_c``会在失败时调用指定的
+回调函数；``warp_r``会重复尝试指定的次数，如果仍失败则将导致最后一次失败的异常放入 std::expected 中并返回；
+``warp_rc``结合了 warp_r 和 warp_c 的行为。
 
 ### iExceptionBase
 

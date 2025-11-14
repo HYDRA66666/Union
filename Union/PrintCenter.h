@@ -5,7 +5,7 @@
 #include "secretary_exception.h"
 #include "background.h"
 #include "datetime.h"
-#include "utility.h"
+#include "string_utilities.h"
 #include "secretary_streambuf.h"
 
 namespace HYDRA15::Union::secretary
@@ -13,7 +13,7 @@ namespace HYDRA15::Union::secretary
     // 统一输出接口
     // 提供滚动消息、底部消息和写入文件三种输出方式
     // 提交消息之后，调用 notify() 方法通知后台线程处理，这在连续提交消息时可以解约开销
-    class PrintCenter final :labourer::background
+    class PrintCenter final :protected labourer::background
     {
         /***************************** 快速接口 *****************************/
     public:
@@ -93,7 +93,7 @@ namespace HYDRA15::Union::secretary
         std::atomic<bool> working = true;
         std::atomic<bool> forceRefresh = false;
         time_point lastRefresh = time_point::clock::now();
-        virtual void work(background::thread_info&) override;
+        virtual void work(background::thread_info&) noexcept override;
 
         // 高级接口
     public:

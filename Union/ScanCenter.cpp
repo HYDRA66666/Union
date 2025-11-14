@@ -1,4 +1,5 @@
-﻿#include "ScanCenter.h"
+﻿#include "pch.h"
+#include "ScanCenter.h"
 
 namespace HYDRA15::Union::secretary
 {
@@ -65,7 +66,7 @@ namespace HYDRA15::Union::secretary
 
     ScanCenter::~ScanCenter()
     {
-        working = false;
+        working.store(false, std::memory_order_release);
 
         // 等待输入任务全部完成
         std::unique_lock ul(queueLock);
@@ -85,11 +86,11 @@ namespace HYDRA15::Union::secretary
         return *instance;
     }
 
-    void ScanCenter::work(thread_info& info)
+    void ScanCenter::work(thread_info& info) noexcept
     {
         try
         {
-            while (working)
+            while (working.load(std::memory_order_acquire))
             {
                 {
                     std::unique_lock ul(queueLock);

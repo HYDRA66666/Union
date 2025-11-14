@@ -1,154 +1,14 @@
-﻿#include "pch.h"
-#include "utility.h"
+﻿#pragma once
+#include "pch.h"
+#include "framework.h"
+
+#include "assistant_exception.h"
+#include "string_utilities.h"
 
 namespace HYDRA15::Union::assistant
 {
-    std::string operator*(std::string str, size_t count) {
-        std::string result;
-        result.reserve(str.size() * count);
-        for (size_t i = 0; i < count; ++i) {
-            result += str;
-        }
-        return result;
-    }
-
-    std::string strip_front(const std::string& str, std::function<bool(char)> is_valid)
-    {
-        std::string res = str;
-        size_t pos = 0;
-        while (pos < res.size())
-        {
-            if (is_valid(res[pos]))
-                break;
-            pos++;
-        }
-        res.erase(0, pos);
-        return res;
-    }
-
-    std::string strip_back(const std::string& str, std::function<bool(char)> is_valid)
-    {
-        std::string res = str;
-        size_t pos = res.size() - 1;
-        while (pos > 0)
-        {
-            if (is_valid(res[pos]))
-                break;
-            pos--;
-        }
-        res.erase(pos + 1);
-        return res;
-    }
-
-    std::string strip(const std::string& str, std::function<bool(char)> is_valid)
-    {
-        return strip_back(strip_front(str, is_valid), is_valid);
-    }
-
-    std::string strip_all(const std::string& str, std::function<bool(char)> is_valid)
-    {
-        std::string res;
-        res.reserve(str.size());
-
-        for (char c : str)
-            if (is_valid(c))
-                res.push_back(c);
-
-        res.shrink_to_fit();
-        return res; 
-    }
-
-    std::string strip_color(const std::string& str)
-    {
-        std::string res;
-        res.reserve(str.size());
-
-        for (size_t i = 0; i < str.size(); i++)
-        {
-            if (str[i] == '\033' && i + 1 < str.size() && str[i + 1] == '[') // 发现 ANSI 转义序列起始
-            {
-                // 查找 'm' 结尾
-                size_t j = i + 2;
-                while (j < str.size() && str[j] != 'm')
-                    j++;
-                if (j < str.size() && str[j] == 'm') {
-                    // 找到完整的 ANSI 颜色代码，跳过整个序列 (从 \033 到 m)
-                    i = j;
-                    continue;
-                }
-            }
-            // 将可保留的字符复制到 res 中
-            res.push_back(str[i]);
-        }
-
-        return res;
-    }
-
-    std::string strip_ansi_secquence(const std::string& str)
-    {
-        if (str.empty())return std::string();
-
-        auto is_charactor = [](char c) {return (c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A); };
-
-        std::string res;
-        res.reserve(str.size());
-
-        size_t fast = 0, slow = 0;
-
-        while (slow < str.size())
-        {
-            fast = str.find('\x1b', fast);
-            if (fast == str.npos)fast = str.size();
-            res.append(str.substr(slow, fast));
-            for (; fast < str.size(); fast++)
-                if (is_charactor(str[fast]))
-                    break;
-            slow = ++fast;
-        }
-
-        return res;
-    }
-
-    void check_content(const std::string& str, std::function<bool(char)> is_valid)
-    {
-        for (const auto& c : str)
-            if (!is_valid(c))
-                throw exceptions::assistant::UtilityInvalidChar();
-    }
-
-    std::list<std::string> split_by(const std::string& str, const std::string& delimiter)
-    {
-        auto slow = str.cbegin();
-        auto fast = str.cbegin();
-        std::list<std::string> res;
-
-        while (fast != str.cend())
-        {
-            fast = std::search(slow, str.cend(), delimiter.cbegin(), delimiter.cend());
-            res.emplace_back(slow, fast);
-            if (fast != str.cend())
-                fast += delimiter.size();
-            slow = fast;
-        }
-        return res;
-    }
-
-    std::list<std::string> split_by(const std::string& str, const std::list<std::string>& deliniters)
-    {
-        std::list<std::string> res = { str };
-
-        for (const auto& deliniter : deliniters)
-        {
-            std::list<std::string> strs;
-            strs.swap(res);
-            for (const auto& str : strs)
-                res.splice(res.end(), split_by(str, deliniter));
-        }
-
-        return res;
-    }
-
-    std::string hex_heap(const unsigned char* pBegin, unsigned int size, const std::string& title, unsigned int preLine)
+    // 输出十六进制的原始数据和对应的ascii字符
+    inline std::string hex_heap(const unsigned char* pBegin, unsigned int size, const std::string& title = "Hex Heap", unsigned int preLine = 32)
     {
         std::string str = std::format("   -------- {} --------   \n", title);
         str.reserve((preLine * 0x4 + 0x20) * (size / preLine + 1) + 0x100 + title.size());
@@ -194,9 +54,27 @@ namespace HYDRA15::Union::assistant
         return str;
     }
 
-    std::unordered_map<std::string, std::string> parse_propreties(const std::string& ppts)
+    // 将字节转换为十六进制（高效版）
+    inline std::string byte_to_hex(const unsigned char* pBegin, unsigned int size)
     {
+        static char lut[16] = { '0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F' };
 
+        std::string res;
+        res.reserve(2LL * size);
+        for (const unsigned char* p = pBegin; p < pBegin + size; p++)
+        {
+            res.push_back(lut[(*p) & 0xF]);
+            res.push_back(lut[((*p) >> 4)]);
+        }
+
+        return res;
+    }
+    
+
+    // 解析 propreties 文件
+    // 强制要求键值分隔符为 = ，unicode字符保持原样，
+    inline std::unordered_map<std::string, std::string> parse_propreties(const std::string& ppts)
+    {
         // 预处理：去除所有的空格，处理转义字符
         std::string content;
         content.reserve(ppts.size());
@@ -286,5 +164,72 @@ namespace HYDRA15::Union::assistant
 
         return res;
     }
-    
+
+    // 解析 csv 文件
+    // 支持引号不分割，但是不删除引号
+    inline std::list<std::list<std::string>> parse_csv(const std::string& csv)
+    {
+        std::list<std::list<std::string>> res;
+
+        std::list<std::string> lines = split_by(csv, "\n");
+        for (const auto& line : lines)
+        {
+            std::list<std::string> entries = split_by(line, ",");
+            auto ientry = entries.begin();
+            while (ientry != entries.end()) // 处理引号不分割
+            {
+                if (strip(*ientry).front() = '"')
+                {
+                    auto next = ientry;
+                    next++;
+                    while (next != entries.end() && strip(*next).back() != '"')
+                    {
+                        (*ientry).append(*next);
+                        next = entries.erase(next);
+                    }
+                    if (next != entries.end())
+                        (*ientry).append(*next);
+                }
+                ientry++;
+            }
+            res.push_back(entries);
+        }
+
+        return res;
+    }
+
+
+    // 内存拷贝
+    template<typename T>
+    void memcpy(const T* src, T* dest, size_t size)
+    {
+        for (size_t i = 0; i < size; i++)
+            dest[i] = src[i];
+    }
+
+    // 内存设置
+    template<typename T>
+    void memset(T* dest, const T& src, size_t size)
+    {
+        for (size_t i = 0; i < size; i++)
+            dest[i] = src;
+    }
+
+
+
+    // 打印多个参数到控制台
+    template<typename ... Args>
+    std::ostream& print(Args ... args)
+    {
+        return (std::cout << ... << args);
+    }
+
+
+    // 计算不小于某数的倍数
+    inline size_t multiple_m_not_less_than_n(size_t m, size_t n)
+    {
+        if (m == 0) return 0;
+        return ((n + m - 1) / m) * m;
+    }
+
 }

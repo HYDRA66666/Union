@@ -2,122 +2,146 @@
 #include "pch.h"
 #include "framework.h"
 
-#include "Background.h"
+#include "background.h"
 #include "labourer_exception.h"
 #include "concepts.h"
+#include "shared_containers.h"
 
 
 namespace HYDRA15::Union::labourer
 {
+    /***************************** 线程池基础 *****************************/
+    // 预留任务调度策略的改造空间
 
-    // 线程池
-    class ThreadLake :background
+    // 定义任务工作的接口，任务细节存储在派生类中
+    class mission_base
     {
-        // 任务和任务包定义
     public:
-        struct package
-        {
-            std::function<void()> content;
-            std::function<void()> callback;	// 任务完成后的回调
-        };
+        virtual ~mission_base() = default;
 
+        virtual void task() noexcept = 0;
+    };
+    using mission = std::unique_ptr<mission_base>;
+
+    // 定义线程池的基本行为：提交任务、线程执行任务
+    template<typename queue_t>
+        requires requires(queue_t q, mission pkg)
+    {
+        { q.push(pkg) };                            // 应当是阻塞式
+        { q.pop() }-> std::convertible_to<mission>; // 应当是阻塞式
+        { q.empty() }->std::convertible_to<bool>;
+        { q.notify_exit() };                        // 用于结束时使用，通知等待线程应该退出
+    }
+    class thread_pool : public background
+    {
+    protected: // 数据
+        queue_t queue;
     private:
-        // 回调函数壳
-        template<typename ret_type>
-        void callback_shell(std::function<void(ret_type)> callback, std::shared_future<ret_type> sfut)
+        std::atomic_bool working = true;
+
+    private: // 后台任务
+        virtual void work(background::thread_info& info) noexcept override
         {
-            try { callback(sfut.get()); }
-            catch (...) { return; }
-        }
-
-        //任务队列
-    private:
-        std::queue <package> taskQueue; //任务队列
-        const size_t tskQueMaxSize = 0; //任务队列最大大小，0表示无限制
-        std::mutex queueMutex;
-        std::condition_variable queueCv;
-
-        //后台任务
-    private:
-        bool working = false;
-        virtual void work(background::thread_info& info) override;
-
-        //接口
-    public:
-        ThreadLake(unsigned int threadCount, size_t tskQueMaxSize = 0);
-        ThreadLake() = delete;
-        ThreadLake(const ThreadLake&) = delete;
-        ThreadLake(ThreadLake&&) = delete;
-        virtual ~ThreadLake();
-
-        //提交任务
-        // 方法1：提交任务函数 std::function 和回调函数 std::function，推荐使用此方法
-        template<typename ret_type>
-        auto submit(const std::function<ret_type()>& content, const std::function<void(ret_type)>& callback = std::function<void(ret_type)>())
-            -> std::shared_future<ret_type>
-        {
-            if (!content)
-                throw exceptions::labourer::EmptyTask();
-
-            auto pkgedTask = std::make_shared<std::packaged_task<ret_type()>>(content);
-            auto sfut = pkgedTask->get_future().share();
-
-            // 插入任务包
+            mission mis;
+            info.thread_state = background::thread_info::state::idle;
+            while (working.load(std::memory_order_acquire) || !queue.empty())
             {
-                std::lock_guard<std::mutex> lock(queueMutex);
-                if (tskQueMaxSize != 0 && taskQueue.size() >= tskQueMaxSize) // 队列已满
-                    throw exceptions::labourer::TaskQueueFull();
-                taskQueue.push(
-                    {
-                        std::function<void()>([pkgedTask] { (*pkgedTask)(); }),
-                        callback ? [sfut, callback]() {callback(sfut.get()); } : std::function<void()>{}
-                    }
-                );
-                queueCv.notify_one();
+                // 取任务
+                info.thread_state = background::thread_info::state::waiting;
+                mis = queue.pop();
+                // 执行任务
+                info.thread_state = background::thread_info::state::working;
+                info.workStartTime = std::chrono::steady_clock::now();
+                mis->task();
             }
-
-            return sfut;
         }
 
-        // 方法1特化的无返回值版本
-        std::future<void> submit(const std::function<void()>& content, const std::function<void()>& callback = std::function<void()>{});
+    public: // 提交接口
+        void submit(mission&& mis) { queue.push(std::move(mis)); }
 
-        //方法2：直接提交任务包
-        void submit(const package& taskPkg);
-
-        // 方法3：提交裸函数指针和参数，不建议使用此方法，仅留做备用
-        template<typename F, typename ... Args>
-        auto submit(F&& f, Args &&...args)
-            -> std::future<std::invoke_result_t<F, Args...>>
+    public: // 构造
+        thread_pool() = delete;
+        thread_pool(const thread_pool&) = delete;
+        thread_pool(thread_pool&&) = delete;
+        thread_pool(unsigned int threadCount) :background(threadCount) { background::start(); }
+        virtual ~thread_pool()
         {
-            using return_type = typename std::invoke_result<F, Args...>::type;
-
-            auto pkgedTask =
-                std::make_shared<std::packaged_task<return_type()>>(
-                    std::bind(std::forward<F>(f), std::forward<Args>(args)...)
-                );
-
-            // 插入任务包
-            {
-                std::lock_guard<std::mutex> lock(queueMutex);
-                if (tskQueMaxSize != 0 && taskQueue.size() >= tskQueMaxSize) // 队列已满
-                    throw exceptions::labourer::TaskQueueFull();
-
-                taskQueue.push(
-                    {
-                        std::function<void()>([pkgedTask] { (*pkgedTask)(); }),
-                        std::function<void()>()
-                    }
-                );
-                queueCv.notify_one();
-            }
-
-            return pkgedTask->get_future();
+            working.store(false, std::memory_order_release);
+            queue.notify_exit();
+            background::wait_for_end();
         }
 
-        // 迭代器访问每一个线程信息
+    public: // 管理接口
+        size_t waiting() const { return queue.size(); }
         using background::iterator;
         using background::begin;
         using background::end;
     };
+
+    /***************************** 基本线程池实现 *****************************/
+    // 专用于 ThreadLake 的任务实现
+    template<typename ret>
+    class lake_mission : public mission_base
+    {
+        std::function<ret()> tsk;
+        std::function<void(const ret&)> cb;
+        std::promise<ret> prms;
+    public:
+        virtual ~lake_mission() = default;
+        lake_mission(const std::function<ret()>& task, const std::function<void(const ret&)>& callback)
+            :tsk(task), cb(callback) {
+        }
+
+        virtual void task() noexcept override
+        {
+            try
+            {
+                if (!tsk)return;
+                if constexpr (std::is_void_v<ret>) { tsk(); if (cb)cb(); prms.set_value(); }
+                else { 
+                    ret t = tsk(); if (cb)cb(t); 
+                    if constexpr (std::is_move_constructible_v<ret>)prms.set_value(std::move(t));
+                    else prms.set_value(t);
+                }
+                return;
+            }
+            catch (...) { prms.set_exception(std::current_exception()); }
+        }
+
+        std::future<ret> get_future() { return prms.get_future(); }
+    };
+
+
+    template<template<typename ...> typename queue_t>
+    class thread_lake : public thread_pool<queue_t<mission>>
+    {
+    public: // 构造
+        virtual ~thread_lake() = default;
+        thread_lake(unsigned int threadCount) :thread_pool<queue_t<mission>>(threadCount) {}
+    public: // 提交任务和回调函数
+        template<typename ret>
+        auto submit(
+            const std::function<ret()>& task,
+            const std::function<void(const ret&)>& callback = std::function<void(const ret&)>()
+        ) -> std::future<ret> {
+            auto pmis = std::make_unique<lake_mission<ret>>(task, callback);
+            auto fut = pmis->get_future();
+            thread_pool<queue_t<mission>>::submit(std::move(pmis));
+            return fut;
+        }
+
+        // 提交函数和参数，此方法不支持回调
+        template<typename F, typename ... Args>
+        requires std::invocable<F,Args...>
+        auto submit(F&& f, Args&& ... args)
+            -> std::future<std::invoke_result_t<F, Args...>> 
+        {
+            using ret = std::invoke_result_t<F, Args...>;
+            return submit<ret>(
+                std::function<ret()>(std::bind(std::forward<F>(f), std::forward<Args>(args)...))
+            );
+        }
+    };
+
+    using ThreadLake = thread_lake<basic_blockable_queue>;
 }

@@ -81,10 +81,7 @@
     <ClInclude Include="secretary_exception.h">
       <Filter>exceptions</Filter>
     </ClInclude>
-    <ClInclude Include="shared_container_base.h">
-      <Filter>labourer</Filter>
-    </ClInclude>
-    <ClInclude Include="utility.h">
+    <ClInclude Include="utilities.h">
       <Filter>assistant</Filter>
     </ClInclude>
     <ClInclude Include="astring.h">
@@ -99,11 +96,32 @@
     <ClInclude Include="secretary_streambuf.h">
       <Filter>secretary</Filter>
     </ClInclude>
-    <ClInclude Include="write_first_mutex.h">
-      <Filter>labourer</Filter>
-    </ClInclude>
     <ClInclude Include="factory.h">
       <Filter>expressman</Filter>
+    </ClInclude>
+    <ClInclude Include="archivist_interfaces.h">
+      <Filter>archivist</Filter>
+    </ClInclude>
+    <ClInclude Include="iExceptionManager.h">
+      <Filter>referee</Filter>
+    </ClInclude>
+    <ClInclude Include="archivist_exception.h">
+      <Filter>exceptions</Filter>
+    </ClInclude>
+    <ClInclude Include="string_utilities.h">
+      <Filter>assistant</Filter>
+    </ClInclude>
+    <ClInclude Include="byteswap.h">
+      <Filter>assistant</Filter>
+    </ClInclude>
+    <ClInclude Include="files.h">
+      <Filter>assistant</Filter>
+    </ClInclude>
+    <ClInclude Include="shared_containers.h">
+      <Filter>labourer</Filter>
+    </ClInclude>
+    <ClInclude Include="iMutexies.h">
+      <Filter>labourer</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -112,9 +130,6 @@
     </ClCompile>
     <ClCompile Include="background.cpp">
       <Filter>labourer</Filter>
-    </ClCompile>
-    <ClCompile Include="datetime.cpp">
-      <Filter>assistant</Filter>
     </ClCompile>
     <ClCompile Include="expressman_exception.cpp">
       <Filter>exceptions</Filter>
@@ -137,17 +152,8 @@
     <ClCompile Include="progress.cpp">
       <Filter>secretary</Filter>
     </ClCompile>
-    <ClCompile Include="ThreadLake.cpp">
-      <Filter>labourer</Filter>
-    </ClCompile>
     <ClCompile Include="secretary_exception.cpp">
       <Filter>exceptions</Filter>
-    </ClCompile>
-    <ClCompile Include="utility.cpp">
-      <Filter>assistant</Filter>
-    </ClCompile>
-    <ClCompile Include="astring.cpp">
-      <Filter>framework</Filter>
     </ClCompile>
     <ClCompile Include="logger.cpp">
       <Filter>secretary</Filter>
@@ -158,11 +164,12 @@
     <ClCompile Include="secretary_streambuf.cpp">
       <Filter>secretary</Filter>
     </ClCompile>
-    <ClCompile Include="write_first_mutex.cpp">
-      <Filter>labourer</Filter>
-    </ClCompile>
     <ClCompile Include="factory.cpp">
       <Filter>expressman</Filter>
     </ClCompile>
+    <ClCompile Include="archivist_exception.cpp">
+      <Filter>exceptions</Filter>
+    </ClCompile>
+    <ClCompile Include="..\pch\pch.cpp" />
   </ItemGroup>
 </Project>

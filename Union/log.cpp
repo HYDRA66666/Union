@@ -7,12 +7,21 @@ namespace HYDRA15::Union::secretary
 #define logging(Type)                                                               \
     std::string log::Type(const std::string& title, const std::string& content)     \
     {                                                                               \
-        std::string str = std::format(                                              \
-            vslz.Type.data(),                                                       \
-            assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S"),                \
-            title,                                                                  \
-            content                                                                 \
-        );                                                                          \
+        std::string str;                                                            \
+        if(colourful)                                                               \
+            str = std::format(                                                      \
+                vslzclr.Type.data(),                                                \
+                assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S"),            \
+                title,                                                              \
+                content                                                             \
+            );                                                                      \
+        else                                                                        \
+            str = std::format(                                                      \
+                vslz.Type.data(),                                                   \
+                assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S"),            \
+                title,                                                              \
+                content                                                             \
+            );                                                                      \
         if(print)                                                                   \
             print(str);                                                             \
         return str;                                                                 \
@@ -27,12 +36,21 @@ namespace HYDRA15::Union::secretary
 
     std::string log::debug(const std::string& title, const std::string& content)
     {
-        std::string str = std::format(
-            vslz.debug.data(),
-            assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S"),
-            title,
-            content
-        );
+        std::string str;
+        if (colourful)
+            str = std::format(
+                vslzclr.debug.data(),
+                assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S"),
+                title,
+                content
+            );
+        else
+            str = std::format(
+                vslz.debug.data(),
+                assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S"),
+                title,
+                content
+            );
         if (enableDebug && print)
             print(str);
         return str;
@@ -40,12 +58,21 @@ namespace HYDRA15::Union::secretary
 
     std::string log::trace(const std::string& title, const std::string& content)
     {
-        std::string str = std::format(
-            vslz.trace.data(),
-            assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S"),
-            title,
-            content
-        );
+        std::string str;
+        if (colourful)
+            str = std::format(
+                vslzclr.trace.data(),
+                assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S"),
+                title,
+                content
+            );
+        else
+            str = std::format(
+                vslz.trace.data(),
+                assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S"),
+                title,
+                content
+            );
         if (enableDebug && print)
             print(str);
         return str;

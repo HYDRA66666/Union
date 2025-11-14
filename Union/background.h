@@ -54,18 +54,18 @@ namespace HYDRA15::Union::labourer
         std::list<thread_ctrlblk> threads; // 异步线程组
         void work_shell(thread_info& info); // 封装了启动与结束同步的工作函数
 
-    public:
-        virtual void work(thread_info& info) = 0;  // 重写此方法以异步执行
+    protected:
+        virtual void work(thread_info& info) noexcept = 0;  // 重写此方法以异步执行
 
         // 启动同步和结束同步
-    public:
+    protected:
         void start();
         void wait_for_end();
 
         // 构造函数，参数为异步线程数量，默认为1
-    public:
+    protected:
         background(unsigned int bkgThrCount);
-        background(background&&) = delete;
+        background(background&&) = default;
         background();
         virtual ~background();
         background(const background&) = delete;

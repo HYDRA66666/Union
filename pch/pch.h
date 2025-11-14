@@ -4,9 +4,11 @@
 // 但是，如果此处列出的文件中的任何一个在生成之间有更新，它们全部都将被重新编译。
 // 请勿在此处添加要频繁更新的文件，这将使得性能优势无效。
 
-#ifndef PCH_H
-#define PCH_H
 
+#define WIN32_LEAN_AND_MEAN             // 从 Windows 头文件中排除极少使用的内容
+
+
+#pragma once
 // 添加要在此处预编译的标头
 // 
 // 标准库
@@ -39,7 +41,10 @@
 #include <coroutine>
 #include <generator>
 #include <map>
-//#include <print>
+#include <expected>
+#include <filesystem>
+#include <bit>
+#include <numeric>
+#include <unordered_set>
+#include <cstdio>
 
-
-#endif //PCH_H

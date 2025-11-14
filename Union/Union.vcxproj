@@ -111,6 +111,8 @@
       <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -131,6 +133,8 @@
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -143,13 +147,20 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="byteswap.h" />
+    <ClInclude Include="archivist_exception.h" />
+    <ClInclude Include="archivist_interfaces.h" />
     <ClInclude Include="assistant_exception.h" />
     <ClInclude Include="astring.h" />
     <ClInclude Include="background.h" />
     <ClInclude Include="basic_mailbox.h" />
     <ClInclude Include="basic_mailrouter.h" />
     <ClInclude Include="basic_mailsender.h" />
-    <ClInclude Include="write_first_mutex.h" />
+    <ClInclude Include="files.h" />
+    <ClInclude Include="iExceptionManager.h" />
+    <ClInclude Include="iMutexies.h" />
+    <ClInclude Include="shared_containers.h" />
+    <ClInclude Include="string_utilities.h" />
     <ClInclude Include="secretary_streambuf.h" />
     <ClInclude Include="concepts.h" />
     <ClInclude Include="datetime.h" />
@@ -166,17 +177,20 @@
     <ClInclude Include="progress.h" />
     <ClInclude Include="ScanCenter.h" />
     <ClInclude Include="secretary_exception.h" />
-    <ClInclude Include="shared_container_base.h" />
     <ClInclude Include="ThreadLake.h" />
-    <ClInclude Include="utility.h" />
+    <ClInclude Include="utilities.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\pch\pch.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="archivist_exception.cpp" />
     <ClCompile Include="assistant_exception.cpp" />
-    <ClCompile Include="astring.cpp" />
     <ClCompile Include="background.cpp" />
-    <ClCompile Include="write_first_mutex.cpp" />
     <ClCompile Include="secretary_streambuf.cpp" />
-    <ClCompile Include="datetime.cpp" />
     <ClCompile Include="expressman_exception.cpp" />
     <ClCompile Include="expressman_interfaces.cpp" />
     <ClCompile Include="factory.cpp" />
@@ -188,8 +202,6 @@
     <ClCompile Include="progress.cpp" />
     <ClCompile Include="ScanCenter.cpp" />
     <ClCompile Include="secretary_exception.cpp" />
-    <ClCompile Include="ThreadLake.cpp" />
-    <ClCompile Include="utility.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

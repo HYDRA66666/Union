@@ -17,10 +17,9 @@ EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "demo", "demo\demo.vcxproj", "{D414F72C-B2B2-49E5-B889-0E0FC50F8301}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "releasetools", "releasetools", "{F3E47D0A-039F-4345-99E7-706045586A94}"
-EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "scripts", "scripts", "{93AC4372-737F-45FB-8BE6-83FE004F954A}"
 	ProjectSection(SolutionItems) = preProject
-		releasetools\scripts\merge_headers.py = releasetools\scripts\merge_headers.py
+		releasetools\hexdump.html = releasetools\hexdump.html
+		releasetools\merge_headers.py = releasetools\merge_headers.py
 	EndProjectSection
 EndProject
 Global
@@ -58,9 +57,6 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
-		{93AC4372-737F-45FB-8BE6-83FE004F954A} = {F3E47D0A-039F-4345-99E7-706045586A94}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {05C8EAF8-77C2-4AEF-BDB7-D0454D783843}

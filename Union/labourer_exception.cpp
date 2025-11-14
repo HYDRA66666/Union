@@ -11,24 +11,9 @@ namespace HYDRA15::Union::exceptions
     labourer labourer::make_exception(const referee::iException_code& exptCode) noexcept
     {
         return labourer(
-            vslz.thrdLakeExpt.data(),
+            vslz.labourer.data(),
             exptCode
         );
     }
 
-    labourer labourer::TaskQueueFull() noexcept
-    {
-        return labourer(
-            vslz.thrdLakeQueueFull.data(),
-            iExptCodes.threadQueueFull
-        );
-    }
-
-    labourer labourer::EmptyTask() noexcept
-    {
-        return labourer(
-            vslz.thrdLakeEmptyTask.data(),
-            iExptCodes.emptyTask
-        );
-    }
 }

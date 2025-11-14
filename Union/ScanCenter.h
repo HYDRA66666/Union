@@ -4,7 +4,6 @@
 
 #include "secretary_exception.h"
 #include "background.h"
-#include "utility.h"
 #include "PrintCenter.h"
 #include "logger.h"
 
@@ -46,7 +45,7 @@ namespace HYDRA15::Union::secretary
         // 后台线程
     private:
         std::atomic<bool> working = true;
-        virtual void work(thread_info& info) override;
+        virtual void work(thread_info& info) noexcept override;
 
     private:    
         // 用于重定向输入
