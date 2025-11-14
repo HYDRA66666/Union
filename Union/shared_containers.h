@@ -32,9 +32,18 @@ namespace HYDRA15::Union::labourer
             std::unique_lock ul{ mtx };
             while (working.load(std::memory_order_relaxed) && queue.empty())cv.wait(ul);
             if (!working.load(std::memory_order_relaxed))return T{};
-            T t = std::move(queue.front());
-            queue.pop();
-            return t;
+            if constexpr (std::is_move_constructible_v<T>)
+            {
+                T t = std::move(queue.front());
+                queue.pop();
+                return std::move(t);
+            }
+            else
+            {
+                T t = queue.front();
+                queue.pop();
+                return t;
+            }
         }
 
         size_t size() const { return queue.size(); }
@@ -95,7 +104,8 @@ namespace HYDRA15::Union::labourer
             {
                 for (size_t i = 0; i < retreatFreq; i++)
                     if (auto [success, item] = try_pop(); success)
-                        return item;
+                        if constexpr (std::is_move_constructible_v<T>) return std::move(item);
+                        else return item;
                 if (retreatFreq > 1)retreatFreq /= 2;
                 std::this_thread::yield();
             }
@@ -125,9 +135,19 @@ namespace HYDRA15::Union::labourer
                 return { false,T{} };
             if (!pNextDeque.compare_exchange_strong(seq, seq + 1, std::memory_order_relaxed))
                 return { false,T{} };
-            T item = std::move(buffer[p].data);
-            buffer[p].seqNo.store(seq + bufSize, std::memory_order_release);
-            return { true,item };
+            if constexpr (std::is_move_constructible_v<T>)
+            {
+                T item = std::move(buffer[p].data);
+                buffer[p].seqNo.store(seq + bufSize, std::memory_order_release);
+                return { true, std::move(item) };
+            }
+            else
+            {
+                T item = buffer[p].data;
+                buffer[p].seqNo.store(seq + bufSize, std::memory_order_release);
+                return { true,item };
+            }
+
         }
 
 
