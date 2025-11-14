@@ -18,6 +18,7 @@ except ImportError:
 # 全局参数
 mainRoot = ''
 roots = []
+output = ""
 antiCollisionMarcoDefine = False
 
 # 全局变量
@@ -94,13 +95,16 @@ class header:
                             if phyPath not in headers:  # 列表中没有该头文件，则添加
                                 headers.append(header(phyPath,header.header_type.rely))
                             self.includeLineTobeDelete.append(fullLine)
+                            idx = headers.index(phyPath)
+                            headers[idx].relied_by(self)
+                            self.rely_on(headers[idx])
                         else:
                             if relPath not in headers:  # 列表中没有，则添加
                                 headers.append(header(relPath,header.header_type.missing))
                             print(f'警告：未找到头文件：{relPath}，在文件 {self.nameWithPath} 中第 {line_num} 行：{fullLine}')
-                        idx = headers.index(phyPath)
-                        headers[idx].relied_by(self)
-                        self.rely_on(headers[idx])
+                            idx = headers.index(relPath)
+                            headers[idx].relied_by(self)
+                            self.rely_on(headers[idx])
         except Exception as e:
             print(f'警告：无法打开文件{self.nameWithPath}: {e}')
 
@@ -196,8 +200,10 @@ def wirte_dot_file(dotPath):
 
 
 def upper_marco_for_header(headerFullPath):
-    return '_' + os.path.basename(os.path.dirname(headerFullPath)).replace('.','_').upper() + '_' + os.path.basename(headerFullPath).replace('.','_').upper() + '_'
-
+    res = '_HYDRA15_' + os.path.basename(os.path.dirname(headerFullPath)).replace('.','_').upper() + '_'
+    if os.path.isfile(headerFullPath):
+        res = res + os.path.basename(headerFullPath).replace('.','_').upper() + '_'
+    return res
 
 def generate_header_file(output):
     global sortedHeaders
@@ -206,6 +212,8 @@ def generate_header_file(output):
         f.write('#pragma once\n')
         f.write(f'#ifndef {upper_marco_for_header(mainRoot)}\n#define {upper_marco_for_header(mainRoot)}\n')
         for h in sortedHeaders:
+            if not (h.type == header.header_type.main or h.type == header.header_type.rely):
+                continue
             content = f'\n\n\n/*************** 合并自 {os.path.basename(h.nameWithPath)} ***************/\n'
             content += f'#ifndef {upper_marco_for_header(h.nameWithPath)}\n#define {upper_marco_for_header(h.nameWithPath)}\n'
             with open(h.nameWithPath,'r',encoding='utf-8-sig') as s:
@@ -220,7 +228,7 @@ def generate_header_file(output):
             if debug:
                 print(f'已将文件 {h.nameWithPath} 添加到合并结果中')
         f.write('#endif')
-    print(f'已完成合并，共合并 {len(sortedHeaders)} 个文件')
+    print(f'已完成合并，共合并 {len([i for i in sortedHeaders if (i.type == header.header_type.main or i.type == header.header_type.rely)])} 个文件')
 
 
 
@@ -236,6 +244,7 @@ def main():
 
     global mainRoot
     global roots
+    global output
     global antiCollisionMarcoDefine
     mainRoot = os.path.abspath(args.main_root.replace('\\','/'))
     if args.root:
