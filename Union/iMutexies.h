@@ -11,7 +11,7 @@ namespace HYDRA15::Union::labourer
     //  std::shared_mutex      480w tps      670w tps
     //  atomic_shared_mutex    920w tps     1470w tps
     template<size_t retreatFreq = 32>
-    class atomic_shared_mutex
+    class atomic_shared_mutex_temp
     {
     private:
         std::atomic_bool writer = false;
@@ -26,7 +26,7 @@ namespace HYDRA15::Union::labourer
                 bool expected = false;
                 if (writer.compare_exchange_weak(
                     expected, true,
-                    std::memory_order_acquire, std::memory_order_acquire
+                    std::memory_order_acq_rel, std::memory_order_relaxed
                 ))break;
                 i++;
                 if (i >= retreatFreq)std::this_thread::yield();
@@ -44,7 +44,7 @@ namespace HYDRA15::Union::labourer
             bool expected = false;
             if (!writer.compare_exchange_weak(
                 expected, true,
-                std::memory_order_acquire, std::memory_order_acquire
+                std::memory_order_release, std::memory_order_relaxed
             ))return false;
             if (!readers.load(std::memory_order_acquire) == 0) 
             { 
@@ -62,7 +62,7 @@ namespace HYDRA15::Union::labourer
                 if (!writer.load(std::memory_order_acquire))
                 {
                     readers.fetch_add(1, std::memory_order_acquire);
-                    if (!writer.load(std::memory_order_acquire))return;
+                    if (!writer.load(std::memory_order_release))return;
                     readers.fetch_add(-1, std::memory_order_release);
                 }
                 i++;
@@ -75,11 +75,13 @@ namespace HYDRA15::Union::labourer
             if (!writer.load(std::memory_order_acquire))
             {
                 readers.fetch_add(1, std::memory_order_acquire);
-                if (!writer.load(std::memory_order_acquire))return true;
+                if (!writer.load(std::memory_order_release))return true;
                 readers.fetch_add(-1, std::memory_order_release);
             }
             return false;
         }
     };
+
+    using atomic_shared_mutex = atomic_shared_mutex_temp<>;
 
 }

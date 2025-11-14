@@ -20,7 +20,7 @@ namespace HYDRA15::Union::labourer
             requires framework::is_really_same_v<T, U>
         void push(U&& item)
         {
-            if (!working.load(std::memory_order_relaxed))return;
+            if (!working.load(std::memory_order_acquire))return;
             std::unique_lock ul{ mtx };
             queue.push(std::forward<U>(item));
             cv.notify_one();
@@ -30,8 +30,8 @@ namespace HYDRA15::Union::labourer
         T pop()
         {
             std::unique_lock ul{ mtx };
-            while (working.load(std::memory_order_relaxed) && queue.empty())cv.wait(ul);
-            if (!working.load(std::memory_order_relaxed))return T{};
+            while (working.load(std::memory_order_acquire) && queue.empty())cv.wait(ul);
+            if (!working.load(std::memory_order_acquire))return T{};
             if constexpr (std::is_move_constructible_v<T>)
             {
                 T t = std::move(queue.front());
@@ -51,7 +51,7 @@ namespace HYDRA15::Union::labourer
 
         void notify_exit()
         {
-            working.store(false, std::memory_order_relaxed);
+            working.store(false, std::memory_order_release);
             cv.notify_all();
         }
 
@@ -66,7 +66,7 @@ namespace HYDRA15::Union::labourer
     //                           debug       release
     //  std::queue + std::mutex 20w tps     100w tps
     //  lockless_queue<1M>     250w tps     300w tps
-    template<typename T, size_t bufSize, size_t maxRetreatFreq = 1024>
+    template<typename T, size_t bufSize, size_t maxRetreatFreq = 32>
     class lockless_queue
     {
         struct cell { std::atomic<size_t> seqNo{}; T data{}; };
@@ -87,7 +87,7 @@ namespace HYDRA15::Union::labourer
         void push(U&& item)
         {
             size_t retreatFreq = maxRetreatFreq;
-            while (working.load(std::memory_order_relaxed))
+            while (working.load(std::memory_order_acquire))
             {
                 for (size_t i = 0; i < retreatFreq; i++)
                     if (try_push(std::forward<U>(item)))
@@ -100,7 +100,7 @@ namespace HYDRA15::Union::labourer
         T pop()
         {
             size_t retreatFreq = maxRetreatFreq;
-            while (working.load(std::memory_order_relaxed))
+            while (working.load(std::memory_order_acquire))
             {
                 for (size_t i = 0; i < retreatFreq; i++)
                     if (auto [success, item] = try_pop(); success)
@@ -150,7 +150,6 @@ namespace HYDRA15::Union::labourer
 
         }
 
-
         // 信息和控制
         size_t size() const
         {
@@ -159,9 +158,13 @@ namespace HYDRA15::Union::labourer
             return (enq >= deq) ? (enq - deq) : std::numeric_limits<size_t>::max() - deq + enq;
         }
 
-        size_t empty() const { return size() == 0; }
+        size_t empty() const 
+        {  
+            return pNextDeque.load(std::memory_order_acquire) ==
+                pNextEnque.load(std::memory_order_acquire);
+        }
 
-        void notify_exit() { working.store(false, std::memory_order_relaxed); }
+        void notify_exit() { working.store(false, std::memory_order_release); }
 
     };
 }

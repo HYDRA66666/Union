@@ -55,7 +55,7 @@ namespace HYDRA15::Union::labourer
         void work_shell(thread_info& info); // 封装了启动与结束同步的工作函数
 
     protected:
-        virtual void work(thread_info& info) = 0;  // 重写此方法以异步执行
+        virtual void work(thread_info& info) noexcept = 0;  // 重写此方法以异步执行
 
         // 启动同步和结束同步
     protected:
@@ -65,7 +65,7 @@ namespace HYDRA15::Union::labourer
         // 构造函数，参数为异步线程数量，默认为1
     protected:
         background(unsigned int bkgThrCount);
-        background(background&&) = delete;
+        background(background&&) = default;
         background();
         virtual ~background();
         background(const background&) = delete;

@@ -87,7 +87,7 @@ namespace HYDRA15::Union::secretary
 
     PrintCenter::~PrintCenter()
     {
-        working.store(false, std::memory_order_relaxed);
+        working.store(false, std::memory_order_release);
         sleepcv.notify_all();
         wait_for_end();
 
@@ -206,7 +206,7 @@ namespace HYDRA15::Union::secretary
     void PrintCenter::work(background::thread_info&)
     {
         while (
-            working.load(std::memory_order_relaxed) || // 工作中
+            working.load(std::memory_order_acquire) || // 工作中
             ((!pRollMsgLstBack->empty() || !pRollMsgLstFront->empty()) && print) || // 滚动消息不为空且可打印
             (btmMsgTab.size() > 0 && print) || // 底部消息不为空且可打印
             ((!pFMsgLstBack->empty() || !pFMsgLstFront->empty()) && printFile) // 文件消息不为空且可打印
@@ -216,7 +216,7 @@ namespace HYDRA15::Union::secretary
 
             // 无工作，等待
             while (
-                working.load(std::memory_order_relaxed) && // 工作中
+                working.load(std::memory_order_acquire) && // 工作中
                 ((pRollMsgLstFront->empty() && pRollMsgLstBack->empty()) || !print) && // 滚动消息为空
                 ((pFMsgLstBack->empty() && pFMsgLstFront->empty()) || !printFile) && // 文件消息为空
                 (time_point::clock::now() - lastRefresh < cfg.refreshInterval) && // 未到刷新时间

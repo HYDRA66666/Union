@@ -29,7 +29,7 @@ namespace HYDRA15::Union::labourer
     {
         { q.push(pkg) };                            // 应当是阻塞式
         { q.pop() }-> std::convertible_to<mission>; // 应当是阻塞式
-        { q.size() }->std::convertible_to<size_t>;
+        { q.empty() }->std::convertible_to<bool>;
         { q.notify_exit() };                        // 用于结束时使用，通知等待线程应该退出
     }
     class thread_pool : public background
@@ -40,11 +40,11 @@ namespace HYDRA15::Union::labourer
         std::atomic_bool working = true;
 
     private: // 后台任务
-        virtual void work(background::thread_info& info) override
+        virtual void work(background::thread_info& info) noexcept override
         {
             mission mis;
             info.thread_state = background::thread_info::state::idle;
-            while (working.load(std::memory_order_relaxed))
+            while (working.load(std::memory_order_acquire) || !queue.empty())
             {
                 // 取任务
                 info.thread_state = background::thread_info::state::waiting;
@@ -66,7 +66,7 @@ namespace HYDRA15::Union::labourer
         thread_pool(unsigned int threadCount) :background(threadCount) { background::start(); }
         virtual ~thread_pool()
         {
-            working.store(false, std::memory_order_relaxed);
+            working.store(false, std::memory_order_release);
             queue.notify_exit();
             background::wait_for_end();
         }

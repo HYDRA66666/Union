@@ -38,7 +38,7 @@ namespace HYDRA15::Union::expressman
         }
         basic_mailsender(const basic_mailsender&) = delete;
         basic_mailsender(basic_mailsender&&) = delete;
-        virtual ~basic_mailsender() { working.store(false, std::memory_order_relaxed); cv.notify_all(); wait_for_end(); }
+        virtual ~basic_mailsender() { working.store(false, std::memory_order_release); cv.notify_all(); wait_for_end(); }
 
         virtual unsigned int post(const std::shared_ptr<const postable<A>>& pkg) override
         {
@@ -55,15 +55,15 @@ namespace HYDRA15::Union::expressman
         void set_employer(const std::weak_ptr<collector<A>>& pr) { std::unique_lock ulk(smt); pEmployer = pr; cv.notify_all(); }
         void set_factory(const std::shared_ptr<factory> pf) { std::unique_lock ulk(smt); pFactory = pf; cv.notify_all(); }
 
-        virtual void work(thread_info& info)
+        virtual void work(thread_info& info) noexcept override
         {
             // 第一层 map 为 类名->数据包列表 的映射，第二层 map 为 序列号->数据包列表 的映射
             std::unordered_map<std::string, std::unordered_map<packet::uint, std::list<packet>>> cache;
-            while (working.load(std::memory_order_relaxed))
+            while (working.load(std::memory_order_acquire))
             {
                 std::shared_lock slk(smt);
                 cv.wait_for(slk, queryInterval);
-                while ((pEmployer.expired() || !pFactory ) && working.load(std::memory_order_relaxed))
+                while ((pEmployer.expired() || !pFactory ) && working.load(std::memory_order_acquire))
                     cv.wait(slk);
 
                 // 接收数据
