@@ -76,6 +76,21 @@ int main()
 
 ```
 
+### shared_containers 各种共享容器模板
+
+此模块包含一些可多线程访问的容器模板，它们包含不同的行为
+
+``basic_blockable_queue``: 使用 std::queue std::mutex std::conditional_variable 实现的可阻塞队列。
+只提供了多线程互斥、空队列等待等基本功能，基本没有优化。程序结束时，可以使用 ``notify_exit()`` 
+通知等待的线程退出。    
+``lockless_queue``: 采用定长环形缓冲区、序号标记实现的无锁队列，提供线程安全、空队列等待等基本功能，
+以及 ``notify_exit()`` 接口。无锁队列拥有比基本可阻塞队列有更好的性能。    
+
+### iMutexies 各种互斥锁
+
+``atomic_shared_mutex``: 使用原子变量实现的轻量读写锁，调度策略倾向于写优先。通常情况下比 std::shared_mutex
+有更好的性能，但是由于采用了固定退避频率的自旋等待策略，因此有忙等问题。
+
 ## secretary
 
 主要包含 PrintCenter 和 ScanCenter 两个模块，以及一些和日志格式化、进度条格式化相关的工具
@@ -204,9 +219,20 @@ std::string info(const std::string& title, const std::string& content)
 
 ```
 
-### utilities
+### utilities & string_utilities_
 
 包含丰富的工具函数，详情请参阅源码。
+
+### byteswap
+
+包装的标准库字节序转换函数，提供 指定字节序 -> 本机字节序 和 本机字节序 -> 指定字节序 的转换函数，
+转换行为在编译期确定。    
+
+### files
+
+提供一些经过包装的 fstream 对象，拥有更便捷的调用接口。
+
+``bfstream``: 提供 std::vector 版本的字节读写接口，以及任意平凡类型的 std::vector<T> 版本的读写接口
 
 ## expressman
 

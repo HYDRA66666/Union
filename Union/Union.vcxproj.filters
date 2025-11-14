@@ -131,9 +131,6 @@
     <ClCompile Include="background.cpp">
       <Filter>labourer</Filter>
     </ClCompile>
-    <ClCompile Include="datetime.cpp">
-      <Filter>assistant</Filter>
-    </ClCompile>
     <ClCompile Include="expressman_exception.cpp">
       <Filter>exceptions</Filter>
     </ClCompile>
@@ -158,9 +155,6 @@
     <ClCompile Include="secretary_exception.cpp">
       <Filter>exceptions</Filter>
     </ClCompile>
-    <ClCompile Include="utilities.cpp">
-      <Filter>assistant</Filter>
-    </ClCompile>
     <ClCompile Include="logger.cpp">
       <Filter>secretary</Filter>
     </ClCompile>
@@ -176,12 +170,6 @@
     <ClCompile Include="archivist_exception.cpp">
       <Filter>exceptions</Filter>
     </ClCompile>
-    <ClCompile Include="string_utilities.cpp">
-      <Filter>assistant</Filter>
-    </ClCompile>
     <ClCompile Include="..\pch\pch.cpp" />
-    <ClCompile Include="files.cpp">
-      <Filter>assistant</Filter>
-    </ClCompile>
   </ItemGroup>
 </Project>
