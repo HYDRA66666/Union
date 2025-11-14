@@ -229,8 +229,8 @@ def main():
     argParser = argparse.ArgumentParser(description='合并c++头文件：主根目录中的所有文件均合并，根目录中的文件按需合并')
     argParser.add_argument('-o','--output',required=True,help='输出文件名')
     argParser.add_argument('-m','--main-root',required=True,help='主根目录')
-    argParser.add_argument('-r','--root',nargs='+',required=True,help='根目录')
-    argParser.add_argument('-c','--anticollision-marco',action='store_true',help='启用放冲突宏定义')
+    argParser.add_argument('-r','--root',nargs='+',required=False,help='根目录')
+    argParser.add_argument('-c','--anticollision-marco',action='store_true',help='启用防冲突宏定义')
 
     args = argParser.parse_args()
 
@@ -238,7 +238,8 @@ def main():
     global roots
     global antiCollisionMarcoDefine
     mainRoot = os.path.abspath(args.main_root.replace('\\','/'))
-    roots += [os.path.abspath(i.replace('\\','/')) for i in args.root]
+    if args.root:
+        roots += [os.path.abspath(i.replace('\\','/')) for i in args.root]
     output = args.output
     antiCollisionMarcoDefine = args.anticollision_marco
 
