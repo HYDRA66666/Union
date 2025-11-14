@@ -203,7 +203,7 @@ namespace HYDRA15::Union::secretary
         return str;
     }
 
-    void PrintCenter::work(background::thread_info&)
+    void PrintCenter::work(background::thread_info&) noexcept
     {
         while (
             working.load(std::memory_order_acquire) || // 工作中
