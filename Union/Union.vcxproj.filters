@@ -114,9 +114,6 @@
     <ClInclude Include="byteswap.h">
       <Filter>assistant</Filter>
     </ClInclude>
-    <ClInclude Include="files.h">
-      <Filter>assistant</Filter>
-    </ClInclude>
     <ClInclude Include="shared_containers.h">
       <Filter>labourer</Filter>
     </ClInclude>
@@ -128,14 +125,8 @@
     <ClCompile Include="assistant_exception.cpp">
       <Filter>exceptions</Filter>
     </ClCompile>
-    <ClCompile Include="background.cpp">
-      <Filter>labourer</Filter>
-    </ClCompile>
     <ClCompile Include="expressman_exception.cpp">
       <Filter>exceptions</Filter>
-    </ClCompile>
-    <ClCompile Include="expressman_interfaces.cpp">
-      <Filter>expressman</Filter>
     </ClCompile>
     <ClCompile Include="iExceptionBase.cpp">
       <Filter>referee</Filter>
@@ -146,26 +137,11 @@
     <ClCompile Include="PrintCenter.cpp">
       <Filter>secretary</Filter>
     </ClCompile>
-    <ClCompile Include="log.cpp">
-      <Filter>secretary</Filter>
-    </ClCompile>
-    <ClCompile Include="progress.cpp">
-      <Filter>secretary</Filter>
-    </ClCompile>
     <ClCompile Include="secretary_exception.cpp">
       <Filter>exceptions</Filter>
     </ClCompile>
-    <ClCompile Include="logger.cpp">
-      <Filter>secretary</Filter>
-    </ClCompile>
     <ClCompile Include="ScanCenter.cpp">
       <Filter>secretary</Filter>
-    </ClCompile>
-    <ClCompile Include="secretary_streambuf.cpp">
-      <Filter>secretary</Filter>
-    </ClCompile>
-    <ClCompile Include="factory.cpp">
-      <Filter>expressman</Filter>
     </ClCompile>
     <ClCompile Include="archivist_exception.cpp">
       <Filter>exceptions</Filter>

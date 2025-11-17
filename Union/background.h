@@ -37,7 +37,6 @@ namespace HYDRA15::Union::labourer
         {
         public:
             std::shared_ptr<std::thread> thread; // 线程对象
-            std::thread::id thread_id; // 线程ID
             thread_info info; // 线程信息
         };
 
@@ -45,29 +44,58 @@ namespace HYDRA15::Union::labourer
         {
             background::thread_info& thrInfo;
         public:
-            thread_info_guard(background::thread_info& info);
-            ~thread_info_guard();
+            thread_info_guard(background::thread_info& info)
+                :thrInfo(info)
+            {
+                thrInfo.thread_state = background::thread_info::state::undefined;
+            }
+
+            ~thread_info_guard()
+            {
+                thrInfo.thread_state = background::thread_info::state::finishing;
+            }
         };
 
     private:
         std::barrier<> checkpoint;  //启动和结束同步
         std::list<thread_ctrlblk> threads; // 异步线程组
-        void work_shell(thread_info& info); // 封装了启动与结束同步的工作函数
+
+        void work_shell(thread_info& info) // 封装了启动与结束同步的工作函数
+        {
+            thread_info_guard tig(info);
+            // 等待启动信号
+            checkpoint.arrive_and_wait();
+            // 执行工作
+            info.workStartTime = std::chrono::steady_clock::now();
+            work(info);
+            // 等待所有线程完成工作
+            auto t = checkpoint.arrive();
+        }
 
     protected:
         virtual void work(thread_info& info) noexcept = 0;  // 重写此方法以异步执行
 
         // 启动同步和结束同步
     protected:
-        void start();
-        void wait_for_end();
+        void start() { auto t = checkpoint.arrive(); }
+
+        void wait_for_end() { checkpoint.arrive_and_wait(); }
 
         // 构造函数，参数为异步线程数量，默认为1
     protected:
-        background(unsigned int bkgThrCount);
+        background(unsigned int bkgThrCount)
+            : checkpoint(bkgThrCount + 1)
+        {
+            threads.resize(bkgThrCount);
+            for (auto& i : threads)
+                i.thread = std::make_shared<std::thread>(&background::work_shell, this, std::ref(i.info));
+        }
+
+        background() :background(1) {}
+
+        virtual ~background() { for (auto& i : threads)i.thread->detach(); }
+
         background(background&&) = default;
-        background();
-        virtual ~background();
         background(const background&) = delete;
         background& operator=(const background&) = delete;
 
@@ -78,15 +106,20 @@ namespace HYDRA15::Union::labourer
             using list_iter = std::list<thread_ctrlblk>::iterator;
             list_iter it;
         public:
-            iterator(list_iter iter);
-            iterator& operator++();
-            bool operator!=(const iterator& other) const;
-            thread_info& operator*() const;
-            std::thread::id get_id() const;
+            iterator(list_iter iter) :it(iter) {}
+
+            iterator& operator++() { it++; return *this; }
+
+            bool operator!=(const iterator& other) const { return it != other.it; }
+
+            thread_info& operator*() const { return it->info; }
+
+            std::thread::id get_id() const { return it->thread->get_id(); }
         };
 
-        iterator begin();
-        iterator end();
+        iterator begin() { return iterator(threads.begin()); }
+
+        iterator end() { return iterator(threads.end()); }
     };
 
 }

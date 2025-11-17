@@ -156,7 +156,6 @@
     <ClInclude Include="basic_mailbox.h" />
     <ClInclude Include="basic_mailrouter.h" />
     <ClInclude Include="basic_mailsender.h" />
-    <ClInclude Include="files.h" />
     <ClInclude Include="iExceptionManager.h" />
     <ClInclude Include="iMutexies.h" />
     <ClInclude Include="shared_containers.h" />
@@ -189,17 +188,10 @@
     </ClCompile>
     <ClCompile Include="archivist_exception.cpp" />
     <ClCompile Include="assistant_exception.cpp" />
-    <ClCompile Include="background.cpp" />
-    <ClCompile Include="secretary_streambuf.cpp" />
     <ClCompile Include="expressman_exception.cpp" />
-    <ClCompile Include="expressman_interfaces.cpp" />
-    <ClCompile Include="factory.cpp" />
     <ClCompile Include="iExceptionBase.cpp" />
     <ClCompile Include="labourer_exception.cpp" />
-    <ClCompile Include="log.cpp" />
-    <ClCompile Include="logger.cpp" />
     <ClCompile Include="PrintCenter.cpp" />
-    <ClCompile Include="progress.cpp" />
     <ClCompile Include="ScanCenter.cpp" />
     <ClCompile Include="secretary_exception.cpp" />
   </ItemGroup>

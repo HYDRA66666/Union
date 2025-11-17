@@ -39,6 +39,7 @@ namespace HYDRA15::Union::exceptions
 
     make(FileIOError);
     make(FileNotAccessable);
+    make(FileInvalidAccess);
 
 #undef make
 

@@ -22,10 +22,50 @@ namespace HYDRA15::Union::expressman
         std::shared_mutex smt;
 
     public:
-        packable::objects build(const std::list<packet>& archlst);    // 构造对象，给定的列表中只能由一个类，并且需要有完整的数据
+        packable::objects build(const std::list<packet>& archlst)    // 构造对象，给定的列表中只能由一个类，并且需要有完整的数据
+        {
+            if (archlst.empty())    // 空列表
+                return packable::objects();
 
-        void regist(std::string name, const std::function<packable::objects(packable::datablocks)>& constructor);  // 注册构造函数
-        bool unregist(std::string name);    // 移除构造函数
-        bool contains(std::string name);    // 检查构造函数
+            std::string className = extract_name(archlst.front());
+            std::shared_lock slk(smt);
+
+            // 限定列表中只能有一个类
+            for (const auto& a : archlst)
+                if (extract_name(a) != className)
+                    throw exceptions::expressman::FactoryContaminatedData();
+            
+            constructor cstr;
+
+            {
+                std::shared_lock slk(smt);
+                // 检查构造函数是否存在
+                if (!ct.contains(className))
+                    throw exceptions::expressman::FactoryUnknownClass();
+                cstr = ct.at(className);
+            }
+
+            return unpack(archlst, cstr);
+        }
+
+        void regist(std::string name, const std::function<packable::objects(packable::datablocks)>& cstr)  // 注册构造函数
+        {
+            std::unique_lock ulk(smt);
+            if (ct.contains(name))
+                throw exceptions::expressman::FactoryUnknownClass();
+            ct.emplace(std::pair<std::string, constructor>{ name, cstr });
+        }
+
+        bool unregist(std::string name)    // 移除构造函数
+        {
+            std::unique_lock ulk(smt);
+            return ct.erase(name);
+        }
+
+        bool contains(std::string name)    // 检查构造函数
+        {
+            std::shared_lock ulk(smt);
+            return ct.contains(name);
+        }
     };
 }

@@ -38,17 +38,68 @@ namespace HYDRA15::Union::secretary
             static_string debug = "\033[0m[ {0} | \033[2mDEBUG\033[0m ][ {1} ] {2}\033[0m";
             static_string trace = "\033[0m[ {0} | \033[34mTRACE\033[0m ][ {1} ] {2}\033[0m";
         }vslzclr;
-
-        
         
         // 公有接口
     public:
-        static std::string info(const std::string& title, const std::string& content);
-        static std::string warn(const std::string& title, const std::string& content);
-        static std::string error(const std::string& title, const std::string& content);
-        static std::string fatal(const std::string& title, const std::string& content);
-        static std::string debug(const std::string& title, const std::string& content);
-        static std::string trace(const std::string& title, const std::string& content);
+        static std::string info(const std::string& title, const std::string& content)
+        {
+            std::string str;
+            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
+            if (colourful)str = std::format(vslzclr.info.data(), date, title, content);
+            else str = std::format(vslz.info.data(), date, title, content);
+            if (print)print(str);
+            return str;
+        }
+
+        static std::string warn(const std::string& title, const std::string& content)
+        {
+            std::string str;
+            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
+            if (colourful)str = std::format(vslzclr.warn.data(), date, title, content);
+            else str = std::format(vslz.warn.data(), date, title, content);
+            if (print)print(str);
+            return str;
+        }
+
+        static std::string error(const std::string& title, const std::string& content)
+        {
+            std::string str;
+            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
+            if (colourful)str = std::format(vslzclr.error.data(), date, title, content);
+            else str = std::format(vslz.error.data(), date, title, content);
+            if (print)print(str);
+            return str;
+        }
+
+        static std::string fatal(const std::string& title, const std::string& content)
+        {
+            std::string str;
+            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
+            if (colourful)str = std::format(vslzclr.fatal.data(), date, title, content);
+            else str = std::format(vslz.fatal.data(), date, title, content);
+            if (print)print(str);
+            return str;
+        }
+
+        static std::string debug(const std::string& title, const std::string& content)
+        {
+            std::string str;
+            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
+            if (colourful)str = std::format(vslzclr.debug.data(), date, title, content);
+            else str = std::format(vslz.debug.data(), date, title, content);
+            if (print && enableDebug)print(str);
+            return str;
+        }
+
+        static std::string trace(const std::string& title, const std::string& content)
+        {
+            std::string str;
+            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
+            if (colourful)str = std::format(vslzclr.trace.data(), date, title, content);
+            else str = std::format(vslz.trace.data(), date, title, content);
+            if (print && enableDebug)print(str);
+            return str;
+        }
 
         // 配置项
     public:
