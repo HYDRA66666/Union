@@ -17,6 +17,7 @@ namespace HYDRA15::Union::labourer
             {
                 for (size_t i = 0; i < retreatFreq; i++)
                     if (try_lock())return;
+                std::this_thread::yield();
             }
         }
 
