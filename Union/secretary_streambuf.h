@@ -11,7 +11,7 @@ namespace HYDRA15::Union::secretary
     // 自定义输出流缓冲区，自动将缓冲区内容传递给PrintCenter，用于重定向 std::cout
     class ostreambuf : public std::streambuf {
     public:
-        explicit ostreambuf(std::function<void(const std::string&)> callback, std::size_t initial_size = 256, std::size_t max_size = 65536)
+        explicit ostreambuf(std::function<void(const std::string&)> c, std::size_t initial_size = 256, std::size_t max_size = 65536)
             : buffer_(initial_size), max_size_(max_size), callback(c)
         {
             setp(buffer_.data(), buffer_.data() + buffer_.size());
