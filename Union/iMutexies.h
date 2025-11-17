@@ -4,7 +4,37 @@
 
 namespace HYDRA15::Union::labourer
 {
-    // 使用原子变量实现的读写锁，比 std::mutex 有更好的性能
+    template<size_t retreatFreq = 32>
+    class atomic_mutex_temp
+    {
+    private:
+        std::atomic_bool lck = false;
+
+    public:
+        void lock()
+        {
+            while (true)
+            {
+                for (size_t i = 0; i < retreatFreq; i++)
+                    if (try_lock())return;
+            }
+        }
+
+        void unlock()
+        {
+            lck.store(false, std::memory_order::release);
+        }
+
+        bool try_lock()
+        {
+            bool expected = false;
+            return lck.compare_exchange_strong(expected, true, std::memory_order::acquire);
+        }
+    };
+
+    using atomic_mutex = atomic_mutex_temp<>;
+
+    // 使用原子变量实现的读写锁，比 std::shared_mutex 有更好的性能
     // 性能测试：
     //                           debug       release
     //  无锁（纯 std::atomic）4450w tps     6360w tps

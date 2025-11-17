@@ -85,7 +85,7 @@ namespace HYDRA15::Union::secretary
     private:
         std::vector<char> buffer_;
         std::size_t max_size_;
-        labourer::atomic_shared_mutex mtx_;
+        labourer::atomic_mutex mtx_;
         std::function<void(const std::string&)> callback;
 
         void expand_buffer()
@@ -116,6 +116,7 @@ namespace HYDRA15::Union::secretary
     private:
         std::string buffer_;   // 使用 std::string 作为缓冲区（自动管理内存）
         bool eof_ = false;     // 是否已到逻辑 EOF
+        std::mutex mtx_;
 
         // 回调函数：用于获取一行输入
         std::function<std::string()> getline_callback;
@@ -155,6 +156,7 @@ namespace HYDRA15::Union::secretary
         // 重写 underflow：单字符读取时调用
         int underflow() override
         {
+            std::unique_lock ul{ mtx_ };
             if (gptr() < egptr()) {
                 return traits_type::to_int_type(*gptr());
             }
@@ -167,6 +169,7 @@ namespace HYDRA15::Union::secretary
         // 1. 优化批量读取：重写 xsgetn
         std::streamsize xsgetn(char* s, std::streamsize count) override
         {
+            std::unique_lock ul{ mtx_ };
             std::streamsize total = 0;
 
             while (total < count) {
@@ -200,6 +203,7 @@ namespace HYDRA15::Union::secretary
         // 可选：重写 showmanyc() 以提示可用字符数（非必需，但可优化）
         std::streamsize showmanyc() override
         {
+            std::unique_lock ul{ mtx_ };
             if (gptr() < egptr()) {
                 return egptr() - gptr();
             }
