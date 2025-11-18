@@ -46,15 +46,12 @@ namespace HYDRA15::Union::expressman
     class packable
     {
     public:
-        using datablock = std::vector<byte>;
-        using datablocks = std::list<datablock>;
         using class_name_array = std::array<char, packet::maxClassNameSize>;
-        using objects = std::list<std::shared_ptr<packable>>;
     protected:
         // 用户仅需实现 将数据按照自己的设计打包成连续的二进制数据
         // 将内存数据打包成帧的工作将交由系统完成
-        virtual datablocks packing() const = 0;
-        virtual std::any unpacking(const datablocks&) = 0;
+        virtual std::list<std::vector<byte>> packing() const = 0;
+        virtual std::any unpacking(const std::list<std::vector<byte>>&) = 0;
         virtual constexpr class_name_array class_name_pack() const = 0;    // 返回的类名称将填入className字段，作为类的唯一标识符，在重构对象时使用
         virtual packet::uint serialNo_fetch_and_increase() const = 0;     // 用于标记对象实例的序列号，对于类而言应当是全局静态的
 
@@ -107,12 +104,12 @@ namespace HYDRA15::Union::expressman
         std::any unpack(const std::list<packet>& archs)
         {
             // 在所有帧都按顺序排列的情况下，算法复杂度为 O(n)
-        // 帧不按顺序排序时，算法的复杂度最大可达 O(n^2)
-            datablocks dbs;
+            // 帧不按顺序排序时，算法的复杂度最大可达 O(n^2)
+            std::list<std::vector<byte>> dbs;
             std::list<packet> archives = archs;    // 由于要对包列表进行操作，所以将参数拷贝
             while (!archives.empty())
             {
-                datablock db;
+                std::vector<byte> db;
                 //  使用 frameTotal 和 serialNo 两个字段的匹配来识别对象
                 uint16_t total = archives.front().header.frameTotal;
                 uint16_t serialNo = archives.front().header.serialNo;
@@ -143,15 +140,15 @@ namespace HYDRA15::Union::expressman
         virtual size_t obj_size() const = 0;    // 返回对象必需数据的总大小，为对象大小和被对象管理的数据大小之和
     };
 
-    packable::objects unpack(const std::list<packet>& archs, std::function<packable::objects(const packable::datablocks&)> unpacking)
+    std::list<std::shared_ptr<packable>> unpack(const std::list<packet>& archs, std::function<std::list<std::shared_ptr<packable>>(const std::list<std::vector<byte>>&)> unpacking)
     {
         // 在所有帧都按顺序排列的情况下，算法复杂度为 O(n)
         // 帧不按顺序排序时，算法的复杂度最大可达 O(n^2)
-        packable::datablocks dbs;
+        std::list<std::vector<byte>> dbs;
         std::list<packet> archives = archs;    // 由于要对包列表进行操作，所以将参数拷贝
         while (!archives.empty())
         {
-            packable::datablock db;
+            std::vector<byte> db;
             //  使用 frameTotal 和 serialNo 两个字段的匹配来识别对象
             uint16_t total = archives.front().header.frameTotal;
             uint16_t serialNo = archives.front().header.serialNo;
