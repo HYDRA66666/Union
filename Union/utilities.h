@@ -2,7 +2,6 @@
 #include "pch.h"
 #include "framework.h"
 
-#include "assistant_exception.h"
 #include "string_utilities.h"
 
 namespace HYDRA15::Union::assistant
@@ -103,7 +102,7 @@ namespace HYDRA15::Union::assistant
                     // unicode 字符不处理
                 case 'u':
                     if (i + 5 >= ppts.size())
-                        throw exceptions::assistant::PropretiesParseFaild();
+                        throw exceptions::common::UnsupportedFormat("Unicode charactor format must be '\\uxxxx'");
                     content += ppts.substr(i, 6);
                     i += 5;
                     break;
@@ -158,7 +157,7 @@ namespace HYDRA15::Union::assistant
         for (auto& entryPair : entryLst)
         {
             if (entryPair.size() != 2)
-                throw exceptions::assistant::PropretiesParseFaild();
+                throw exceptions::common::UnsupportedFormat("Key - value pair joined by '='");
             res.emplace(std::pair{ std::move(entryPair.front()),std::move(entryPair.back()) });
         }
 

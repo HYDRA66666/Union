@@ -7,9 +7,6 @@
     <Filter Include="assistant">
       <UniqueIdentifier>{1980ef56-f51c-4155-b2e5-b70cf485b51f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="exceptions">
-      <UniqueIdentifier>{4e241908-c47c-429e-a40e-08f4628f9053}</UniqueIdentifier>
-    </Filter>
     <Filter Include="expressman">
       <UniqueIdentifier>{3a6b1f4e-325c-4a89-8831-546aaadfaf93}</UniqueIdentifier>
     </Filter>
@@ -27,9 +24,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="assistant_exception.h">
-      <Filter>exceptions</Filter>
-    </ClInclude>
     <ClInclude Include="background.h">
       <Filter>labourer</Filter>
     </ClInclude>
@@ -48,9 +42,6 @@
     <ClInclude Include="datetime.h">
       <Filter>assistant</Filter>
     </ClInclude>
-    <ClInclude Include="expressman_exception.h">
-      <Filter>exceptions</Filter>
-    </ClInclude>
     <ClInclude Include="expressman_interfaces.h">
       <Filter>expressman</Filter>
     </ClInclude>
@@ -60,10 +51,7 @@
     <ClInclude Include="iExceptionBase.h">
       <Filter>referee</Filter>
     </ClInclude>
-    <ClInclude Include="labourer_exception.h">
-      <Filter>exceptions</Filter>
-    </ClInclude>
-    <ClInclude Include="libID.h">
+    <ClInclude Include="lib_info.h">
       <Filter>framework</Filter>
     </ClInclude>
     <ClInclude Include="PrintCenter.h">
@@ -77,9 +65,6 @@
     </ClInclude>
     <ClInclude Include="ThreadLake.h">
       <Filter>labourer</Filter>
-    </ClInclude>
-    <ClInclude Include="secretary_exception.h">
-      <Filter>exceptions</Filter>
     </ClInclude>
     <ClInclude Include="utilities.h">
       <Filter>assistant</Filter>
@@ -105,9 +90,6 @@
     <ClInclude Include="iExceptionManager.h">
       <Filter>referee</Filter>
     </ClInclude>
-    <ClInclude Include="archivist_exception.h">
-      <Filter>exceptions</Filter>
-    </ClInclude>
     <ClInclude Include="string_utilities.h">
       <Filter>assistant</Filter>
     </ClInclude>
@@ -120,31 +102,16 @@
     <ClInclude Include="iMutexies.h">
       <Filter>labourer</Filter>
     </ClInclude>
+    <ClInclude Include="lib_exceptions.h">
+      <Filter>framework</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="assistant_exception.cpp">
-      <Filter>exceptions</Filter>
-    </ClCompile>
-    <ClCompile Include="expressman_exception.cpp">
-      <Filter>exceptions</Filter>
-    </ClCompile>
-    <ClCompile Include="iExceptionBase.cpp">
-      <Filter>referee</Filter>
-    </ClCompile>
-    <ClCompile Include="labourer_exception.cpp">
-      <Filter>exceptions</Filter>
-    </ClCompile>
     <ClCompile Include="PrintCenter.cpp">
       <Filter>secretary</Filter>
     </ClCompile>
-    <ClCompile Include="secretary_exception.cpp">
-      <Filter>exceptions</Filter>
-    </ClCompile>
     <ClCompile Include="ScanCenter.cpp">
       <Filter>secretary</Filter>
-    </ClCompile>
-    <ClCompile Include="archivist_exception.cpp">
-      <Filter>exceptions</Filter>
     </ClCompile>
     <ClCompile Include="..\pch\pch.cpp" />
   </ItemGroup>

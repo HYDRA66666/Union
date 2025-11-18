@@ -2,7 +2,6 @@
 #include "framework.h"
 #include "pch.h"
 
-#include "secretary_exception.h"
 #include "PrintCenter.h"
 
 namespace HYDRA15::Union::secretary

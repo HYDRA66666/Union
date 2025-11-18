@@ -97,7 +97,7 @@ namespace HYDRA15::Union::secretary
                     if (!getlineQueue.empty())
                         PrintCenter::set_stick_btm(getlineQueue.front().promt);
                     else
-                        PrintCenter::set_stick_btm(vslz.promt.data());
+                        PrintCenter::set_stick_btm(" > ");
                 }
                 std::string ln = sysgetline();
                 {

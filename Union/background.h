@@ -77,7 +77,9 @@ namespace HYDRA15::Union::labourer
 
         // 启动同步和结束同步
     protected:
-        void start() { auto t = checkpoint.arrive(); }
+        void start() { checkpoint.arrive_and_wait(); }  // 某些系统依赖后台线程初始化完成才能正常工作
+
+        void detach() { auto t = checkpoint.arrive(); } // 无需等待后台线程初始化完成可以使用此接口
 
         void wait_for_end() { checkpoint.arrive_and_wait(); }
 

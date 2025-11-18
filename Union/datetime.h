@@ -2,7 +2,7 @@
 #include "framework.h"
 #include "pch.h"
 
-#include "assistant_exception.h"
+#include "lib_exceptions.h"
 
 namespace HYDRA15::Union::assistant
 {
@@ -29,9 +29,9 @@ namespace HYDRA15::Union::assistant
             int timeZone = localTimeZone
         ) const {
             if (timeZone < -12 || timeZone > 14)
-                throw exceptions::assistant::DateTimeInvalidTimeZone();
+                throw exceptions::common::BadParameter("timeZone", std::to_string(timeZone), "-12 < timeZone < 14");
 
-            time_t localStamp = stamp + timeZone * 3600;
+            time_t localStamp = stamp + timeZone * 3600LL;
             tm local;
             gmtime_s(&local, &localStamp);
             std::string str;

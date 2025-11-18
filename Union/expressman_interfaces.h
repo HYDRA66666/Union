@@ -3,8 +3,8 @@
 #include "pch.h"
 
 #include "concepts.h"
-#include "expressman_exception.h"
 #include "utilities.h"
+#include "lib_exceptions.h"
 
 namespace HYDRA15::Union::expressman
 {
@@ -18,15 +18,7 @@ namespace HYDRA15::Union::expressman
         virtual constexpr const std::type_info& type() const noexcept = 0;    // 返回类型信息，基本上就是 typeid(class)
 
         // 扩展接口
-        virtual std::string info() const
-        {
-            throw exceptions::expressman::InterfaceExtensionFunctionNotImplemented();
-        }
-
-        virtual size_t class_size() const    // 获取类本身的大小，不包含对象管理的外部数据，基本上就是 size_of(class)
-        {
-            throw exceptions::expressman::InterfaceExtensionFunctionNotImplemented();
-        }
+        virtual constexpr std::string info() const;
     };
 
     /***************************** 数据传输相关 *****************************/
@@ -72,7 +64,11 @@ namespace HYDRA15::Union::expressman
         std::list<packet> pack(size_t maxFrameSize = sizeof(packet)) const
         {
             if (maxFrameSize < sizeof(packet::header_t))
-                throw exceptions::expressman::InterfaceInvalidFrameSize();
+                throw exceptions::common::BadParameter(
+                    "expressman::packable::pack::maxFrameSize",
+                    std::to_string(maxFrameSize),
+                    std::format(" > {}", sizeof(packet))
+                );
 
             size_t maxFrameDataSize = std::min(maxFrameSize - sizeof(packet::header_t), packet::maxFrameDataSize);    // 根据给出帧大小限定计算数据区大小限制
             std::list<packet> res;
@@ -81,7 +77,7 @@ namespace HYDRA15::Union::expressman
                 packet format; // 每对象生成的数据包组拥有相同的部分头结构
                 size_t remaining = datas.size();    // 剩余未打包的数据量
                 if (remaining > maxFrameDataSize * std::numeric_limits<packet::uint>::max())
-                    throw exceptions::expressman::InterfaceDataTooLarge();
+                    throw exceptions::common{ framework::libID.expressman,0xA01,"The provided data exceeds the maximum allowable size for packaging" };
 
                 // 设置头的通用部分
                 assistant::memcpy(class_name_pack().data(), format.header.className, packet::maxClassNameSize);    // 类名
@@ -132,7 +128,7 @@ namespace HYDRA15::Union::expressman
                             break;
                         }
                     if (pFrame == archives.end())   // 未找到匹配的包，表明数据不完整
-                        throw exceptions::expressman::InterfaceIncompleteData();
+                        throw exceptions::common{ framework::libID.expressman,0xA02,"The provided data is incomplete" };
                     db.assign(pFrame->data, (pFrame->data) + (pFrame->header.dataLength));
                     archives.erase(pFrame);
                 }
@@ -144,10 +140,7 @@ namespace HYDRA15::Union::expressman
         }
 
         // 扩展接口
-        virtual size_t obj_size() const    // 返回对象必需数据的总大小，为对象大小和被对象管理的数据大小之和
-        {
-            throw exceptions::expressman::InterfaceExtensionFunctionNotImplemented();
-        }
+        virtual size_t obj_size() const = 0;    // 返回对象必需数据的总大小，为对象大小和被对象管理的数据大小之和
     };
 
     packable::objects unpack(const std::list<packet>& archs, std::function<packable::objects(const packable::datablocks&)> unpacking)
@@ -174,7 +167,7 @@ namespace HYDRA15::Union::expressman
                         break;
                     }
                 if (pFrame == archives.end())   // 未找到匹配的包，表明数据不完整
-                    throw exceptions::expressman::InterfaceIncompleteData();
+                    throw exceptions::common{ framework::libID.expressman,0xA02,"The provided data is incomplete" };
                 db.assign(pFrame->data, (pFrame->data) + (pFrame->header.dataLength));
                 archives.erase(pFrame);
             }

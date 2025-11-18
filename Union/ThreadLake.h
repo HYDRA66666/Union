@@ -3,7 +3,6 @@
 #include "framework.h"
 
 #include "background.h"
-#include "labourer_exception.h"
 #include "concepts.h"
 #include "shared_containers.h"
 

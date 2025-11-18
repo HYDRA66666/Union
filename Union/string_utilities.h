@@ -2,8 +2,6 @@
 #include "pch.h"
 #include "framework.h"
 
-#include "assistant_exception.h"
-
 namespace HYDRA15::Union::assistant
 {
     // 将一个字符串重复数遍
@@ -134,7 +132,7 @@ namespace HYDRA15::Union::assistant
     ) {
         for (const auto& c : str)
             if (!is_valid(c))
-                throw exceptions::assistant::UtilityInvalidChar();
+                throw exceptions::common(framework::libID.assistant, 0xA01, "Invalid character detected");
     }
 
     // 用给定的字符切分字符串

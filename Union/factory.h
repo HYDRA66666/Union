@@ -4,7 +4,6 @@
 #include "pch.h"
 
 #include "concepts.h"
-#include "expressman_exception.h"
 #include "expressman_interfaces.h"
 
 namespace HYDRA15::Union::expressman
@@ -33,7 +32,7 @@ namespace HYDRA15::Union::expressman
             // 限定列表中只能有一个类
             for (const auto& a : archlst)
                 if (extract_name(a) != className)
-                    throw exceptions::expressman::FactoryContaminatedData();
+                    throw exceptions::common{ framework::libID.expressman, 0xB01, "The provided data is incomplete" };
             
             constructor cstr;
 
@@ -41,7 +40,7 @@ namespace HYDRA15::Union::expressman
                 std::shared_lock slk(smt);
                 // 检查构造函数是否存在
                 if (!ct.contains(className))
-                    throw exceptions::expressman::FactoryUnknownClass();
+                    throw exceptions::common{ framework::libID.expressman, 0xB02, "The provided data contains an unknown class" };
                 cstr = ct.at(className);
             }
 
@@ -51,8 +50,6 @@ namespace HYDRA15::Union::expressman
         void regist(std::string name, const std::function<packable::objects(packable::datablocks)>& cstr)  // 注册构造函数
         {
             std::unique_lock ulk(smt);
-            if (ct.contains(name))
-                throw exceptions::expressman::FactoryUnknownClass();
             ct.emplace(std::pair<std::string, constructor>{ name, cstr });
         }
 
