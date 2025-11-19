@@ -21,10 +21,7 @@ namespace HYDRA15::Union::labourer
             }
         }
 
-        void unlock()
-        {
-            lck.store(false, std::memory_order::release);
-        }
+        void unlock() { lck.store(false, std::memory_order::release); }
 
         bool try_lock()
         {
@@ -57,29 +54,29 @@ namespace HYDRA15::Union::labourer
                 bool expected = false;
                 if (writer.compare_exchange_weak(
                     expected, true,
-                    std::memory_order_acq_rel, std::memory_order_relaxed
+                    std::memory_order::acquire, std::memory_order::relaxed
                 ))break;
                 i++;
                 if (i >= retreatFreq)std::this_thread::yield();
             }
             while (true)
             {
-                if (readers.load(std::memory_order_acquire) == 0)break;
+                if (readers.load(std::memory_order::acquire) == 0)break;
                 i++;
                 if (i > retreatFreq)std::this_thread::yield();
             }
         }
-        void unlock() { writer.store(false, std::memory_order_release); }
+        void unlock() { writer.store(false, std::memory_order::release); }
         bool try_lock()
         {
             bool expected = false;
             if (!writer.compare_exchange_weak(
                 expected, true,
-                std::memory_order_release, std::memory_order_relaxed
+                std::memory_order::acquire, std::memory_order::relaxed
             ))return false;
-            if (!readers.load(std::memory_order_acquire) == 0) 
+            if (!readers.load(std::memory_order::acquire) == 0) 
             { 
-                writer.store(false, std::memory_order_release); 
+                writer.store(false, std::memory_order::relaxed); 
                 return false; 
             }
             return true;
@@ -90,24 +87,24 @@ namespace HYDRA15::Union::labourer
             size_t i = 0;
             while (true)
             {
-                if (!writer.load(std::memory_order_acquire))
+                if (!writer.load(std::memory_order::acquire))
                 {
-                    readers.fetch_add(1, std::memory_order_acquire);
-                    if (!writer.load(std::memory_order_release))return;
-                    readers.fetch_add(-1, std::memory_order_release);
+                    readers.fetch_add(1, std::memory_order::acquire);
+                    if (!writer.load(std::memory_order::acquire))return;
+                    readers.fetch_add(-1, std::memory_order::relaxed);
                 }
                 i++;
                 if (i > retreatFreq)std::this_thread::yield();
             }
         }
-        void unlock_shared() { readers.fetch_add(-1, std::memory_order_release); }
+        void unlock_shared() { readers.fetch_add(-1, std::memory_order::release); }
         bool try_lock_shared()
         {
-            if (!writer.load(std::memory_order_acquire))
+            if (!writer.load(std::memory_order::acquire))
             {
-                readers.fetch_add(1, std::memory_order_acquire);
-                if (!writer.load(std::memory_order_release))return true;
-                readers.fetch_add(-1, std::memory_order_release);
+                readers.fetch_add(1, std::memory_order::acquire);
+                if (!writer.load(std::memory_order::acquire))return true;
+                readers.fetch_add(-1, std::memory_order::relaxed);
             }
             return false;
         }

@@ -86,7 +86,7 @@ namespace HYDRA15::Union::secretary
         return *instance;
     }
 
-    void ScanCenter::work(thread_info& info) noexcept
+    void ScanCenter::work() noexcept
     {
         try
         {

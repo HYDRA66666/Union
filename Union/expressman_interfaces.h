@@ -62,9 +62,9 @@ namespace HYDRA15::Union::expressman
         {
             if (maxFrameSize < sizeof(packet::header_t))
                 throw exceptions::common::BadParameter(
-                    "expressman::packable::pack::maxFrameSize",
+                    "maxFrameSize",
                     std::to_string(maxFrameSize),
-                    std::format(" > {}", sizeof(packet))
+                    std::format(" > {}", sizeof(packet::header_t))
                 );
 
             size_t maxFrameDataSize = std::min(maxFrameSize - sizeof(packet::header_t), packet::maxFrameDataSize);    // 根据给出帧大小限定计算数据区大小限制

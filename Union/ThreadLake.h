@@ -18,7 +18,7 @@ namespace HYDRA15::Union::labourer
     public:
         virtual ~mission_base() = default;
 
-        virtual void task() noexcept = 0;
+        virtual void operator()() noexcept = 0;
     };
     using mission = std::unique_ptr<mission_base>;
 
@@ -37,21 +37,20 @@ namespace HYDRA15::Union::labourer
         queue_t queue;
     private:
         std::atomic_bool working = true;
+        std::atomic<unsigned int> activeCount = 0;
 
     private: // 后台任务
-        virtual void work(background::thread_info& info) noexcept override
+        virtual void work() noexcept override
         {
             mission mis;
-            info.state = background::thread_info::thread_state::idle;
-            while (working.load(std::memory_order_acquire) || !queue.empty())
+            while (working.load(std::memory_order::relaxed) || !queue.empty())
             {
                 // 取任务
-                info.state = background::thread_info::thread_state::waiting;
                 mis = queue.pop();
                 // 执行任务
-                info.state = background::thread_info::thread_state::working;
-                info.lastCheckin = std::chrono::steady_clock::now();
-                mis->task();
+                active.fetch_add(1, std::memory_order::relaxed);
+                (*mis)();
+                active.fetch_add(-1, std::memory_order::relaxed);
             }
         }
 
@@ -71,10 +70,8 @@ namespace HYDRA15::Union::labourer
         }
 
     public: // 管理接口
-        size_t waiting() const { return queue.size(); }
-        using background::iterator;
-        using background::begin;
-        using background::end;
+        size_t size() const { return queue.size(); }
+        unsigned int active() const { return activeCount.load(std::memory_order::relaxed); }
     };
 
     /***************************** 基本线程池实现 *****************************/
@@ -91,7 +88,7 @@ namespace HYDRA15::Union::labourer
             :tsk(task), cb(callback) {
         }
 
-        virtual void task() noexcept override
+        virtual void operator()() noexcept override
         {
             try
             {

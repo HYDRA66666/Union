@@ -91,7 +91,7 @@ namespace HYDRA15::Union::secretary
         std::atomic<bool> working = true;
         std::atomic<bool> forceRefresh = false;
         time_point lastRefresh = time_point::clock::now();
-        virtual void work(background::thread_info&) noexcept override;
+        virtual void work() noexcept override;
 
         // 高级接口
     public:

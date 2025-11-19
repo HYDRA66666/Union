@@ -54,7 +54,7 @@ namespace HYDRA15::Union::expressman
         void set_employer(const std::weak_ptr<collector<A>>& pr) { std::unique_lock ulk(smt); pEmployer = pr; cv.notify_all(); }
         void set_factory(const std::shared_ptr<factory> pf) { std::unique_lock ulk(smt); pFactory = pf; cv.notify_all(); }
 
-        virtual void work(thread_info& info) noexcept override
+        virtual void work() noexcept override
         {
             // 第一层 map 为 类名->数据包列表 的映射，第二层 map 为 序列号->数据包列表 的映射
             std::unordered_map<std::string, std::unordered_map<packet::uint, std::list<packet>>> cache;
