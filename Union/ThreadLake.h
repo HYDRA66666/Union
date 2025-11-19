@@ -42,15 +42,15 @@ namespace HYDRA15::Union::labourer
         virtual void work(background::thread_info& info) noexcept override
         {
             mission mis;
-            info.thread_state = background::thread_info::state::idle;
+            info.state = background::thread_info::thread_state::idle;
             while (working.load(std::memory_order_acquire) || !queue.empty())
             {
                 // 取任务
-                info.thread_state = background::thread_info::state::waiting;
+                info.state = background::thread_info::thread_state::waiting;
                 mis = queue.pop();
                 // 执行任务
-                info.thread_state = background::thread_info::state::working;
-                info.workStartTime = std::chrono::steady_clock::now();
+                info.state = background::thread_info::thread_state::working;
+                info.lastCheckin = std::chrono::steady_clock::now();
                 mis->task();
             }
         }

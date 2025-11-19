@@ -20,14 +20,14 @@ namespace HYDRA15::Union::labourer
         class thread_info
         {
         public:
-            enum class state
+            enum class thread_state
             {
                 undefined,
                 idle,
                 waiting,
                 working,
                 finishing
-            }thread_state = state::undefined;
+            }state = thread_state::undefined;
             std::chrono::steady_clock::time_point workStartTime;
             std::chrono::steady_clock::time_point lastCheckin;
         };
@@ -47,12 +47,12 @@ namespace HYDRA15::Union::labourer
             thread_info_guard(background::thread_info& info)
                 :thrInfo(info)
             {
-                thrInfo.thread_state = background::thread_info::state::undefined;
+                thrInfo.state = background::thread_info::thread_state::undefined;
             }
 
             ~thread_info_guard()
             {
-                thrInfo.thread_state = background::thread_info::state::finishing;
+                thrInfo.state = background::thread_info::thread_state::finishing;
             }
         };
 
