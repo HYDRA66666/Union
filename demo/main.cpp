@@ -1,8 +1,11 @@
 ﻿#include "pch.h"
 #include "Union/logger.h"
 #include "Union/PrintCenter.h"
+#include "Union/ThreadLake.h"
 
 using namespace HYDRA15::Union;
+
+labourer::ThreadLake tl(4);
 
 int main()
 {
