@@ -15,17 +15,14 @@ int main()
 {
     try
     {
-        archivist::sfstream sfs{
-            "demo_archive.sfa"
-        };
-
+        //archivist::sfstream sfs{ "demo_archive.sfa",archivist::sfstream::segment_size_level::I };
         //std::vector<int> dataToWrite(2048, 0);
         //for (size_t i = 0; i < dataToWrite.size(); i++)
         //    dataToWrite[i] = static_cast<int>(i);
-
         //sfs.write("demo_section", 0, dataToWrite);
         //sfs.set_sec_comment("demo_section", "This is a demo section.");
 
+        archivist::sfstream sfs{ "demo_archive.sfa" };
         auto res = sfs.read<int>("demo_section", 0, 2048);
         for (auto& i : res)pc.println(i);
     }

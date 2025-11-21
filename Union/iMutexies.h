@@ -69,16 +69,14 @@ namespace HYDRA15::Union::labourer
         void unlock() { writer.store(false, std::memory_order::release); }
         bool try_lock()
         {
-            bool expected = false;
-            if (!writer.compare_exchange_weak(
+            bool expected = writer.load(std::memory_order::acquire);
+            if (expected)return false;  // 已有写锁
+            if (!readers.load(std::memory_order::acquire) == 0)
+                return false;           // 有读锁
+            if(!writer.compare_exchange_strong(
                 expected, true,
                 std::memory_order::acquire, std::memory_order::relaxed
-            ))return false;
-            if (!readers.load(std::memory_order::acquire) == 0) 
-            { 
-                writer.store(false, std::memory_order::relaxed); 
-                return false; 
-            }
+            ))return false;             // 获取写锁失败
             return true;
         }
         
@@ -108,8 +106,39 @@ namespace HYDRA15::Union::labourer
             }
             return false;
         }
+
+        // 升级和降级。upgrade 的返回值应当传递给 downgrade 的 before 参数。
+        bool upgrade()
+        {
+            bool res = writer.exchange(true, std::memory_order::acquire);
+            size_t i = 0;
+            while (true)
+            {
+                if (readers.load(std::memory_order::acquire) == 1)break;
+                i++;
+                if (i > retreatFreq)std::this_thread::yield();
+            }
+            return res;
+        }
+
+        void downgrade(bool before)
+        {
+            writer.store(before, std::memory_order::release);
+        }
     };
 
     using atomic_shared_mutex = atomic_shared_mutex_temp<>;
 
+    template<typename L>
+        requires requires(L l) { l.upgrade(); l.downgrade(bool{}); }
+    class upgrade_lock
+    {
+    private:
+        L& smtx;
+        bool before;
+
+    public:
+        upgrade_lock(L& m) :smtx(m) { before = smtx.upgrade(); }
+        ~upgrade_lock() { smtx.downgrade(before); }
+    };
 }

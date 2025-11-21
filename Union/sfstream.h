@@ -147,20 +147,21 @@ namespace HYDRA15::Union::archivist
             requires std::is_trivial_v<T>
         void write(const std::string& secName, size_t pos, const std::vector<T>& data)
         {
-            if ([this, secName]() {std::shared_lock sl{ asmtx }; return !sections.contains(secName); }())
+            std::shared_lock sl{ asmtx };
+
+            if (!sections.contains(secName))
             {
-                std::unique_lock ul{ asmtx };
+                labourer::upgrade_lock ugl{ asmtx };
                 sections.emplace(std::piecewise_construct, std::forward_as_tuple(secName), std::forward_as_tuple());
             }
 
-            std::shared_lock sl{ asmtx };
             section& sec = sections.at(secName);
-            if ([&sec]() {std::shared_lock sl{ sec.asmtx }; return sec.segIDs.size(); }() * segSize < pos + data.size() * sizeof(T))
+            std::shared_lock ssl{ sec.asmtx };
+            if (sec.segIDs.size() * segSize < pos + data.size() * sizeof(T))
             {
-                std::unique_lock ul{ sec.asmtx };
+                labourer::upgrade_lock ugl{ sec.asmtx };
                 expand(sec.segIDs, (pos + data.size() * sizeof(T) - sec.segIDs.size() * segSize - 1) / segSize + 1);
             }
-            std::shared_lock ssl{ sec.asmtx };
             return bsfs.write<T>(sec.segIDs, pos, data);
         }
 
