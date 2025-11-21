@@ -37,33 +37,51 @@ namespace HYDRA15::Union::exceptions
     };
 
 
-    class fstream : public referee::iExceptionBase
+    class files : public referee::iExceptionBase
     {
         static constexpr expt_code cateExptCode = 0x000A0000;
-        const std::filesystem::path path;
         
     public:
-        fstream& set(const std::string& k, const std::string& v) { iExceptionBase::set(k, v); return *this; }
+        files& set(const std::string& k, const std::string& v) { iExceptionBase::set(k, v); return *this; }
 
     public:
-        fstream(const std::filesystem::path& path, expt_code code, const std::string& desp)
-            : iExceptionBase(cateExptCode | code, std::format("An error occurred while operating on file {}: {}", path.string(), desp)) {
-            set("path", path.string());
+        files(const std::filesystem::path& path, expt_code code, const std::string& desp)
+            : iExceptionBase(cateExptCode | code, desp) {
+            set("file path", path.string());
         }
 
-        virtual ~fstream() = default;
+        virtual ~files() = default;
 
     public:
-        static fstream FileIOFlowError(const std::filesystem::path& path, int state) noexcept
+        static files FileIOFlowError(const std::filesystem::path& path, int state) noexcept
         {
-            return fstream{ path, 0x01, "fstream error" }
+            return files{ path, 0xA01, "File stream flow error" }
             .set("state", std::to_string(state));
         }
 
-        static fstream ExceedRage(const std::filesystem::path& path, const std::string& relParam, const std::string& req)
+        static files FileNotExist(const std::filesystem::path& path)noexcept
         {
-            return fstream{ path,0x02,"Data size exceeds the allowed limit" }
-            .set("relative parameter", relParam).set("requirements", req);
+            return files{ path,0xA02,"File not exist" };
         }
+
+        static files ExceedRage(const std::filesystem::path& path, const std::string& relParam, const std::string& req) noexcept
+        {
+            return files{ path,0xB01,"File request exceed allowed range" }
+            .set("relative parameter", relParam).set("reason", req);
+        }
+
+        static files FormatNotSupported(const std::filesystem::path& path, const std::string& req) noexcept
+        {
+            return files{ path,0xB02,"The file format is not supported" }
+            .set("reason", req);
+        }
+
+        static files StringNotFound(const std::filesystem::path& path, size_t pos) noexcept
+        {
+            return files{ path,0xB03,"Null terminator not found while reading string" }
+            .set("position", std::to_string(pos));
+        }
+
+        
     };
 }

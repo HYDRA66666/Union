@@ -14,15 +14,20 @@ int main()
 {
     try
     {
-        assistant::bsfstream bsfs{ "txt.txt",4096,4 };
+        assistant::bsfstream bsfs{ "test.bin",4096,4 };
 
-        std::vector<byte> vec(1024 * 4096, 0);
-        for (auto& i : vec)i = rand();
-        std::list<size_t> ids;
-        for (size_t i = 0; i < 1025; i++)ids.push_back(i);
-        bsfs.write(ids, 256, vec);
+        std::vector<int> vec(1024, 0);
+        for (int i = 0; i < vec.size(); i++)vec[i] = i;
+        std::deque<size_t> ids;
+        for (size_t i = 0; i < 1024; i++)ids.push_back(i);
+        bsfs.write(ids, 1280, vec);
+
+        auto res = bsfs.read<int>(ids, 1280, 2048);
+        for(const auto& i:res)
+            pc.println(i);
     }
     catch (const std::exception& e) { pc.println(e.what()); }
+
 }
 
 

@@ -90,6 +90,9 @@
     <ClInclude Include="fstreams.h">
       <Filter>assistant</Filter>
     </ClInclude>
+    <ClInclude Include="sfstream.h">
+      <Filter>archivist</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="PrintCenter.cpp">

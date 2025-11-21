@@ -89,7 +89,7 @@ namespace HYDRA15::Union::referee
             std::string res{ "Stack trace:\n" };
             res.reserve(size);
             for (const auto& i : stackTrace)
-                res.append(std::format("    {},\n", i));
+                res.append(std::format("    {}\n", i));
             res.pop_back(); res.pop_back();
             return res;
         }
