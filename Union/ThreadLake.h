@@ -38,20 +38,26 @@ namespace HYDRA15::Union::labourer
     private:
         std::atomic_bool working = true;
         std::atomic<unsigned int> activeCount = 0;
+        std::mutex gexptrMtx;
+        std::exception_ptr gexptr = nullptr;
 
     private: // 后台任务
         virtual void work() noexcept override
         {
-            mission mis;
-            while (working.load(std::memory_order::relaxed) || !queue.empty())
+            try
             {
-                // 取任务
-                mis = queue.pop();
-                // 执行任务
-                activeCount.fetch_add(1, std::memory_order::relaxed);
-                (*mis)();
-                activeCount.fetch_add(-1, std::memory_order::relaxed);
+                mission mis;
+                while (working.load(std::memory_order::relaxed) || !queue.empty())
+                {
+                    // 取任务
+                    mis = queue.pop();
+                    // 执行任务
+                    activeCount.fetch_add(1, std::memory_order::relaxed);
+                    (*mis)();
+                    activeCount.fetch_add(-1, std::memory_order::relaxed);
+                }
             }
+            catch (...) { std::unique_lock ul{ gexptrMtx }; gexptr = std::current_exception(); }
         }
 
     public: // 提交接口
@@ -72,6 +78,12 @@ namespace HYDRA15::Union::labourer
     public: // 管理接口
         size_t size() const { return queue.size(); }
         unsigned int active() const { return activeCount.load(std::memory_order::relaxed); }
+        bool alive() const  // 任意一个线程出错则抛出最后一个异常，否则返回 true
+        { 
+            std::unique_lock ul{ gexptrMtx }; 
+            if (gexptr)std::rethrow_exception(gexptr); 
+            return true; 
+        } 
     };
 
     /***************************** 基本线程池实现 *****************************/

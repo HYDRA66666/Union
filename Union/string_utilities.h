@@ -126,13 +126,17 @@ namespace HYDRA15::Union::assistant
     }
 
     // 检查字符串内容是否全部合法，如不合法则报错
-    inline void check_content(
+    inline bool check_content(
         const std::string& str,
-        std::function<bool(char)> is_valid = [](char c) {return c > 0x20 && c < 0x7F; }
+        std::function<bool(char)> is_valid = [](char c) {return c > 0x20 && c < 0x7F; },
+        bool throwExpt = true
     ) {
         for (const auto& c : str)
             if (!is_valid(c))
-                throw exceptions::common(framework::libID.assistant, 0xA01, "Invalid character detected");
+                if (throwExpt)
+                    throw exceptions::common("Invalid character detected");
+                else return false;
+        return true;
     }
 
     // 用给定的字符切分字符串

@@ -23,18 +23,22 @@ namespace HYDRA15::Union::exceptions
 
     public: // 快速创建常见异常
         // 杂项
-        static common BadParameter(const std::string& param, const std::string& provided, const std::string& desired)
+        static common BadParameter(const std::string& param, const std::string& provided, const std::string& desired) noexcept
         {
-            common e{ cateExptCode, 0x001, "The provided argument is invalid" };
-            e.set("param", param).set("provided", provided).set("desired", desired);
-            return e;
+            return common{ cateExptCode, 0x001, "The provided argument is invalid" }
+            .set("param", param).set("provided", provided).set("desired", desired);
         }
 
-        static common UnsupportedFormat(const std::string& desp)
+        static common UnsupportedFormat(const std::string& desp) noexcept
         {
-            common e{ cateExptCode,0x002,"Target object contains unsupported format" };
-            e.set("requires", desp);
-            return e;
+            return common{ cateExptCode,0x002,"Target object contains unsupported format" }
+            .set("requires", desp);
+        }
+
+        static common FileIOFlowError(const std::filesystem::path& path, int state) noexcept
+        {
+            return common{ cateExptCode,0x003,"fstream error" }
+            .set("path", path.string()).set("state", std::to_string(state));
         }
     };
 }

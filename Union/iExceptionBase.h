@@ -61,13 +61,15 @@ namespace HYDRA15::Union::referee
         virtual std::string detail() const
         {
             if (info.empty())return {};
-            size_t size = 0;
+            size_t size = 2;
             for (const auto& [k, v] : info)
                 size += k.size() + v.size() + 5;
-            std::string res;
+            std::string res{ "[" };
             res.reserve(size);
             for (const auto& [k, v] : info)
                 res.append(std::format("{} = {}, ", k, v));
+            res.pop_back(); res.pop_back();
+            res.append("]");
             return res;
         }
 

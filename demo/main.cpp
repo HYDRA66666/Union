@@ -2,19 +2,23 @@
 #include "Union/logger.h"
 #include "Union/PrintCenter.h"
 #include "Union/ThreadLake.h"
+#include "Union/fstreams.h"
 
 using namespace HYDRA15::Union;
 
-labourer::ThreadLake tl(4);
+secretary::PrintCenter& pc = secretary::PrintCenter::get_instance();
+
+
 
 int main()
 {
-    secretary::log::print = [](const std::string& str) {secretary::PrintCenter::println(str); };
-    auto lgr = UNION_CREATE_LOGGER();
-    lgr.info("this is a info msg");
-    lgr.fatal("fatal of program");
+    assistant::bsfstream bsfs{ "txt.txt",4096,4 };
 
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    std::vector<byte> vec(1024 * 4096, 0);
+    for (auto& i : vec)i = rand();
+    std::list<size_t> ids;
+    for (size_t i = 0; i < 1024; i++)ids.push_back(i);
+    bsfs.write(ids, vec);
 }
 
 

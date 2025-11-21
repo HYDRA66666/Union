@@ -27,23 +27,11 @@
     <ClInclude Include="background.h">
       <Filter>labourer</Filter>
     </ClInclude>
-    <ClInclude Include="basic_mailbox.h">
-      <Filter>expressman</Filter>
-    </ClInclude>
-    <ClInclude Include="basic_mailrouter.h">
-      <Filter>expressman</Filter>
-    </ClInclude>
-    <ClInclude Include="basic_mailsender.h">
-      <Filter>expressman</Filter>
-    </ClInclude>
     <ClInclude Include="concepts.h">
       <Filter>framework</Filter>
     </ClInclude>
     <ClInclude Include="datetime.h">
       <Filter>assistant</Filter>
-    </ClInclude>
-    <ClInclude Include="expressman_interfaces.h">
-      <Filter>expressman</Filter>
     </ClInclude>
     <ClInclude Include="framework.h">
       <Filter>framework</Filter>
@@ -81,9 +69,6 @@
     <ClInclude Include="secretary_streambuf.h">
       <Filter>secretary</Filter>
     </ClInclude>
-    <ClInclude Include="factory.h">
-      <Filter>expressman</Filter>
-    </ClInclude>
     <ClInclude Include="archivist_interfaces.h">
       <Filter>archivist</Filter>
     </ClInclude>
@@ -104,6 +89,9 @@
     </ClInclude>
     <ClInclude Include="lib_exceptions.h">
       <Filter>framework</Filter>
+    </ClInclude>
+    <ClInclude Include="fstreams.h">
+      <Filter>assistant</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
