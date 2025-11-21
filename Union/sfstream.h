@@ -138,8 +138,8 @@ namespace HYDRA15::Union::archivist
                 .set("content type", "section")
                 .set("section name", secName);
             
-            section& sec = sections.at(secName);
-            std::shared_lock sl{ sec.asmtx };
+            const section& sec = sections.at(secName);
+            std::shared_lock ssl{ sec.asmtx };
             return bsfs.read<T>(sec.segIDs, pos, count);
         }
 
@@ -359,7 +359,7 @@ namespace HYDRA15::Union::archivist
 
         // 构造方式 2：打开已有文件
         sfstream(const std::filesystem::path& p, unsigned int ioThreads = 4)
-            : path(p), segSize(check_and_extract_segSize(path)), bsfs(path, segSize, ioThreads) 
+            : path(p), segSize(check_and_extract_segSize(path)), bsfs(path, check_and_extract_segSize(path), ioThreads)
         {
             sync_rootsec();
         }
