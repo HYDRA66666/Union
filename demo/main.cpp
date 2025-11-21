@@ -3,6 +3,7 @@
 #include "Union/PrintCenter.h"
 #include "Union/ThreadLake.h"
 #include "Union/fstreams.h"
+#include "Union/sfstream.h"
 
 using namespace HYDRA15::Union;
 
@@ -14,17 +15,17 @@ int main()
 {
     try
     {
-        assistant::bsfstream bsfs{ "test.bin",4096,4 };
+        archivist::sfstream sfs{
+            "demo_archive.sfa",
+            archivist::sfstream::segment_size_level::I
+        };
 
-        std::vector<int> vec(1024, 0);
-        for (int i = 0; i < vec.size(); i++)vec[i] = i;
-        std::deque<size_t> ids;
-        for (size_t i = 0; i < 1024; i++)ids.push_back(i);
-        bsfs.write(ids, 1280, vec);
+        std::vector<int> dataToWrite(2048, 0);
+        for (size_t i = 0; i < dataToWrite.size(); i++)
+            dataToWrite[i] = static_cast<int>(i);
 
-        auto res = bsfs.read<int>(ids, 1280, 2048);
-        for(const auto& i:res)
-            pc.println(i);
+        sfs.write("demo_section", 0, dataToWrite);
+        sfs.set_sec_comment("demo_section", "This is a demo section.");
     }
     catch (const std::exception& e) { pc.println(e.what()); }
 

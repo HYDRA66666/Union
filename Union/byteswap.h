@@ -13,7 +13,7 @@ namespace HYDRA15::Union::assistant::byteswap
             return i;
         else if constexpr (std::endian::native == std::endian::big)
             return std::byteswap(i);
-        else throw exceptions::assistant::LocalByteOrderUncertain();
+        else throw exceptions::common("Local byte order uncertain");
     }
 
     template<typename I>
@@ -24,7 +24,7 @@ namespace HYDRA15::Union::assistant::byteswap
             return std::byteswap(i);
         else if constexpr (std::endian::native == std::endian::big)
             return i;
-        else throw exceptions::assistant::LocalByteOrderUncertain();
+        else throw exceptions::common("Local byte order uncertain");
     }
 
     template<typename I>
@@ -35,7 +35,7 @@ namespace HYDRA15::Union::assistant::byteswap
             return i;
         else if constexpr (std::endian::native == std::endian::big)
             return std::byteswap(i);
-        else throw exceptions::assistant::LocalByteOrderUncertain();
+        else throw exceptions::common("Local byte order uncertain");
     }
 
     template<typename I>
@@ -46,7 +46,7 @@ namespace HYDRA15::Union::assistant::byteswap
             return std::byteswap(i);
         else if constexpr (std::endian::native == std::endian::big)
             return i;
-        else throw exceptions::assistant::LocalByteOrderUncertain();
+        else throw exceptions::common("Local byte order uncertain");
     }
 
 

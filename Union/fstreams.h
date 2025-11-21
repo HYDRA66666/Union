@@ -124,7 +124,9 @@ namespace HYDRA15::Union::assistant
 
             // 如果到达这里，说明文件结束但未遇到结束符
             if (file.eof())
-                throw exceptions::files::StringNotFound(path, pos);
+                throw exceptions::files::ContentNotFound(path)
+                .set("content type", "string")
+                .set("position", std::to_string(pos));
 
             // 如果是其他错误
             throw exceptions::files::FileIOFlowError(path, file.rdstate());
@@ -264,7 +266,7 @@ namespace HYDRA15::Union::assistant
             std::queue<std::future<std::vector<byte>>> futures;
             std::vector<T> res(count, T{});
 
-            for (size_t i = 0; i < seglst; i++)
+            for (size_t i = 0; i < seglst.size(); i++)
             {
                 const size_t id = seglst[i];
                 const size_t currentTgtPos = std::min(dataByteSize, i > 0 ? i * segSize - pos : 0);
@@ -289,7 +291,7 @@ namespace HYDRA15::Union::assistant
 
             if (!futures.empty())
             {
-                for (size_t i = 0; i < seglst; i++)
+                for (size_t i = 0; i < seglst.size(); i++)
                 {
                     const size_t id = seglst[i];
                     const size_t currentTgtPos = std::min(dataByteSize, i > 0 ? i * segSize - pos : 0);
@@ -298,7 +300,6 @@ namespace HYDRA15::Union::assistant
                     std::vector<byte> segData = futures.front().get();
                     assistant::memcpy(segData.data(), reinterpret_cast<byte*>(res.data()) + currentTgtPos, segData.size());
                     futures.pop();
-                    i++;
                 }
             }
 
@@ -322,7 +323,7 @@ namespace HYDRA15::Union::assistant
             for (size_t i = seglst.size(); i > ((pos + dataByteSize) - 1) / segSize + 1; i--)seglst.pop_back();
 
             std::queue<std::future<std::vector<byte>>> futures;
-            for (size_t i = 0; i < seglst; i++)
+            for (size_t i = 0; i < seglst.size(); i++)
             {
                 const size_t id = seglst[i];
                 const size_t currentSrcPos = std::min(dataByteSize, i > 0 ? i * segSize - pos : 0);
@@ -348,7 +349,6 @@ namespace HYDRA15::Union::assistant
                     ));
                 else
                     write<byte>(id, currentTgtPos, segData);
-                i++;
             }
 
             if (sync)  // 同步写入，传递异常、保证写入完成
@@ -377,12 +377,15 @@ namespace HYDRA15::Union::assistant
                     return std::string{ segData.data() + pos,i };
 
             // 如果到达这里，说明节结束但未遇到结束符
-            throw exceptions::files::StringNotFound(path, pos).set("segment ID", std::to_string(segID));
+            throw exceptions::files::ContentNotFound(path)
+                .set("content type", "string")
+                .set("position", std::to_string(pos))
+                .set("segment ID", std::to_string(segID));
         }
 
-        std::string read_string(const std::list<size_t>& segIDs, size_t pos) const
+        std::string read_string(const std::deque<size_t>& segIDs, size_t pos) const
         {
-            std::list<size_t> seglst = segIDs;
+            std::deque<size_t> seglst = segIDs;
             if (pos >= segIDs.size() * segSize)
                 throw exceptions::files::ExceedRage(path, "segIDs, pos", "pos < segSize * segIDs.size");
 
@@ -390,10 +393,10 @@ namespace HYDRA15::Union::assistant
             for (size_t i = 0; i < pos / segSize; i++)seglst.pop_front();
             pos -= (pos / segSize) * segSize;
 
-            size_t i = 0;
             std::string result;
-            for (const auto& id : seglst)
+            for (size_t i = 0; i < seglst.size(); i++)
             {
+                const size_t id = seglst[i];
                 const size_t currentSrcPos = i > 0 ? 0 : pos;
                 const size_t currentSrcSize = segSize - currentSrcPos;
                 std::vector<char> segData = read<char>(id, currentSrcPos, currentSrcSize);
@@ -401,11 +404,13 @@ namespace HYDRA15::Union::assistant
                     if (segData[j] == '\0')
                         return result + std::string{ segData.data(),j };
                 result += std::string{ segData.data(),segData.size() };
-                i++;
             }
 
             // 如果到达这里，说明节结束但未遇到结束符
-            throw exceptions::files::StringNotFound(path, pos).set("segment IDs", assistant::container_to_string(segIDs));
+            throw exceptions::files::ContentNotFound(path)
+                .set("content type", "string")
+                .set("position", std::to_string(pos))
+                .set("segment IDs", assistant::container_to_string(segIDs));
         }
 
     public:     // 管理接口

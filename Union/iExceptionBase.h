@@ -22,7 +22,7 @@ namespace HYDRA15::Union::referee
         static std::string format_stacktrace_entry(const std::stacktrace_entry& e)
         {
             if (e.source_file().empty())
-                return std::format("at {}\n", e.description());
+                return std::format("at {}", e.description());
 
             std::filesystem::path path{ e.source_file() };
             auto fileName = path.filename();
@@ -89,7 +89,7 @@ namespace HYDRA15::Union::referee
             std::string res{ "Stack trace:\n" };
             res.reserve(size);
             for (const auto& i : stackTrace)
-                res.append(std::format("    {}\n", i));
+                res.append(i.empty() ? "" : std::format("    {}\n", i));
             res.pop_back(); res.pop_back();
             return res;
         }

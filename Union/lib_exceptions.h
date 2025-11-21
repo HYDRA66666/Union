@@ -76,10 +76,9 @@ namespace HYDRA15::Union::exceptions
             .set("reason", req);
         }
 
-        static files StringNotFound(const std::filesystem::path& path, size_t pos) noexcept
+        static files ContentNotFound(const std::filesystem::path& path) noexcept
         {
-            return files{ path,0xB03,"Null terminator not found while reading string" }
-            .set("position", std::to_string(pos));
+            return files{ path,0xB03,"The requested content was not found." };
         }
 
         
