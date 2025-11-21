@@ -348,7 +348,7 @@ namespace HYDRA15::Union::archivist
             uint64_t maxSegs = std::numeric_limits<uint64_t>::max(),
             unsigned int ioThreads = 4
         )
-            :path(p), segSize(static_cast<size_t>(level)), bsfs(path, static_cast<size_t>(level), ioThreads), maxSegCount(maxSegs)
+            :path(p), segSize(static_cast<size_t>(level)), bsfs(p, static_cast<size_t>(level), ioThreads), maxSegCount(maxSegs)
         {
             if (maxSegCount == 0)throw exceptions::common::BadParameter("maxSegs", "0", "> 0");
 
@@ -359,7 +359,7 @@ namespace HYDRA15::Union::archivist
 
         // 构造方式 2：打开已有文件
         sfstream(const std::filesystem::path& p, unsigned int ioThreads = 4)
-            : path(p), segSize(check_and_extract_segSize(path)), bsfs(path, check_and_extract_segSize(path), ioThreads)
+            : path(p), segSize(check_and_extract_segSize(p)), bsfs(p, check_and_extract_segSize(p), ioThreads)
         {
             sync_rootsec();
         }
