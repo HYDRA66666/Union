@@ -7,6 +7,8 @@
 #include "shared_containers.h"
 #include "utilities.h"
 
+
+
 namespace HYDRA15::Union::assistant
 {
     // 管理、读写二进制文件
@@ -35,7 +37,7 @@ namespace HYDRA15::Union::assistant
 
             std::ofstream ofs(path);
             if (!ofs)
-                throw exceptions::common::FileIOFlowError(path, ofs.rdstate());
+                throw exceptions::fstream::FileIOFlowError(path, ofs.rdstate());
 
             newFile = true;
         }
@@ -44,7 +46,7 @@ namespace HYDRA15::Union::assistant
         {
             file.open(path, std::ios::in | std::ios::out | std::ios::binary);
             if (!file.is_open())
-                throw exceptions::common::FileIOFlowError(path, file.rdstate());
+                throw exceptions::fstream::FileIOFlowError(path, file.rdstate());
             file.exceptions(std::ios::badbit);
         }
 
@@ -66,7 +68,7 @@ namespace HYDRA15::Union::assistant
                     file.clear();
                     res.resize(file.gcount() / sizeof(T));
                 }
-                else throw exceptions::common::FileIOFlowError(path, file.rdstate());
+                else throw exceptions::fstream::FileIOFlowError(path, file.rdstate());
             return res;
         }
 
@@ -77,7 +79,7 @@ namespace HYDRA15::Union::assistant
             file.seekp(pos);
             file.write(reinterpret_cast<const char*>(data.data()), sizeof(T) * data.size());
             if (!file)
-                throw exceptions::common::FileIOFlowError(path, file.rdstate());
+                throw exceptions::fstream::FileIOFlowError(path, file.rdstate());
         }
 
         // 兼容任意类型指针读写
@@ -90,7 +92,7 @@ namespace HYDRA15::Union::assistant
             file.read(reinterpret_cast<char*>(data), sizeof(T) * count);
             if (!file)
                 if (file.rdstate() & std::ios::eofbit)file.clear();
-                else throw exceptions::common::FileIOFlowError(path, file.rdstate());
+                else throw exceptions::fstream::FileIOFlowError(path, file.rdstate());
             return file.gcount() / sizeof(T);
         }
 
@@ -101,7 +103,7 @@ namespace HYDRA15::Union::assistant
             file.seekp(pos);
             file.write(reinterpret_cast<const char*>(data), sizeof(T) * count);
             if (!file)
-                throw exceptions::common::FileIOFlowError(path, file.rdstate());
+                throw exceptions::fstream::FileIOFlowError(path, file.rdstate());
         }
 
     public:     // 信息和管理接口
@@ -212,12 +214,13 @@ namespace HYDRA15::Union::assistant
         void write(size_t segID, size_t pos, const std::vector<T>& data)
         {
             if (pos + data.size() * sizeof(T) > segSize)
-                throw exceptions::common::BadParameter("data.size + pos", std::to_string(pos + data.size() * sizeof(T)), "exceeds segment size");
+                throw exceptions::fstream::ExceedRage(path, "pos, data.size", "pos + data.size <= segSize");
             std::unique_lock ul{ smtx };
             bfs.write<T>(segID * segSize + pos, data);
         }
 
         // 多段异步读写，根据配置启用异步 IO，支持并发
+        // 读写模型：将 list 中的所有节视为一个整体，在整体中读写数据
         template<typename T>
             requires std::is_trivial_v<T>
         std::vector<T> read(std::list<size_t> segIDs) const
@@ -255,35 +258,53 @@ namespace HYDRA15::Union::assistant
 
         template<typename T>
             requires std::is_trivial_v<T>
-        void write(std::list<size_t> segIDs, const std::vector<T>& data)
+        void write(const std::list<size_t>& segIDs, size_t pos, const std::vector<T>& data, bool sync = true)
         {
-            if (data.size() * sizeof(T) != segIDs.size() * segSize)
-                throw exceptions::common::BadParameter("segIDs & data", "", "Data size mismatch");
+            const size_t dataByteSize = data.size() * sizeof(T);
+            std::list<size_t> seglst = segIDs;
+
+            if (dataByteSize == 0)return;
+            if (pos + dataByteSize > segIDs.size() * segSize)
+                throw exceptions::fstream::ExceedRage(path, "segIDs, pos, data.bytesize", "pos + data.bytesize <= segSize * segIDs.size");
+
+            // 处理头尾冗余的节
+            for (size_t i = 0; i < pos / segSize; i++)seglst.pop_front();
+            pos -= (pos / segSize) * segSize;
+            for (size_t i = seglst.size(); i > ((pos + dataByteSize) - 1) / segSize + 1; i--)seglst.pop_back();
 
             size_t i = 0;
             std::queue<std::future<std::vector<byte>>> futures;
-            for (const auto& id : segIDs)
+            for (const auto& id : seglst)
             {
-                std::vector<byte> segData(segSize, 0);
+                if (pos > (i + 1) * segSize)continue;
+
+                const size_t currentSrcPos = std::min(dataByteSize, i > 0 ? i * segSize - pos : 0);
+                const size_t remainSrcSize = dataByteSize - currentSrcPos;
+                const size_t currentTgtPos = i > 0 ? 0 : pos;
+                const size_t currentTgtSize = std::min(remainSrcSize, segSize);
+
+                if (remainSrcSize == 0)continue;    // 没有更多数据
+
+                std::vector<byte> segData(currentTgtSize, 0);
                 assistant::memcpy(
-                    reinterpret_cast<const byte*>(data.data()) + i * segSize,
+                    reinterpret_cast<const byte*>(data.data()) + currentSrcPos,
                     segData.data(),
-                    segSize
+                    segData.size()
                 );
                 if(!aioPool)   // 未启用异步IO，退化为同步操作
-                    write<byte>(id, 0, segData);
+                    write<byte>(id, currentTgtPos, segData);
                 else
                     futures.push(aioPool->submit(
-                        [id, segData = std::move(segData)](bfstream& bfs) -> std::vector<byte>
+                        [id, currentTgtPos, segData = std::move(segData)](bfstream& bfs) -> std::vector<byte>
                         {
-                            bfs.write<byte>(id * segData.size(), segData);
+                            bfs.write<byte>(id * segData.size() + currentTgtPos, segData);
                             return {};
                         }
                     ));
                 i++;
             }
 
-            while (!futures.empty()) // 传递异常、保证写入完成
+            while (sync && !futures.empty()) // 同步写入，传递异常、保证写入完成
             {
                 futures.front().get();
                 futures.pop();

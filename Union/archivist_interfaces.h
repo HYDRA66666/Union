@@ -2,8 +2,6 @@
 #include "framework.h"
 #include "pch.h"
 
-#include "expressman_interfaces.h"
-
 
 namespace HYDRA15::Union::archivist
 {
@@ -11,7 +9,6 @@ namespace HYDRA15::Union::archivist
     // 内部数据类型
     using ID = uint64_t;    // 主键
     using BYTE = uint8_t;   // 字节
-    using OBJECT = expressman::packet;
 
     // 字段数据类型
     using NOTHING = std::monostate;
@@ -20,13 +17,12 @@ namespace HYDRA15::Union::archivist
     using INTS = std::vector<INT>;
     using FLOATS = std::vector<FLOAT>;
     using BYTES = std::vector<BYTE>;
-    using OBJECTS = std::list<OBJECT>;
 
     // 版本号
     using version_id = ID;
 
     // 字段
-    using field = std::variant<NOTHING, INT, FLOAT, INTS, FLOATS, BYTES, OBJECTS>;
+    using field = std::variant<NOTHING, INT, FLOAT, INTS, FLOATS, BYTES>;
 
     // 字段信息
     struct field_spec
@@ -35,7 +31,7 @@ namespace HYDRA15::Union::archivist
         enum class field_type :char
         {
             NOTHING = 0, INT = 'I', FLOAT = 'F',
-            INTS = 'U', FLOATS = 'D', BYTES = 'B', OBJECTS = 'P'
+            INTS = 'U', FLOATS = 'D', BYTES = 'B'
         };
 
         std::string name{};

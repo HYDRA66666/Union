@@ -14,6 +14,8 @@ namespace HYDRA15::Union::referee
         const std::string desp;             // 错误描述
         std::unordered_map<std::string, std::string> info;  // 错误信息 / 参数
         std::list<std::string> stackTrace;  // 调用栈
+    public:     // 数据配置
+        bool enableDebug = debug;
 
     private:    // 工具函数
 #ifdef UNION_IEXPT_STACKTRACE_ENABLE
@@ -51,9 +53,14 @@ namespace HYDRA15::Union::referee
         virtual const char* what() const noexcept override
         {
             if (desp.empty())
-                whatStr = std::format("unknow exception. (0x{:016X})", exptCode);
+                whatStr = std::format("unknow exception. (0x{:08X})", exptCode);
             else
-                whatStr = std::format("{}. (0x{:016X})", desp, exptCode);
+                whatStr = std::format("{}. (0x{:08X})", desp, exptCode);
+            if (enableDebug)
+            {
+                if (!info.empty())whatStr += " " + detail();
+                if (!info.empty())whatStr += "\n" + trace();
+            }
             return whatStr.c_str();
         }
 
@@ -67,7 +74,7 @@ namespace HYDRA15::Union::referee
             std::string res{ "[" };
             res.reserve(size);
             for (const auto& [k, v] : info)
-                res.append(std::format("{} = {}, ", k, v));
+                res.append(std::format("{} : {}, ", k, v));
             res.pop_back(); res.pop_back();
             res.append("]");
             return res;

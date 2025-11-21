@@ -7,9 +7,6 @@
     <Filter Include="assistant">
       <UniqueIdentifier>{1980ef56-f51c-4155-b2e5-b70cf485b51f}</UniqueIdentifier>
     </Filter>
-    <Filter Include="expressman">
-      <UniqueIdentifier>{3a6b1f4e-325c-4a89-8831-546aaadfaf93}</UniqueIdentifier>
-    </Filter>
     <Filter Include="framework">
       <UniqueIdentifier>{a3910d1b-c00f-429d-a866-13eeb7716c7d}</UniqueIdentifier>
     </Filter>
