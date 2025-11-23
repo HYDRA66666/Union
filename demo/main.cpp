@@ -27,7 +27,6 @@ int main()
         for (auto& i : res)pc.println(i);
     }
     catch (const std::exception& e) { pc.println(e.what()); }
-
 }
 
 
