@@ -169,9 +169,14 @@ namespace HYDRA15::Union::archivist
     public:
         size_t sec_count() const { std::shared_lock sl{ asmtx }; return sections.size(); }
 
-        assistant::bfstream& data() { return bsfs.data(); }
-
-        std::vector<byte>& header() { return customHeader; }
+        std::list<std::string> sec_list() const
+        {
+            std::list<std::string> res;
+            std::shared_lock sl{asmtx};
+            for (const auto& [k, v] : sections)
+                res.push_back(k);
+            return res;
+        }
 
         void flush_rootsec()   // 根节落盘
         {
@@ -337,6 +342,10 @@ namespace HYDRA15::Union::archivist
             sections[secName].comment = comment;
             expand(sections.at(secName).segIDs, segCount);
         }
+
+        assistant::bfstream& data() { return bsfs.data(); }
+
+        std::vector<byte>& custom_header() { return customHeader; } // 自定义头不受保护
 
     public:
         sfstream() = delete;

@@ -157,6 +157,7 @@
     <ClInclude Include="iMutexies.h" />
     <ClInclude Include="sfstream.h" />
     <ClInclude Include="shared_containers.h" />
+    <ClInclude Include="single_loader.h" />
     <ClInclude Include="string_utilities.h" />
     <ClInclude Include="secretary_streambuf.h" />
     <ClInclude Include="concepts.h" />

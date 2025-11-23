@@ -39,7 +39,7 @@ namespace HYDRA15::Union::archivist
         uint8_t mark[7]{};
         std::string comment{};
     };
-    using field_specs = std::list<field_spec>;
+    using field_specs = std::deque<field_spec>;
 
     
 
@@ -62,13 +62,13 @@ namespace HYDRA15::Union::archivist
         ID start;   // 页中首条记录的 ID
         ID count;   // 页内有效记录条数
         std::unordered_set<ID> modified; // 修改过的记录列表
-        std::vector<field> data;
+        std::deque<field> data;
     };
     struct index    // 持久层和数据层传递索引的结构
     {
         std::string name;       // 索引表名
         field_specs fields;     // 索引列
-        std::vector<ID> data;   // 按照索引顺序排列的记录 ID 数据
+        std::deque<ID> data;   // 按照索引顺序排列的记录 ID 数据
     };
     
     class loader
@@ -170,7 +170,7 @@ namespace HYDRA15::Union::archivist
         incident_type type;
         incident_param param;
     };
-    using incidents = std::list<incident>;
+    using incidents = std::deque<incident>;
 
     class table
     {
@@ -188,8 +188,8 @@ namespace HYDRA15::Union::archivist
         // 行访问接口
         virtual std::unique_ptr<entry> create() = 0;                                                // 增：创建一条记录，返回相关的条目对象
         virtual void drop(std::unique_ptr<entry>) = 0;                                              // 删：通过条目对象删除记录
-        virtual std::list<std::unique_ptr<entry>> at(const std::function<void(const entry&)>) = 0;  // 改、查：通过过滤器查找记录
-        virtual std::list<std::unique_ptr<entry>> excute(const incidents&) = 0;                     // 执行一系列事件，返回执行结果
+        virtual std::deque<std::unique_ptr<entry>> at(const std::function<void(const entry&)>) = 0;  // 改、查：通过过滤器查找记录
+        virtual std::deque<std::unique_ptr<entry>> excute(const incidents&) = 0;                     // 执行一系列事件，返回执行结果
 
         // 索引接口
         virtual void create_index(std::string, field_specs) = 0;// 创建指定名称、基于指定字段的索引
