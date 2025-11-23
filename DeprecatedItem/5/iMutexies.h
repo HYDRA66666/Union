@@ -32,9 +32,7 @@ namespace HYDRA15::Union::labourer
 
     using atomic_mutex = atomic_mutex_temp<>;
 
-    // 使用原子变量实现的读写锁，自旋等待，适用于短临界区或读多写少
-    // 支持锁升级，对于一般读写锁操作没有额外开销
-    // 限制总读锁数量为 0xFFFFFFFF
+    // 使用原子变量实现的读写锁，比 std::shared_mutex 有更好的性能
     // 性能测试：
     //                           debug       release
     //  无锁（纯 std::atomic）4450w tps     6360w tps
@@ -46,6 +44,7 @@ namespace HYDRA15::Union::labourer
     private:
         std::atomic_bool writer = false;
         std::atomic_bool upgraded = false;
+        std::atomic<size_t> upgrading = 0;
         std::atomic<size_t> readers = 0;
 
     public:
@@ -64,7 +63,11 @@ namespace HYDRA15::Union::labourer
             }
             while (true)
             {
-                if (readers.load(std::memory_order::acquire) == 0)break;
+                if (
+                    readers.load(std::memory_order::acquire) == 0
+                    && upgrading.load(std::memory_order::acquire) == 0
+                    && !upgraded.load(std::memory_order::acquire)
+                    )break;
                 i++;
                 if (i > retreatFreq)std::this_thread::yield();
             }
@@ -76,64 +79,87 @@ namespace HYDRA15::Union::labourer
         {
             bool expected = writer.load(std::memory_order::acquire);
             if (expected)return false;  // 已有写锁
-            if (!readers.load(std::memory_order::acquire) == 0)
+            if (readers.load(std::memory_order::acquire) != 0
+                || upgraded.load(std::memory_order::acquire)
+                || upgrading.load(std::memory_order::acquire) != 0
+                )
                 return false;           // 有读锁
-            if(!writer.compare_exchange_strong(
+            if (!writer.compare_exchange_strong(
                 expected, true,
                 std::memory_order::acquire, std::memory_order::relaxed
             ))return false;             // 获取写锁失败
             return true;
         }
-        
+
         void lock_shared()
         {
             size_t i = 0;
             while (true)
             {
-                if (!writer.load(std::memory_order::acquire))
+                if (!writer.load(std::memory_order::acquire)
+                    && !upgraded.load(std::memory_order::acquire)
+                    && upgrading.load(std::memory_order::acquire) == 0
+                    )
                 {
                     readers.fetch_add(1, std::memory_order::acquire);
-                    if (!writer.load(std::memory_order::acquire))return;
-                    readers.fetch_sub(1, std::memory_order::relaxed);
+                    if (!writer.load(std::memory_order::acquire)
+                        && !upgraded.load(std::memory_order::acquire)
+                        && upgrading.load(std::memory_order::acquire) == 0
+                        )return;
+                    readers.fetch_add(-1, std::memory_order::relaxed);
                 }
                 i++;
                 if (i > retreatFreq)std::this_thread::yield();
             }
         }
 
-        void unlock_shared() { readers.fetch_sub(1, std::memory_order::release); }
+        void unlock_shared() { readers.fetch_add(-1, std::memory_order::release); }
 
         bool try_lock_shared()
         {
-            if (!writer.load(std::memory_order::acquire))
+            if (!writer.load(std::memory_order::acquire)
+                && !upgraded.load(std::memory_order::acquire)
+                && upgrading.load(std::memory_order::acquire) == 0
+                )
             {
                 readers.fetch_add(1, std::memory_order::acquire);
-                if (!writer.load(std::memory_order::acquire))return true;
-                readers.fetch_sub(1, std::memory_order::relaxed);
+                if (!writer.load(std::memory_order::acquire)
+                    && !upgraded.load(std::memory_order::acquire)
+                    && upgrading.load(std::memory_order::acquire) == 0
+                    )return true;
+                readers.fetch_add(-1, std::memory_order::relaxed);
             }
             return false;
         }
 
-        // 升级和降级。upgrade 的返回值应当传递给 downgrade 的 before 参数。
+        // 升级和降级
         void upgrade()
         {
-            readers.fetch_add(0xFFFFFFFF, std::memory_order::acquire);
+            upgrading.fetch_add(1, std::memory_order::acquire);
+            readers.fetch_add(-1, std::memory_order::relaxed);
             size_t i = 0;
             while (true)
             {
                 bool expected = false;
-                if(upgraded.compare_exchange_strong(
+                if (upgraded.compare_exchange_weak(
                     expected, true,
                     std::memory_order::acquire, std::memory_order::relaxed
                 ))break;
                 i++;
-                if (i > retreatFreq)std::this_thread::yield();
+                if (i >= retreatFreq)std::this_thread::yield();
+            }
+            while (true)
+            {
+                if (readers.load(std::memory_order::acquire) == 0)break;
+                i++;
+                if (i >= retreatFreq)std::this_thread::yield();
             }
         }
 
         void downgrade()
         {
-            readers.fetch_sub(0xFFFFFFFF, std::memory_order::release);
+            readers.fetch_add(1, std::memory_order::relaxed);
+            upgrading.fetch_add(-1, std::memory_order::relaxed);
             upgraded.store(false, std::memory_order::release);
         }
     };
