@@ -83,4 +83,38 @@ namespace HYDRA15::Union::assistant::byteswap
         for (auto& i : data)
             i = from_big_endian<T>(i);
     }
+
+    // Range 版本：支持任意可迭代容器（传入可写容器引用）
+    // ** AI 生成的代码，未经广泛测试
+    template<typename R>
+        requires std::is_integral_v<std::remove_reference_t<decltype(*std::begin(std::declval<R&>()))>>
+    void to_little_endian_range(R& data)
+    {
+        for (auto& i : data)
+            i = to_little_endian(std::remove_reference_t<decltype(i)>(i));
+    }
+
+    template<typename R>
+        requires std::is_integral_v<std::remove_reference_t<decltype(*std::begin(std::declval<R&>()))>>
+    void to_big_endian_range(R& data)
+    {
+        for (auto& i : data)
+            i = to_big_endian(std::remove_reference_t<decltype(i)>(i));
+    }
+
+    template<typename R>
+        requires std::is_integral_v<std::remove_reference_t<decltype(*std::begin(std::declval<R&>()))>>
+    void from_little_endian_range(R& data)
+    {
+        for (auto& i : data)
+            i = from_little_endian(std::remove_reference_t<decltype(i)>(i));
+    }
+
+    template<typename R>
+        requires std::is_integral_v<std::remove_reference_t<decltype(*std::begin(std::declval<R&>()))>>
+    void from_big_endian_range(R& data)
+    {
+        for (auto& i : data)
+            i = from_big_endian(std::remove_reference_t<decltype(i)>(i));
+    }
 }

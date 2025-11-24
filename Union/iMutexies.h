@@ -33,8 +33,9 @@ namespace HYDRA15::Union::labourer
     using atomic_mutex = atomic_mutex_temp<>;
 
     // 使用原子变量实现的读写锁，自旋等待，适用于短临界区或读多写少
-    // 支持锁升级，对于一般读写锁操作没有额外开销
+    // 支持锁升级，此特性对于一般读写锁操作没有额外开销
     // 限制总读锁数量为 0xFFFFFFFF
+    // 
     // 性能测试：
     //                           debug       release
     //  无锁（纯 std::atomic）4450w tps     6360w tps
@@ -66,7 +67,7 @@ namespace HYDRA15::Union::labourer
             {
                 if (readers.load(std::memory_order::acquire) == 0)break;
                 i++;
-                if (i > retreatFreq)std::this_thread::yield();
+                if (i >= retreatFreq)std::this_thread::yield();
             }
         }
 
@@ -97,7 +98,7 @@ namespace HYDRA15::Union::labourer
                     readers.fetch_sub(1, std::memory_order::relaxed);
                 }
                 i++;
-                if (i > retreatFreq)std::this_thread::yield();
+                if (i >= retreatFreq)std::this_thread::yield();
             }
         }
 
@@ -127,7 +128,7 @@ namespace HYDRA15::Union::labourer
                     std::memory_order::acquire, std::memory_order::relaxed
                 ))break;
                 i++;
-                if (i > retreatFreq)std::this_thread::yield();
+                if (i >= retreatFreq)std::this_thread::yield();
             }
         }
 

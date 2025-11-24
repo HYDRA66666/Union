@@ -175,6 +175,7 @@ namespace HYDRA15::Union::assistant
         class async_io_thread_pool : protected labourer::background
         {
         private:
+            std::atomic_bool started = false;
             const size_t segSize;
             const std::filesystem::path path;
             std::atomic<bool> working = true;
@@ -209,17 +210,21 @@ namespace HYDRA15::Union::assistant
                 return fut;
             }
 
+        public:
+            void start() { if (!started)background::start(); }
+
+        public:
             async_io_thread_pool(const std::filesystem::path& path, size_t segSize, unsigned int thrs)
                 :path(path), segSize(segSize), background(thrs) {
             }
+
             ~async_io_thread_pool() { working = false; queue.notify_exit(); background::wait_for_end(); }
-            using background::start;
+            
         };
 
     private:
         const size_t segSize;
-        const std::filesystem::path path;
-        bfstream bfs{ path };
+        bfstream bfs;
         mutable std::shared_mutex smtx;
         std::unique_ptr<async_io_thread_pool> aioPool;
 
@@ -230,7 +235,7 @@ namespace HYDRA15::Union::assistant
         std::vector<T> read(size_t segID, size_t pos, size_t count) const
         {
             if (pos + count * sizeof(T) > segSize)
-                throw exceptions::files::ExceedRage(path, "pos, count", "pos + count * sizeof(T) < segSize");
+                throw exceptions::files::ExceedRage(bfs.file_path(), "pos, count", "pos + count * sizeof(T) < segSize");
             std::shared_lock sl{ smtx };
             return bfs.read<T>(segID * segSize + pos, count);
         }
@@ -241,7 +246,7 @@ namespace HYDRA15::Union::assistant
         {
             if (data.empty())return;
             if (pos + data.size() * sizeof(T) > segSize)
-                throw exceptions::files::ExceedRage(path, "pos, data.size", "pos + data.size <= segSize");
+                throw exceptions::files::ExceedRage(bfs.file_path(), "pos, data.size", "pos + data.size <= segSize");
             std::unique_lock ul{ smtx };
             bfs.write<T>(segID * segSize + pos, data);
         }
@@ -256,7 +261,7 @@ namespace HYDRA15::Union::assistant
             std::deque<size_t> seglst = segIDs;
 
             if (pos + dataByteSize > segIDs.size() * segSize)
-                throw exceptions::files::ExceedRage(path, "segIDs, pos, count", "pos + count * sizeof(T) <= segSize * segIDs.size");
+                throw exceptions::files::ExceedRage(bfs.file_path(), "segIDs, pos, count", "pos + count * sizeof(T) <= segSize * segIDs.size");
 
             // 处理头尾冗余的节
             for (size_t i = 0; i < pos / segSize; i++)seglst.pop_front();
@@ -315,7 +320,7 @@ namespace HYDRA15::Union::assistant
 
             if (data.empty())return;
             if (pos + dataByteSize > segIDs.size() * segSize)
-                throw exceptions::files::ExceedRage(path, "segIDs, pos, data.bytesize", "pos + data.bytesize <= segSize * segIDs.size");
+                throw exceptions::files::ExceedRage(bfs.file_path(), "segIDs, pos, data.bytesize", "pos + data.bytesize <= segSize * segIDs.size");
 
             // 处理头尾冗余的节
             for (size_t i = 0; i < pos / segSize; i++)seglst.pop_front();
@@ -364,7 +369,7 @@ namespace HYDRA15::Union::assistant
         {
             std::vector<char> segData = read<char>(segID, 0, segSize);
             if (pos >= segData.size())
-                throw exceptions::files::ExceedRage(path, "pos", "pos <= segData.size");
+                throw exceptions::files::ExceedRage(bfs.file_path(), "pos", "pos <= segData.size");
 
             std::shared_lock sl{ smtx };
 
@@ -377,7 +382,7 @@ namespace HYDRA15::Union::assistant
                     return std::string{ segData.data() + pos,i };
 
             // 如果到达这里，说明节结束但未遇到结束符
-            throw exceptions::files::ContentNotFound(path)
+            throw exceptions::files::ContentNotFound(bfs.file_path())
                 .set("content type", "string")
                 .set("position", std::to_string(pos))
                 .set("segment ID", std::to_string(segID));
@@ -387,7 +392,7 @@ namespace HYDRA15::Union::assistant
         {
             std::deque<size_t> seglst = segIDs;
             if (pos >= segIDs.size() * segSize)
-                throw exceptions::files::ExceedRage(path, "segIDs, pos", "pos < segSize * segIDs.size");
+                throw exceptions::files::ExceedRage(bfs.file_path(), "segIDs, pos", "pos < segSize * segIDs.size");
 
             // 处理头尾冗余的节
             for (size_t i = 0; i < pos / segSize; i++)seglst.pop_front();
@@ -407,7 +412,7 @@ namespace HYDRA15::Union::assistant
             }
 
             // 如果到达这里，说明节结束但未遇到结束符
-            throw exceptions::files::ContentNotFound(path)
+            throw exceptions::files::ContentNotFound(bfs.file_path())
                 .set("content type", "string")
                 .set("position", std::to_string(pos))
                 .set("segment IDs", assistant::container_to_string(segIDs));
@@ -420,10 +425,21 @@ namespace HYDRA15::Union::assistant
 
         bfstream& data() { return bfs; }
 
+        const bfstream& data() const { return bfs; }
+
+        void start() { if (aioPool)aioPool->start(); }  // 启动后台线程，仅在 autoStart 为 false 时有效
+
     public:
-        bsfstream(const std::filesystem::path& path, size_t segSize, unsigned int aioThrs = 4)
-            :path(path), segSize(segSize), aioPool(aioThrs > 0 ? std::make_unique<async_io_thread_pool>(path, segSize,aioThrs) : nullptr) {
-            if (aioPool)aioPool->start();
+        bsfstream(const std::filesystem::path& path, size_t segSize, unsigned int aioThrs = 4, bool autoStart = true)
+            :bfs(path), segSize(segSize), aioPool(aioThrs > 0 ? std::make_unique<async_io_thread_pool>(path, segSize,aioThrs) : nullptr) 
+        {
+            if (aioPool && autoStart)aioPool->start();
+        }
+
+        bsfstream(const bfstream& bfs, size_t segSize, unsigned int aioThrs = 4, bool autoStart = true)
+            :bfs(bfs), segSize(segSize), aioPool(aioThrs > 0 ? std::make_unique<async_io_thread_pool>(bfs.file_path(), segSize, aioThrs) : nullptr)
+        {
+            if (aioPool && autoStart)aioPool->start();
         }
     };
 }

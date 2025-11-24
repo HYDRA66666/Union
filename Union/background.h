@@ -53,7 +53,7 @@ namespace HYDRA15::Union::labourer
 
         virtual ~background() { for (auto& i : threads)if (i.joinable())i.detach(); }
 
-        background(background&&) = default;
+        background(background&&) = delete;
         background(const background&) = delete;
         background& operator=(const background&) = delete;
     };

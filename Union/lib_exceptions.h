@@ -59,9 +59,14 @@ namespace HYDRA15::Union::exceptions
             .set("state", std::to_string(state));
         }
 
-        static files FileNotExist(const std::filesystem::path& path)noexcept
+        static files FileNotExist(const std::filesystem::path& path) noexcept
         {
             return files{ path,0xA02,"File not exist" };
+        }
+
+        static files FileFull(const std::filesystem::path& path, size_t limit) noexcept
+        {
+            return files{ path,0xA03,"File size has reached the configured limit." }.set("limit", std::to_string(limit));
         }
 
         static files ExceedRage(const std::filesystem::path& path, const std::string& relParam, const std::string& req) noexcept

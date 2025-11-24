@@ -214,6 +214,16 @@ namespace HYDRA15::Union::assistant
             dest[i] = src;
     }
 
+    // 从内存字节数据中提取数据
+    template<typename T>
+        requires std::is_trivially_copyable_v<T>
+    std::vector<T> extract_vec_data(const byte* src, size_t count)
+    {
+        std::vector<T> vec(count, T{});
+        memcpy(src, reinterpret_cast<byte*>(vec.data()), sizeof(T) * count);
+        return vec;
+    }
+
 
 
     // 打印多个参数到控制台
