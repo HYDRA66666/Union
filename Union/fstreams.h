@@ -227,6 +227,9 @@ namespace HYDRA15::Union::assistant
         bfstream bfs;
         mutable std::shared_mutex smtx;
         std::unique_ptr<async_io_thread_pool> aioPool;
+        // 专为拷贝、移动存储的数据
+        const unsigned int aioThreads;
+        const bool autoStart;
 
     public:
         // 单段读写，不启用异步 IO，不支持并发
@@ -431,15 +434,21 @@ namespace HYDRA15::Union::assistant
 
     public:
         bsfstream(const std::filesystem::path& path, size_t segSize, unsigned int aioThrs = 4, bool autoStart = true)
-            :bfs(path), segSize(segSize), aioPool(aioThrs > 0 ? std::make_unique<async_io_thread_pool>(path, segSize,aioThrs) : nullptr) 
+            :bfs(path), segSize(segSize), aioPool(aioThrs > 0 ? std::make_unique<async_io_thread_pool>(path, segSize, aioThrs) : nullptr),
+            aioThreads(aioThrs), autoStart(autoStart)
         {
             if (aioPool && autoStart)aioPool->start();
         }
 
         bsfstream(const bfstream& bfs, size_t segSize, unsigned int aioThrs = 4, bool autoStart = true)
-            :bfs(bfs), segSize(segSize), aioPool(aioThrs > 0 ? std::make_unique<async_io_thread_pool>(bfs.file_path(), segSize, aioThrs) : nullptr)
+            :bfs(bfs), segSize(segSize), aioPool(aioThrs > 0 ? std::make_unique<async_io_thread_pool>(bfs.file_path(), segSize, aioThrs) : nullptr),
+            aioThreads(aioThrs), autoStart(autoStart)
         {
             if (aioPool && autoStart)aioPool->start();
         }
+
+        bsfstream(const bsfstream& oth) :bsfstream(oth.bfs.file_path(), oth.segSize, oth.aioThreads, oth.autoStart) {}
+
+        bsfstream(bsfstream&&) noexcept = default;
     };
 }

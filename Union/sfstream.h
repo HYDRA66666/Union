@@ -55,12 +55,11 @@ namespace HYDRA15::Union::archivist
         static constexpr size_t minFileSize = 96;
 
     private:
-        const std::filesystem::path path;
         assistant::bsfstream bsfs;
 
         const uint64_t segSize;
-        uint64_t maxSegCount;
-        std::atomic<uint64_t> usedSegCount;
+        std::atomic<uint64_t> maxSegCount{ std::numeric_limits<uint64_t>::max() };
+        std::atomic<uint64_t> usedSegCount{ 0 };
 
         section rootSection;
         std::unordered_map<std::string, section> sections;
@@ -69,33 +68,6 @@ namespace HYDRA15::Union::archivist
         mutable labourer::atomic_shared_mutex asmtx;
 
     private:
-        static uint64_t check_and_extract_segSize(const std::filesystem::path& p)
-        {
-            if (!std::filesystem::exists(p) || !std::filesystem::is_regular_file(p))
-                throw exceptions::files::FileNotExist(p);
-
-            assistant::bfstream bfs(p);
-
-            // 检查必要的头大小
-            if (bfs.size() < 96)
-                throw exceptions::files::FormatNotSupported(p, "Archivist Sectioned files are expected");
-
-            // 检查标记
-            std::string mark{ bfs.read<char>(0,16).data(),16 };
-            if (mark != headerMark)
-                throw exceptions::files::FormatNotSupported(p, "Archivist Sectioned files are expected");
-
-            // 检查版本号
-            auto version = bfs.read<uint64_t>(16, 1);
-            version[0] = assistant::byteswap::from_big_endian(version[0]);
-            if (version[0] != headerVersion)
-                throw exceptions::files::FormatNotSupported(p, "the version 0x00010000 is expected");
-
-            // 提取节大小并返回
-            auto segSize = bfs.read<uint64_t>(24, 1);
-            return assistant::byteswap::from_big_endian(segSize[0]);
-        }
-
         static std::pair<uint64_t, uint64_t> calculate_sec_name_comment_tab_size(const std::unordered_map<std::string, section>& sections)
         {
             uint64_t nameSize = 0;
@@ -121,6 +93,8 @@ namespace HYDRA15::Union::archivist
 
         void expand(std::deque<uint64_t>& segIDs, uint64_t segCount)    // 将指定节 segIDs 扩展 segCount 个段
         {
+            if (usedSegCount.load(std::memory_order::relaxed) + segCount > maxSegCount.load(std::memory_order::relaxed))
+                throw exceptions::files::FileFull(bsfs.data().file_path(), maxSegCount.load(std::memory_order::relaxed) * segSize);
             for (uint64_t i = 0; i < segCount; i++)
                 segIDs.push_back(usedSegCount.fetch_add(1, std::memory_order::relaxed));
         }
@@ -135,7 +109,7 @@ namespace HYDRA15::Union::archivist
             std::shared_lock sl{ asmtx };
 
             if(!sections.contains(secName))
-                throw exceptions::files::ContentNotFound(path)
+                throw exceptions::files::ContentNotFound(bsfs.data().file_path())
                 .set("content type", "section")
                 .set("section name", secName);
             
@@ -192,7 +166,7 @@ namespace HYDRA15::Union::archivist
             std::vector<uint64_t> basicHeader(10, 0);
             basicHeader[0] = headerVersion;                                                         // 版本号
             basicHeader[1] = segSize;                                                               // 段大小
-            basicHeader[2] = maxSegCount;                                                           // 最大段数
+            basicHeader[2] = maxSegCount.load(std::memory_order::relaxed);                          // 最大段数
             basicHeader[3] = usedSegCount;                                                          // 已用段数
             basicHeader[4] = 96;                                                                    // 根节段表指针
             basicHeader[5] = rootSection.segIDs.size();                                             // 根节段数
@@ -276,16 +250,16 @@ namespace HYDRA15::Union::archivist
             auto basicHeader = bsfs.read<uint64_t>(0, 16, 10);
             assistant::byteswap::from_big_endian_vector<uint64_t>(basicHeader);
 
-            uint64_t version = basicHeader[0];          // 版本号
-            uint64_t segSizeInFile = basicHeader[1];    // 段大小
-            maxSegCount = basicHeader[2];               // 最大段数
-            usedSegCount = basicHeader[3];              // 已用段数
-            uint64_t rootSegTabPtr = basicHeader[4];    // 根节段表指针
-            uint64_t rootSegTabCount = basicHeader[5];  // 根节段数
-            uint64_t secTabPtr = basicHeader[6];        // 节表指针
-            uint64_t secCount = basicHeader[7];         // 节数
-            uint64_t customHeaderPtr = basicHeader[8];  // 自定义头指针
-            uint64_t customHeaderSize = basicHeader[9]; // 自定义头大小
+            uint64_t version = basicHeader[0];                              // 版本号
+            uint64_t segSizeInFile = basicHeader[1];                        // 段大小
+            maxSegCount.store(basicHeader[2], std::memory_order::relaxed);  // 最大段数
+            usedSegCount.store(basicHeader[3], std::memory_order::relaxed); // 已用段数
+            uint64_t rootSegTabPtr = basicHeader[4];                        // 根节段表指针
+            uint64_t rootSegTabCount = basicHeader[5];                      // 根节段数
+            uint64_t secTabPtr = basicHeader[6];                            // 节表指针
+            uint64_t secCount = basicHeader[7];                             // 节数
+            uint64_t customHeaderPtr = basicHeader[8];                      // 自定义头指针
+            uint64_t customHeaderSize = basicHeader[9];                     // 自定义头大小
 
             // 读取根节段表
             rootSection.segIDs.clear();
@@ -326,7 +300,7 @@ namespace HYDRA15::Union::archivist
         {
             std::shared_lock sl{ asmtx };
             if (!sections.contains(secName))
-                throw exceptions::files::ContentNotFound(path)
+                throw exceptions::files::ContentNotFound(bsfs.data().file_path())
                 .set("content type", "section")
                 .set("section name", secName);
             section& sec = sections.at(secName);
@@ -347,35 +321,75 @@ namespace HYDRA15::Union::archivist
 
         std::vector<byte>& custom_header() { return customHeader; } // 自定义头不受保护
 
-    public:
-        sfstream() = delete;
-        sfstream(const sfstream&) = delete;
-        sfstream(sfstream&&) noexcept = default;
-
-        // 构造方式 1：新建文件，原有文件内容将被全部覆盖
+    private:    // 仅允许从工厂方法构造
         sfstream(
+            const std::filesystem::path& p,
+            uint64_t segSize,
+            unsigned int ioThreads
+        )
+            :segSize(segSize), bsfs(p, segSize, ioThreads)
+        {
+
+        }
+
+    public:
+         sfstream() = delete;
+         sfstream(const sfstream&) = default;
+         sfstream(sfstream&&) noexcept = default;
+
+        ~sfstream() { flush_rootsec(); }
+        
+    public: // 工厂构造方法
+        // 构造方式 1：新建文件，若已有文件将报错
+        static std::unique_ptr<sfstream> make_unique(
             const std::filesystem::path& p,
             segment_size_level level,
             uint64_t maxSegs = std::numeric_limits<uint64_t>::max(),
             unsigned int ioThreads = 4
-        )
-            :path(p), segSize(static_cast<size_t>(level)), bsfs(p, static_cast<size_t>(level), ioThreads), maxSegCount(maxSegs)
-        {
-            if (maxSegCount == 0)throw exceptions::common::BadParameter("maxSegs", "0", "> 0");
+        ) {
+            if (maxSegs == 0)throw exceptions::common::BadParameter("maxSegs", "0", "> 0");
+            if (!std::filesystem::exists(p) || !std::filesystem::is_regular_file(p))
+                throw exceptions::files::FileAreadyExist(p);
 
-            rootSection.segIDs.push_back(0);
-            usedSegCount = 1;
-            flush_rootsec();
+            // 构造并设置对象
+            auto psfs = std::unique_ptr<sfstream>(new sfstream(p, static_cast<uint64_t>(level), ioThreads));
+            psfs->rootSection.segIDs.push_back(0);
+            psfs->usedSegCount.store(1, std::memory_order::relaxed);
+            psfs->flush_rootsec();
+            psfs->maxSegCount.store(maxSegs, std::memory_order::relaxed);
+            return psfs;
         }
 
         // 构造方式 2：打开已有文件
-        sfstream(const std::filesystem::path& p, unsigned int ioThreads = 4)
-            : path(p), segSize(check_and_extract_segSize(p)), bsfs(p, check_and_extract_segSize(p), ioThreads)
+        static std::unique_ptr<sfstream> make_unique(const std::filesystem::path& p, unsigned int ioThreads = 4)
         {
-            sync_rootsec();
-        }
+            if (!std::filesystem::exists(p) || !std::filesystem::is_regular_file(p))
+                throw exceptions::files::FileNotExist(p);
 
-        ~sfstream() { flush_rootsec(); }
-        
+            assistant::bfstream bfs(p);
+
+            // 检查必要的头大小
+            if (bfs.size() < 96)
+                throw exceptions::files::FormatNotSupported(p, "Archivist Sectioned files are expected");
+
+            // 检查标记
+            std::string mark{ bfs.read<char>(0,16).data(),16 };
+            if (mark != headerMark)
+                throw exceptions::files::FormatNotSupported(p, "Archivist Sectioned files are expected");
+
+            // 检查版本号
+            auto version = bfs.read<uint64_t>(16, 1);
+            version[0] = assistant::byteswap::from_big_endian(version[0]);
+            if (version[0] != headerVersion)
+                throw exceptions::files::FormatNotSupported(p, "the version 0x00010000 is expected");
+
+            // 提取基础数据
+            uint64_t segSize = bfs.read<uint64_t>(24, 1)[0];
+
+            // 构造并设置对象
+            auto psfs = std::unique_ptr<sfstream>(new sfstream(p, segSize, ioThreads));
+            psfs->sync_rootsec();
+            return psfs;
+        }
     };
 }
