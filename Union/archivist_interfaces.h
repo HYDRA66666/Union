@@ -35,9 +35,9 @@ namespace HYDRA15::Union::archivist
         };
 
         std::string name{};
+        std::string comment{};
         field_type type = field_type::NOTHING;
         uint8_t mark[7]{};
-        std::string comment{};
     };
     using field_specs = std::vector<field_spec>;
 

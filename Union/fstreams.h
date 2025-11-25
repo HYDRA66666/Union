@@ -175,7 +175,6 @@ namespace HYDRA15::Union::assistant
         class async_io_thread_pool : protected labourer::background
         {
         private:
-            std::atomic_bool started = false;
             const size_t segSize;
             const std::filesystem::path path;
             std::atomic<bool> working = true;
@@ -211,7 +210,7 @@ namespace HYDRA15::Union::assistant
             }
 
         public:
-            void start() { if (!started)background::start(); }
+            void start() { background::start(); }
 
         public:
             async_io_thread_pool(const std::filesystem::path& path, size_t segSize, unsigned int thrs)
@@ -227,9 +226,8 @@ namespace HYDRA15::Union::assistant
         bfstream bfs;
         mutable std::shared_mutex smtx;
         std::unique_ptr<async_io_thread_pool> aioPool;
-        // 专为拷贝、移动存储的数据
+        // 专为拷贝存储的数据
         const unsigned int aioThreads;
-        const bool autoStart;
 
     public:
         // 单段读写，不启用异步 IO，不支持并发
@@ -430,25 +428,23 @@ namespace HYDRA15::Union::assistant
 
         const bfstream& data() const { return bfs; }
 
-        void start() { if (aioPool)aioPool->start(); }  // 启动后台线程，仅在 autoStart 为 false 时有效
-
     public:
-        bsfstream(const std::filesystem::path& path, size_t segSize, unsigned int aioThrs = 4, bool autoStart = true)
+        bsfstream(const std::filesystem::path& path, size_t segSize, unsigned int aioThrs = 4)
             :bfs(path), segSize(segSize), aioPool(aioThrs > 0 ? std::make_unique<async_io_thread_pool>(path, segSize, aioThrs) : nullptr),
-            aioThreads(aioThrs), autoStart(autoStart)
+            aioThreads(aioThrs)
         {
-            if (aioPool && autoStart)aioPool->start();
+            if (aioPool)aioPool->start();
         }
 
-        bsfstream(const bfstream& bfs, size_t segSize, unsigned int aioThrs = 4, bool autoStart = true)
+        bsfstream(const bfstream& bfs, size_t segSize, unsigned int aioThrs = 4)
             :bfs(bfs), segSize(segSize), aioPool(aioThrs > 0 ? std::make_unique<async_io_thread_pool>(bfs.file_path(), segSize, aioThrs) : nullptr),
-            aioThreads(aioThrs), autoStart(autoStart)
+            aioThreads(aioThrs)
         {
-            if (aioPool && autoStart)aioPool->start();
+            if (aioPool)aioPool->start();
         }
 
-        bsfstream(const bsfstream& oth) :bsfstream(oth.bfs.file_path(), oth.segSize, oth.aioThreads, oth.autoStart) {}
+        bsfstream(const bsfstream& oth) :bsfstream(oth.bfs.file_path(), oth.segSize, oth.aioThreads) {}
 
-        bsfstream(bsfstream&&) noexcept = default;
+        bsfstream(bsfstream&&) noexcept = delete;
     };
 }
