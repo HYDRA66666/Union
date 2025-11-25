@@ -477,8 +477,7 @@ namespace HYDRA15::Union::archivist
                         const auto& vals = std::get<FLOATS>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
                         // 写入数据包
                         std::vector<uint64_t> rvals(vals.size(), 0);
-                        for (size_t i = 0; i < vals.size(); i++)
-                            assistant::memcpy(reinterpret_cast<const byte*>(&vals[i]), reinterpret_cast<byte*>(&rvals[i]), sizeof(FLOAT));
+                        assistant::memcpy(reinterpret_cast<const byte*>(vals.data()), reinterpret_cast<byte*>(rvals.data()), sizeof(uint64_t) * vals.size());
                         assistant::byteswap::to_big_endian_vector(rvals);
                         sfs.write<uint64_t>(std::format(dataSectionFmt.data(), currentPackID), currentPackUsedSize, rvals);
                         // 更新行数据
