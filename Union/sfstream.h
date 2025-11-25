@@ -89,7 +89,7 @@ namespace HYDRA15::Union::archivist
                 throw exceptions::files::FormatNotSupported(p, "the version 0x00010000 is expected");
 
             // 提取基础数据
-            return bfs.read<uint64_t>(24, 1)[0];
+            return assistant::byteswap::from_big_endian(bfs.read<uint64_t>(24, 1)[0]);
         }
 
         static uint64_t calculate_sec_tab_size(const std::unordered_map<std::string, section>& sections)
@@ -298,6 +298,8 @@ namespace HYDRA15::Union::archivist
             return res;
         }
 
+        bool sec_contains(const std::string& secName) const { std::shared_lock sl{ asmtx }; return sections.contains(secName); }
+
         void set_sec_comment(const std::string& secName, const std::string& comment)
         {
             std::shared_lock sl{ asmtx };
@@ -369,7 +371,7 @@ namespace HYDRA15::Union::archivist
             unsigned int ioThreads = 4
         ) {
             if (maxSegs == 0)throw exceptions::common::BadParameter("maxSegs", "0", "> 0");
-            if (!std::filesystem::exists(p) || !std::filesystem::is_regular_file(p))
+            if (std::filesystem::exists(p) && std::filesystem::is_regular_file(p))
                 throw exceptions::files::FileAreadyExist(p);
 
             // 构造并设置对象
