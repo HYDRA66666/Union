@@ -67,40 +67,46 @@ namespace HYDRA15::Union::archivist
         const field_specs fieldSpecs;
         const ID pageSize;
         const ID rowSize;
+        const std::pair<ID, ID> tabVer;
         ID totalRecords = 0;
         uint64_t currentPackID = 0;
-        std::unordered_map<std::string, index> indexMap;
+        std::unordered_map<std::string, index_spec> indexMap;
 
     private:
-        static std::pair<sfstream, field_specs> check_and_extract_field_specs(const std::filesystem::path& p)
+        virtual std::pair<ID, ID> version() const override { return tabVer; }  // 返回上层table的版本号
+
+        static std::tuple<sfstream, field_specs, std::pair<ID,ID>> check_and_extract_field_specs(const std::filesystem::path& p)
         {
             sfstream sfs = sfstream::make(p, 0);
             std::vector<byte> cstHdr = sfs.custom_header();
             uint64_t fieldTabPtr;
             uint64_t fieldEntCnt;
+            std::pair<uint64_t, uint64_t> tabVer;
             {   // 检查文件头标记、提取数据
                 if (cstHdr.size() < headerSize)
                     throw exceptions::files::FormatNotSupported(p, "Archivist Single database files are expected");
 
                 std::string mark{ reinterpret_cast<char*>(cstHdr.data()),16 };
                 uint64_t ver = 0;
-                assistant::memcpy(cstHdr.data() + 16, reinterpret_cast<byte*>(&ver), 8);
+                assistant::memcpy(cstHdr.data() + 16, reinterpret_cast<byte*>(&ver), sizeof(uint64_t));
                 ver = assistant::byteswap::from_big_endian(ver);
                 if (mark != std::string(headerMark.data(), 16) || ver != headerVersion)
                     throw exceptions::files::FormatNotSupported(p, "Archivist Single database files are expected");
 
-                std::vector<uint64_t> hdrDat(2, 0);
-                assistant::memcpy(cstHdr.data() + 32, reinterpret_cast<byte*>(hdrDat.data()), 16);
+                std::vector<uint64_t> hdrDat(8, 0);
+                assistant::memcpy(cstHdr.data() + 32, reinterpret_cast<byte*>(hdrDat.data()), hdrDat.size() * sizeof(uint64_t));
                 assistant::byteswap::from_big_endian_vector(hdrDat);
                 fieldTabPtr = hdrDat[0];
                 fieldEntCnt = hdrDat[1];
+                tabVer.first = hdrDat[5];
+                tabVer.second = hdrDat[6];
             }
 
             field_specs fieldSpecs(fieldEntCnt, field_spec{});
             for (uint64_t i = 0; i < fieldEntCnt; i++)
             {
                 std::vector<uint64_t> entDat(2, 0);
-                assistant::memcpy(cstHdr.data() + fieldTabPtr + 32 * i, reinterpret_cast<byte*>(entDat.data()), 16);
+                assistant::memcpy(cstHdr.data() + fieldTabPtr + 32 * i, reinterpret_cast<byte*>(entDat.data()), entDat.size() * sizeof(uint64_t));
                 assistant::byteswap::from_big_endian_vector(entDat);
                 uint64_t namePtr = entDat[0];
                 uint64_t commPtr = entDat[1];
@@ -115,7 +121,7 @@ namespace HYDRA15::Union::archivist
                 fieldSpecs[i] = fs;
             }
 
-            return { sfs,fieldSpecs };
+            return { sfs,fieldSpecs,tabVer };
         }
 
         static ID caculate_page_size(const field_specs& fieldSpecs, uint64_t segSize)
@@ -135,13 +141,13 @@ namespace HYDRA15::Union::archivist
             return size;
         }
 
-        static uint64_t caculate_index_tab_size(const std::unordered_map<std::string, index>& indexMap)
+        static uint64_t caculate_index_tab_size(const std::unordered_map<std::string, index_spec>& indexMap)
         {
             uint64_t size = 0;
             for (const auto& [k, v] : indexMap)
                 size += assistant::multiple_m_not_less_than_n(32, k.size() + 1)
                     + assistant::multiple_m_not_less_than_n(32, v.comment.size() + 1)
-                    + assistant::multiple_m_not_less_than_n(32, v.fields.size() * 8)
+                    + assistant::multiple_m_not_less_than_n(32, v.fieldSpecs.size() * 8)
                     + 32;
             return size;
         }
@@ -151,8 +157,8 @@ namespace HYDRA15::Union::archivist
             auto cstHdr = sfs.custom_header();
             uint64_t idxTabPtr, idxEntCnt;
             {
-                std::vector<uint64_t> hdrDat(6, 0);
-                assistant::memcpy(cstHdr.data() + 24, reinterpret_cast<byte*>(hdrDat.data()), 48);
+                std::vector<uint64_t> hdrDat(9, 0);
+                assistant::memcpy(cstHdr.data() + 24, reinterpret_cast<byte*>(hdrDat.data()), hdrDat.size() * sizeof(uint64_t));
                 assistant::byteswap::from_big_endian_vector(hdrDat);
                 totalRecords = hdrDat[0];
                 idxTabPtr = hdrDat[3];
@@ -163,21 +169,21 @@ namespace HYDRA15::Union::archivist
             for (uint64_t i = 0; i < idxEntCnt; i++)
             {
                 std::vector<uint64_t> idxEntDat(4, 0);
-                assistant::memcpy(cstHdr.data() + idxTabPtr + 32 * i, reinterpret_cast<byte*>(idxEntDat.data()), 32);
+                assistant::memcpy(cstHdr.data() + idxTabPtr + 32 * i, reinterpret_cast<byte*>(idxEntDat.data()), idxEntDat.size() * sizeof(uint64_t));
                 assistant::byteswap::from_big_endian_vector(idxEntDat);
 
-                index idx;
+                index_spec idx;
                 idx.name = std::string{ reinterpret_cast<char*>(cstHdr.data() + idxEntDat[0]) };
                 idx.comment = std::string{ reinterpret_cast<char*>(cstHdr.data() + idxEntDat[1]) };
-                idx.fields.reserve(idxEntDat[3]);
+                idx.fieldSpecs.reserve(idxEntDat[3]);
                 
-                std::vector<uint64_t> idxFdIDS(idxEntDat[3], 0);
-                assistant::memcpy(cstHdr.data() + idxEntDat[2], reinterpret_cast<byte*>(idxFdIDS.data()), idxEntDat[3] * 8);
-                assistant::byteswap::from_big_endian_vector(idxFdIDS);
-                for (const auto& id : idxFdIDS)
-                    idx.fields.push_back(fieldSpecs[id]);
+                std::vector<uint64_t> idxFdIDs(idxEntDat[3], 0);
+                assistant::memcpy(cstHdr.data() + idxEntDat[2], reinterpret_cast<byte*>(idxFdIDs.data()), idxFdIDs.size() * sizeof(uint64_t));
+                assistant::byteswap::from_big_endian_vector(idxFdIDs);
+                for (const auto& id : idxFdIDs)
+                    idx.fieldSpecs.push_back(fieldSpecs[id]);
                 
-                indexMap[idx.name] = idx;
+                indexMap[idx] = idx;
             }
         }
 
@@ -191,7 +197,7 @@ namespace HYDRA15::Union::archivist
             {   // 写入标记和版本号
                 assistant::memcpy(reinterpret_cast<const byte*>(headerMark.data()), cstHdr.data(), 16);
                 uint64_t ver = assistant::byteswap::to_big_endian(headerVersion);
-                assistant::memcpy(reinterpret_cast<byte*>(&ver), cstHdr.data() + 16, 8);
+                assistant::memcpy(reinterpret_cast<byte*>(&ver), cstHdr.data() + 16, sizeof(uint64_t));
             }
 
             {   // 写入基本数据
@@ -199,10 +205,10 @@ namespace HYDRA15::Union::archivist
                     totalRecords,
                     headerSize, fieldSpecs.size(),
                     headerSize + caculate_field_spec_tab_size(fieldSpecs),indexMap.size(),
-                    currentPackID, 0, 0, 0
+                    currentPackID, tabVer.first, tabVer.second, 0
                 };
                 assistant::byteswap::to_big_endian_vector(hdrDat);
-                assistant::memcpy(reinterpret_cast<const byte*>(hdrDat.data()), cstHdr.data() + 24, headerSize - 24);
+                assistant::memcpy(reinterpret_cast<const byte*>(hdrDat.data()), cstHdr.data() + 24, hdrDat.size() * sizeof(uint64_t));
             }
             {   // 写入字段表
                 uint64_t currentDataPos = headerSize + 32 * fieldSpecs.size();
@@ -223,7 +229,7 @@ namespace HYDRA15::Union::archivist
                     assistant::memcpy(fs.name.data(), name.data(), fs.name.size());
                     assistant::memcpy(fs.comment.data(), comment.data(), fs.comment.size());
 
-                    assistant::memcpy(reinterpret_cast<byte*>(entry.data()), cstHdr.data() + headerSize + 32 * i, 16);
+                    assistant::memcpy(reinterpret_cast<byte*>(entry.data()), cstHdr.data() + headerSize + 32 * i, entry.size() * sizeof(uint64_t));
                     cstHdr[headerSize + 32 * i + 16] = static_cast<byte>(fs.type);
                     assistant::memcpy(fs.mark, cstHdr.data() + headerSize + 32 * i + 17, 7);
 
@@ -242,7 +248,7 @@ namespace HYDRA15::Union::archivist
                 {
                     uint64_t nameSize = assistant::multiple_m_not_less_than_n(32, k.size() + 1);
                     uint64_t commSize = assistant::multiple_m_not_less_than_n(32, v.comment.size() + 1);
-                    uint64_t idtSize = assistant::multiple_m_not_less_than_n(32, v.fields.size() * 8);
+                    uint64_t idtSize = assistant::multiple_m_not_less_than_n(32, v.fieldSpecs.size() * 8);
 
                     std::vector<uint64_t> entry(4, 0);
                     std::vector<char> name(nameSize, 0);
@@ -252,19 +258,19 @@ namespace HYDRA15::Union::archivist
                     entry[0] = currentDataPos;
                     entry[1] = currentDataPos + nameSize;
                     entry[2] = currentDataPos + nameSize + commSize;
-                    entry[3] = v.fields.size();
+                    entry[3] = v.fieldSpecs.size();
                     assistant::byteswap::to_big_endian_vector(entry);
 
                     assistant::memcpy(k.data(), name.data(), k.size());
                     assistant::memcpy(v.comment.data(), comment.data(), v.comment.size());
 
-                    for (size_t j = 0; j < v.fields.size(); j++)
+                    for (size_t j = 0; j < v.fieldSpecs.size(); j++)
                         idt[j] = static_cast<uint64_t>(std::distance(fieldSpecs.begin(),
                             std::find_if(fieldSpecs.begin(), fieldSpecs.end(),
-                                [&](const field_spec& fs) { return fs.name == v.fields[j].name; })));
+                                [&](const field_spec& fs) { return fs == v.fieldSpecs[j]; })));
                     assistant::byteswap::to_big_endian_vector(idt);
 
-                    assistant::memcpy(reinterpret_cast<byte*>(entry.data()), cstHdr.data() + idxTabPtr + 32 * i, 32);
+                    assistant::memcpy(reinterpret_cast<byte*>(entry.data()), cstHdr.data() + idxTabPtr + 32 * i, entry.size() * sizeof(uint64_t));
                     assistant::memcpy(reinterpret_cast<byte*>(name.data()), cstHdr.data() + currentDataPos, nameSize);
                     assistant::memcpy(reinterpret_cast<byte*>(comment.data()), cstHdr.data() + currentDataPos + nameSize, commSize);
                     assistant::memcpy(reinterpret_cast<byte*>(idt.data()), cstHdr.data() + currentDataPos + nameSize + commSize, idtSize);
@@ -284,8 +290,22 @@ namespace HYDRA15::Union::archivist
         virtual size_t size() const override { std::shared_lock sl{ smtx }; return sfs.data().size(); }   // 返回完整的数据大小
 
         virtual ID tab_size() const override { std::shared_lock sl{ smtx }; return totalRecords; }    // 返回表行数
+        
         virtual ID page_size() const override { return pageSize; }   // 返回页大小（以记录数计）
+        
         virtual field_specs fields() const override { return fieldSpecs; } // 返回完整的字段表
+
+        virtual void clear()             // 清空所有数据, 包括表数据和索引数据
+        { 
+            std::unique_lock ul{ smtx }; 
+            totalRecords = 0; 
+            currentPackID = 0; 
+            indexMap.clear(); 
+            sfs.clear(); 
+            sfs.data().resize(0);
+            sfs.flush();
+        }
+
 
         // 表数据相关
         virtual page rows(ID pageID) const override    // 返回包含指定页号的页
@@ -310,18 +330,13 @@ namespace HYDRA15::Union::archivist
                     {
                     case field_spec::field_type::INT:
                     {
-                        uint64_t rval = rowData[f + 1];
-                        INT val = 0;
-                        assistant::memcpy(reinterpret_cast<const byte*>(&rval), reinterpret_cast<byte*>(&val), 8);
+                        INT val = std::bit_cast<INT>(rowData[f + 1]);
                         pg.data[r * fieldSpecs.size() + f] = field{ val };
                         break;
                     }
                     case field_spec::field_type::FLOAT:
                     {
-                        uint64_t rval = rowData[f + 1];
-                        assistant::memcpy(reinterpret_cast<byte*>(&rval), reinterpret_cast<byte*>(&rval), 8);
-                        FLOAT val = 0;
-                        assistant::memcpy(reinterpret_cast<const byte*>(&rval), reinterpret_cast<byte*>(&val), sizeof(FLOAT));
+                        FLOAT val = std::bit_cast<FLOAT>(rowData[f + 1]);
                         pg.data[r * fieldSpecs.size() + f] = field{ val };
                         break;
                     }
@@ -330,6 +345,12 @@ namespace HYDRA15::Union::archivist
                         uint64_t rdata = rowData[f + 1];
                         uint64_t dataPtr = (rdata >> 32) & 0xFFFFFFFF;
                         uint64_t dataLen = rdata & 0xFFFFFFFF;
+
+                        if(dataLen == 0)
+                        {
+                            pg.data[r * fieldSpecs.size() + f] = NOTHING{};
+                            break;
+                        }
 
                         INTS vals = sfs.read<INT>(std::format(dataSectionFmt.data(), datapackNO), dataPtr, dataLen);
                         assistant::byteswap::from_big_endian_vector(vals);
@@ -342,11 +363,16 @@ namespace HYDRA15::Union::archivist
                         uint64_t dataPtr = (rdata >> 32) & 0xFFFFFFFF;
                         uint64_t dataLen = rdata & 0xFFFFFFFF;
 
+                        if (dataLen == 0)
+                        {
+                            pg.data[r * fieldSpecs.size() + f] = NOTHING{};
+                            break;
+                        }
+
                         std::vector<uint64_t> rvals = sfs.read<uint64_t>(std::format(dataSectionFmt.data(), datapackNO), dataPtr, dataLen);
                         assistant::byteswap::from_big_endian_vector(rvals);
                         FLOATS vals(dataLen, 0);
-                        for (size_t i = 0; i < dataLen; i++)
-                            assistant::memcpy(reinterpret_cast<const byte*>(&rvals[i]), reinterpret_cast<byte*>(&vals[i]), sizeof(FLOAT));
+                        assistant::memcpy(reinterpret_cast<byte*>(rvals.data()), reinterpret_cast<byte*>(vals.data()), vals.size() * sizeof(uint64_t));
                         pg.data[r * fieldSpecs.size() + f] = field{ vals };
                         break;
                     }
@@ -355,6 +381,12 @@ namespace HYDRA15::Union::archivist
                         uint64_t rdata = rowData[f + 1];
                         uint64_t dataPtr = (rdata >> 32) & 0xFFFFFFFF;
                         uint64_t dataLen = rdata & 0xFFFFFFFF;
+
+                        if (dataLen == 0)
+                        {
+                            pg.data[r * fieldSpecs.size() + f] = NOTHING{};
+                            break;
+                        }
 
                         BYTES vals = sfs.read<BYTE>(std::format(dataSectionFmt.data(), datapackNO), dataPtr, dataLen);
                         pg.data[r * fieldSpecs.size() + f] = field{ vals };
@@ -394,29 +426,42 @@ namespace HYDRA15::Union::archivist
                 for (size_t f = 0; f < fieldSpecs.size(); f++)
                 {
                     const auto& fs = fieldSpecs[f];
-                    switch (fs.type)
+                    try
                     {
-                    case field_spec::field_type::INTS:
-                    {
-                        const auto& vals = std::get<INTS>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
-                        requiredPackSize += vals.size() * 8;
-                        break;
-                    }
-                    case field_spec::field_type::FLOATS:
-                    {
-                        const auto& vals = std::get<FLOATS>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
-                        requiredPackSize += vals.size() * 8;
-                        break;
-                    }
-                    case field_spec::field_type::BYTES:
-                    {
-                        const auto& vals = std::get<BYTES>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
-                        requiredPackSize += vals.size();
-                        break;
-                    }
-                    default:
-                        break;
-                    }
+                        switch (fs.type)
+                        {
+                        case field_spec::field_type::INTS:
+                        {
+                            if(std::holds_alternative<NOTHING>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]))
+                                break;
+
+                            const auto& vals = std::get<INTS>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
+                            requiredPackSize += vals.size() * sizeof(INT);
+                            break;
+                        }
+                        case field_spec::field_type::FLOATS:
+                        {
+                            if (std::holds_alternative<NOTHING>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]))
+                                break;
+
+                            const auto& vals = std::get<FLOATS>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
+                            requiredPackSize += vals.size() * sizeof(uint64_t);
+                            break;
+                        }
+                        case field_spec::field_type::BYTES:
+                        {
+                            if (std::holds_alternative<NOTHING>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]))
+                                break;
+
+                            const auto& vals = std::get<BYTES>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
+                            requiredPackSize += vals.size() * sizeof(BYTE);
+                            break;
+                        }
+                        default:
+                            break;
+                        }
+                    }   // 坏数据保护：存储的数据类型与字段所需类型不匹配时，落盘数据为空
+                    catch (const std::bad_variant_access&) {}
                 }
 
                 // 如果一行的数据量超过单个数据包容量则报错
@@ -445,61 +490,75 @@ namespace HYDRA15::Union::archivist
                 for (size_t f = 0; f < fieldSpecs.size(); f++)
                 {
                     const auto& fs = fieldSpecs[f];
-                    switch (fs.type)
+                    try
                     {
-                    case field_spec::field_type::INT:
-                    {
-                        INT val = std::get<INT>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
-                        assistant::memcpy(reinterpret_cast<const byte*>(&val), reinterpret_cast<byte*>(&rowData[f + 1]), sizeof(INT));
-                        break;
-                    }
-                    case field_spec::field_type::FLOAT:
-                    {
-                        FLOAT val = std::get<FLOAT>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
-                        assistant::memcpy(reinterpret_cast<const byte*>(&val), reinterpret_cast<byte*>(&rowData[f + 1]), sizeof(FLOAT));
-                        break;
-                    }
-                    case field_spec::field_type::INTS:
-                    {
-                        const auto& vals = std::get<INTS>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
-                        // 写入数据包
-                        std::vector<INT> beVals = vals;
-                        assistant::byteswap::to_big_endian_vector(beVals);
-                        sfs.write<INT>(std::format(dataSectionFmt.data(), currentPackID), currentPackUsedSize, beVals);
-                        // 更新行数据
-                        uint64_t rdata = ((static_cast<uint64_t>(currentPackUsedSize) << 32) & 0xFFFFFFFF00000000) | (vals.size() & 0xFFFFFFFF);
-                        assistant::memcpy(reinterpret_cast<const byte*>(&rdata), reinterpret_cast<byte*>(&rowData[f + 1]), sizeof(uint64_t));
-                        currentPackUsedSize += vals.size() * 8;
-                        break;
-                    }
-                    case field_spec::field_type::FLOATS:
-                    {
-                        const auto& vals = std::get<FLOATS>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
-                        // 写入数据包
-                        std::vector<uint64_t> rvals(vals.size(), 0);
-                        assistant::memcpy(reinterpret_cast<const byte*>(vals.data()), reinterpret_cast<byte*>(rvals.data()), sizeof(uint64_t) * vals.size());
-                        assistant::byteswap::to_big_endian_vector(rvals);
-                        sfs.write<uint64_t>(std::format(dataSectionFmt.data(), currentPackID), currentPackUsedSize, rvals);
-                        // 更新行数据
-                        uint64_t rdata = ((static_cast<uint64_t>(currentPackUsedSize) << 32) & 0xFFFFFFFF00000000) | (vals.size() & 0xFFFFFFFF);
-                        assistant::memcpy(reinterpret_cast<const byte*>(&rdata), reinterpret_cast<byte*>(&rowData[f + 1]), sizeof(uint64_t));
-                        currentPackUsedSize += vals.size() * 8;
-                        break;
-                    }
-                    case field_spec::field_type::BYTES:
-                    {
-                        const auto& vals = std::get<BYTES>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
-                        // 写入数据包
-                        sfs.write<BYTE>(std::format(dataSectionFmt.data(), currentPackID), currentPackUsedSize, vals);
-                        // 更新行数据
-                        uint64_t rdata = ((static_cast<uint64_t>(currentPackUsedSize) << 32) & 0xFFFFFFFF00000000) | (vals.size() & 0xFFFFFFFF);
-                        assistant::memcpy(reinterpret_cast<const byte*>(&rdata), reinterpret_cast<byte*>(&rowData[f + 1]), sizeof(uint64_t));
-                        currentPackUsedSize += vals.size() * 8;
-                        break;
-                    }
-                    default:
-                        break;
-                    }
+                        switch (fs.type)
+                        {
+                        case field_spec::field_type::INT:
+                        {
+                            if(std::holds_alternative<NOTHING>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]))
+                                break;
+
+                            rowData[f + 1] = std::bit_cast<uint64_t>(std::get<INT>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]));
+                            break;
+                        }
+                        case field_spec::field_type::FLOAT:
+                        {
+                            if (std::holds_alternative<NOTHING>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]))
+                                break;
+
+                            rowData[f + 1] = std::bit_cast<uint64_t>(std::get<FLOAT>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]));
+                            break;
+                        }
+                        case field_spec::field_type::INTS:
+                        {
+                            if (std::holds_alternative<NOTHING>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]))
+                                break;
+
+                            const auto& vals = std::get<INTS>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
+                            // 写入数据包
+                            std::vector<INT> beVals = vals;
+                            assistant::byteswap::to_big_endian_vector(beVals);
+                            sfs.write<INT>(std::format(dataSectionFmt.data(), currentPackID), currentPackUsedSize, beVals);
+                            // 更新行数据
+                            rowData[f + 1] = ((static_cast<uint64_t>(currentPackUsedSize) << 32) & 0xFFFFFFFF00000000) | (vals.size() & 0xFFFFFFFF);
+                            currentPackUsedSize += static_cast<uint32_t>(vals.size()) * sizeof(INT);
+                            break;
+                        }
+                        case field_spec::field_type::FLOATS:
+                        {
+                            if (std::holds_alternative<NOTHING>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]))
+                                break;
+
+                            const auto& vals = std::get<FLOATS>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
+                            // 写入数据包
+                            std::vector<uint64_t> rvals(vals.size(), 0);
+                            assistant::memcpy(reinterpret_cast<const byte*>(vals.data()), reinterpret_cast<byte*>(rvals.data()), sizeof(uint64_t) * vals.size());
+                            assistant::byteswap::to_big_endian_vector(rvals);
+                            sfs.write<uint64_t>(std::format(dataSectionFmt.data(), currentPackID), currentPackUsedSize, rvals);
+                            // 更新行数据
+                            rowData[f + 1] = ((static_cast<uint64_t>(currentPackUsedSize) << 32) & 0xFFFFFFFF00000000) | (vals.size() & 0xFFFFFFFF);
+                            currentPackUsedSize += static_cast<uint32_t>(vals.size()) * sizeof(uint64_t);
+                            break;
+                        }
+                        case field_spec::field_type::BYTES:
+                        {
+                            if (std::holds_alternative<NOTHING>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]))
+                                break;
+
+                            const auto& vals = std::get<BYTES>(pg.data[(rid - pg.start) * fieldSpecs.size() + f]);
+                            // 写入数据包
+                            sfs.write<BYTE>(std::format(dataSectionFmt.data(), currentPackID), currentPackUsedSize, vals);
+                            // 更新行数据
+                            rowData[f + 1] = ((static_cast<uint64_t>(currentPackUsedSize) << 32) & 0xFFFFFFFF00000000) | (vals.size() & 0xFFFFFFFF);
+                            currentPackUsedSize += static_cast<uint32_t>(vals.size()) * sizeof(BYTE);
+                            break;
+                        }
+                        default:
+                            break;
+                        }
+                    }   // 坏数据保护：存储的数据类型与字段所需类型不匹配时，落盘数据为空
+                    catch (const std::bad_variant_access&) {}
                 }
                 // 写入行数据
                 assistant::byteswap::to_big_endian_vector(rowData);
@@ -512,21 +571,35 @@ namespace HYDRA15::Union::archivist
         }
 
         // 索引相关
+        virtual index_specs indexies() const override            // 返回完整的索引表信息
+        {
+            std::shared_lock sl{ smtx };
+            index_specs idxSpecs;
+            idxSpecs.reserve(indexMap.size());
+            for (const auto& [k, v] : indexMap)
+                idxSpecs.push_back(v);
+            return idxSpecs;
+        }
+
         virtual void index_tab(index idx) override                      // 保存索引表（包含创建）
         {
             std::unique_lock ul{ smtx };
 
             // 更新索引元数据
-            indexMap[idx.name] = { idx.name,idx.comment,idx.fields };
+            indexMap[idx.spec] = idx.spec;
 
             // 写入索引数据头
-            sfs.write<uint64_t>(std::format(indexSectionFmt.data(), idx.name), 0,
+            sfs.write<uint64_t>(std::format(indexSectionFmt.data(), idx.spec.name), 0,
                 std::vector<uint64_t>{ assistant::byteswap::to_big_endian(static_cast<uint64_t>(idx.data.size())), 0, 0, 0 });
 
             // 写入索引数据
-            std::vector<ID> beIdxData = idx.data;
-            assistant::byteswap::to_big_endian_vector(beIdxData);
-            sfs.write<ID>(std::format(indexSectionFmt.data(), idx.name), idxDatStartOffset, beIdxData);
+            assistant::byteswap::to_big_endian_range(idx.data);
+            for (ID i = 0; i < idx.data.size(); i += pageSize)
+            {
+                std::vector<ID> idxPage(idx.data.begin() + i,
+                    idx.data.begin() + i + std::min(pageSize, static_cast<ID>(idx.data.size() - i)));
+                sfs.write<ID>(std::format(indexSectionFmt.data(), idx.spec.name), idxDatStartOffset + i * sizeof(ID), idxPage);
+            }
         }
 
         virtual index index_tab(const std::string& idxName) const override  // 加载索引表
@@ -542,9 +615,14 @@ namespace HYDRA15::Union::archivist
                 sfs.read<uint64_t>(std::format(indexSectionFmt.data(), idxName), 0, 1)[0]);
 
             // 读取并返回数据
-            index idx = indexMap.at(idxName);
-            idx.data = sfs.read<ID>(std::format(indexSectionFmt.data(), idxName), idxDatStartOffset, idxRecCnt);
-            assistant::byteswap::from_big_endian_vector(idx.data);
+            index idx;
+            idx.spec = indexMap.at(idxName);
+            for(ID i = 0;i<idxRecCnt;i+=pageSize)
+                idx.data.append_range(
+                    sfs.read<ID>(std::format(indexSectionFmt.data(), idxName), idxDatStartOffset + i * sizeof(ID),
+                        std::min(pageSize, idxRecCnt - i))
+                );
+            assistant::byteswap::from_big_endian_range(idx.data);
             return idx;
         }
 
@@ -556,9 +634,9 @@ namespace HYDRA15::Union::archivist
         const sfstream& data() const { return sfs; }
 
     private:    // 仅允许工厂构造
-        single_loader(const sfstream& sfs, const field_specs& fieldSpecs)
+        single_loader(const sfstream& sfs, const field_specs& fieldSpecs, const std::pair<ID, ID>& ver)
             : sfs(sfs), fieldSpecs(fieldSpecs), pageSize(caculate_page_size(fieldSpecs, sfs.seg_size())),
-            rowSize(assistant::multiple_m_not_less_than_n(32, (fieldSpecs.size() + 1) * 8)) {
+            rowSize(assistant::multiple_m_not_less_than_n(32, (fieldSpecs.size() + 1) * 8)), tabVer(ver) {
         }
 
         single_loader(single_loader&&) = default;
@@ -566,7 +644,8 @@ namespace HYDRA15::Union::archivist
     public:
         single_loader(const single_loader& oth)
             :sfs(oth.sfs), fieldSpecs(oth.fieldSpecs), pageSize(oth.pageSize), rowSize(oth.rowSize),
-            totalRecords(oth.totalRecords), indexMap(oth.indexMap), currentPackID(oth.currentPackID) {
+            totalRecords(oth.totalRecords), indexMap(oth.indexMap), currentPackID(oth.currentPackID),
+            tabVer(oth.tabVer) {
         }
 
         virtual ~single_loader() = default;
@@ -576,10 +655,11 @@ namespace HYDRA15::Union::archivist
         static single_loader make(
             const std::filesystem::path& p,
             field_specs fieldSpecs,
+            std::pair<ID,ID> tabVersion,
             sfstream::segment_size_level segSizeLevel = sfstream::segment_size_level::III,
             uint64_t maxSegs = std::numeric_limits<uint64_t>::max()
         ) {
-            single_loader sl(sfstream::make(p, segSizeLevel, maxSegs, 0), fieldSpecs);
+            single_loader sl(sfstream::make(p, segSizeLevel, maxSegs, 0), fieldSpecs, tabVersion);
             sl.flush_header();
             return sl;
         }
@@ -587,10 +667,11 @@ namespace HYDRA15::Union::archivist
         static std::unique_ptr<single_loader> make_unique(
             const std::filesystem::path& p,
             field_specs fieldSpecs,
+            std::pair<ID,ID> tabVersion,
             sfstream::segment_size_level segSizeLevel = sfstream::segment_size_level::III,
             uint64_t maxSegs = std::numeric_limits<uint64_t>::max()
         ) {
-            std::unique_ptr<single_loader> psl{ new single_loader(sfstream::make(p, segSizeLevel, maxSegs, 0), fieldSpecs) };
+            std::unique_ptr<single_loader> psl{ new single_loader(sfstream::make(p, segSizeLevel, maxSegs, 0), fieldSpecs, tabVersion) };
             psl->flush_header();
             return psl;
         }
@@ -598,16 +679,16 @@ namespace HYDRA15::Union::archivist
         // 方式 2：打开已有的文件
         static single_loader make(const std::filesystem::path& p)
         {
-            auto [sfs, fieldSpecs] = check_and_extract_field_specs(p);
-            single_loader sl{ sfs,fieldSpecs };
+            auto [sfs, fieldSpecs, tabver] = check_and_extract_field_specs(p);
+            single_loader sl{ sfs,fieldSpecs,tabver };
             sl.sync_header();
             return sl;
         }
 
         static std::unique_ptr<single_loader> make_unique(const std::filesystem::path& p) 
         {
-            auto [sfs, fieldSpecs] = check_and_extract_field_specs(p);
-            std::unique_ptr<single_loader> psl{ new single_loader(sfs, fieldSpecs) };
+            auto [sfs, fieldSpecs, tabver] = check_and_extract_field_specs(p);
+            std::unique_ptr<single_loader> psl{ new single_loader(sfs, fieldSpecs, tabver) };
             psl->sync_header();
             return psl;
         }

@@ -156,6 +156,7 @@
     <ClInclude Include="lib_exceptions.h" />
     <ClInclude Include="iExceptionManager.h" />
     <ClInclude Include="iMutexies.h" />
+    <ClInclude Include="simple_memory_table.h" />
     <ClInclude Include="sfstream.h" />
     <ClInclude Include="shared_containers.h" />
     <ClInclude Include="single_loader.h" />

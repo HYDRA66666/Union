@@ -99,6 +99,9 @@
     <ClInclude Include="bplus_tree.h">
       <Filter>archivist</Filter>
     </ClInclude>
+    <ClInclude Include="simple_memory_table.h">
+      <Filter>archivist</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="PrintCenter.cpp">

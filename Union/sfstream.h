@@ -340,6 +340,17 @@ namespace HYDRA15::Union::archivist
 
         std::vector<byte>& custom_header() { return customHeader; } // 自定义头不受保护
 
+        void clear()    // 只清空元数据，不清空实际数据
+        {
+            std::unique_lock ul{ asmtx };
+            rootSection.segIDs.clear();
+            rootSection.segIDs.push_back(0);
+            sections.clear();
+            customHeader.clear();
+            usedSegCount = 1;
+            flush_rootsec();
+        }
+
     private:    // 仅允许从工厂方法构造
         sfstream(
             const std::filesystem::path& p,

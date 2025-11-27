@@ -34,6 +34,12 @@ namespace HYDRA15::Union::exceptions
             return common{ cateExptCode,0x002,"Target object contains unsupported format" }
             .set("requires", desp);
         }
+
+        static common UnsupportedInterface(const std::string& vclassName, const std::string& className, const std::string& interfaceName)
+        {
+            return common{ cateExptCode,0x003,"This interface is not suppotred" }
+            .set("interface class", vclassName).set("impl class", className).set("interface", interfaceName);
+        }
     };
 
 

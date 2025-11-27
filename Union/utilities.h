@@ -231,4 +231,14 @@ namespace HYDRA15::Union::assistant
         return ((n + m - 1) / m) * m;
     }
 
+    // 计算不小于某数的2的幂次
+    inline size_t power_of_2_not_less_than_n(size_t n)
+    {
+        if (n == 0) return 0;
+        size_t power = 1;
+        while (power < n)
+            power <<= 1;
+        return power;
+    }
+
 }

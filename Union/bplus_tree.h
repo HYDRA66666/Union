@@ -35,29 +35,28 @@ namespace HYDRA15::Union::archivist
             }
         }
 
-        // 删除元素（仅删除一个匹配项），返回是否删除成功
-        bool erase(const T& key) {
-            bool removed = erase_recursive(root_, key);
-            // 如果根是内部且没有键，压缩高度
-            if (!root_->is_leaf && root_->keys.empty()) {
-                Node* old = root_;
-                root_ = root_->children.empty() ? new Node(true) : root_->children[0];
-                // 避免 double delete root_ when it becomes child: only delete old
-                old->children.clear();
-                delete old;
+        // 删除元素（仅删除一个匹配项），返回删除的数量
+        int erase(const T& key) {
+            int removed_count = 0;
+            while (true) {
+                bool removed = erase_recursive(root_, key);
+                if (!removed) break;
+                ++removed_count;
+                // 保持原有的根压缩行为（在每次删除后确保根不是空的内部节点）
+                if (!root_->is_leaf && root_->keys.empty()) {
+                    Node* old = root_;
+                    root_ = root_->children.empty() ? new Node(true) : root_->children[0];
+                    old->children.clear();
+                    delete old;
+                }
             }
-            return removed;
+            return removed_count;
         }
 
         // 精确查找（使用比较器判等），返回第一个匹配项
-        std::optional<T> find(const T& key) const {
-            Node* leaf = find_leaf(root_, key);
-            if (!leaf) return std::nullopt;
-            auto it = lower_bound_in_keys(leaf->keys, key);
-            if (it != leaf->keys.end() && comp_(*it, key) == std::strong_ordering::equal) {
-                return *it;
-            }
-            return std::nullopt;
+        std::vector<T> find(const T& key) const {
+            // 使用已有的 range_search([key, key]) 来返回所有精确匹配（包含重复项）
+            return range_search(key, key);
         }
 
         // 范围查找（闭区间 [low, high]），返回按顺序的元素副本
@@ -74,6 +73,71 @@ namespace HYDRA15::Union::archivist
                 leaf = leaf->next;
             }
             return result;
+        }
+
+        // 新增：从已排序（调用者保证严格递增）的 vector 构造，并导出包含重复元素的 vector
+    public:
+        explicit bplus_tree(comparator_t comp, const std::vector<T>& sorted_strict_inc, int maxKeysPerLeaf = 32)
+            : comp_(std::move(comp)), max_keys_(std::max(3, maxKeysPerLeaf))
+        {
+            min_keys_ = (max_keys_ + 1) / 2;
+            if (sorted_strict_inc.empty()) {
+                root_ = new Node(true);
+                return;
+            }
+
+            // 构造叶子层（不验证递增性，调用者负责保证）
+            std::vector<Node*> level;
+            level.reserve((sorted_strict_inc.size() + max_keys_ - 1) / max_keys_);
+            for (size_t i = 0; i < sorted_strict_inc.size(); i += static_cast<size_t>(max_keys_)) {
+                size_t end = std::min(i + static_cast<size_t>(max_keys_), sorted_strict_inc.size());
+                Node* leaf = new Node(true);
+                leaf->keys.assign(sorted_strict_inc.begin() + i, sorted_strict_inc.begin() + end);
+                if (!level.empty()) level.back()->next = leaf;
+                level.push_back(leaf);
+            }
+
+            // 自底向上构造内部节点
+            while (level.size() > 1) {
+                std::vector<Node*> parent_level;
+                parent_level.reserve((level.size() + (max_keys_)) / (max_keys_ + 1));
+                for (size_t i = 0; i < level.size(); i += static_cast<size_t>(max_keys_ + 1)) {
+                    size_t group = std::min(static_cast<size_t>(max_keys_ + 1), level.size() - i);
+                    Node* parent = new Node(false);
+                    parent->children.assign(level.begin() + i, level.begin() + i + group);
+                    for (size_t j = 1; j < group; ++j) {
+                        parent->keys.push_back(parent->children[j]->keys.front());
+                    }
+                    parent_level.push_back(parent);
+                }
+                level.swap(parent_level);
+            }
+
+            root_ = level.front();
+        }
+
+        // 导出为按顺序（非严格单调）包含所有元素的 vector（不跳过相等元素）
+        std::vector<T> to_vector() const {
+            std::vector<T> out;
+            if (!root_) return out;
+            Node* cur = root_;
+            while (cur && !cur->is_leaf) {
+                if (cur->children.empty()) return out;
+                cur = cur->children.front();
+            }
+            while (cur) {
+                for (const auto& k : cur->keys) {
+                    // 允许相等（不跳过重复），但检测严格下降（树结构异常）
+                    if (out.empty() || comp_(out.back(), k) != std::strong_ordering::greater) {
+                        out.push_back(k);
+                    }
+                    else {
+                        throw std::runtime_error("bplus_tree corrupted: non-monotonic key encountered during to_vector()");
+                    }
+                }
+                cur = cur->next;
+            }
+            return out;
         }
 
     private:
