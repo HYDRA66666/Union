@@ -131,23 +131,21 @@ int main(int argc, char** argv) {
             if (sz == 0) { std::this_thread::sleep_for(std::chrono::milliseconds(1)); continue; }
             std::uniform_int_distribution<ID> dist(0, sz - 1);
             ID idx = dist(rng);
-                auto ent = table.at(idx);
-                std::shared_lock sl{ *ent };
+            auto ent = table.at(idx);
+            std::shared_lock sl{ *ent };
                 // 读取若干字段（仅作为负载）
-                if (!std::holds_alternative<NOTHING>(ent->at("f1")))
-                {
-                    volatile INT v1 = std::get<INT>(ent->at("f1"));
-                    (void)v1;
-                }
+            if (!std::holds_alternative<NOTHING>(ent->at("f1")))
+            {
+                volatile INT v1 = std::get<INT>(ent->at("f1"));
+                (void)v1;
+            }
                 
-                if (!std::holds_alternative<NOTHING>(ent->at("f2")))
-                {
-                    volatile FLOAT v2 = std::get<FLOAT>(ent->at("f2"));
-                    (void)v2;
-                }
-                global_ops.fetch_add(1, std::memory_order_relaxed);
-                // 可能越界或已删除，忽略
-            
+            if (!std::holds_alternative<NOTHING>(ent->at("f2")))
+            {
+                volatile FLOAT v2 = std::get<FLOAT>(ent->at("f2"));
+                (void)v2;
+            }
+            global_ops.fetch_add(1, std::memory_order_relaxed);
         }
         };
 
@@ -155,17 +153,17 @@ int main(int argc, char** argv) {
     auto writer_fn = [&]() {
         int local_cnt = 0;
         while (!stopFlag.load(std::memory_order_relaxed)) {
-                auto e = table.create();
-                std::unique_lock wlock{ *e };
-                int val = initial_count + (++local_cnt);
-                e->set("f1", INT{ val });
-                e->set("f2", FLOAT{ static_cast<FLOAT>(val) + 0.5 });
-                e->set("f3", INTS{ val, val * 2 });
-                e->set("f4", FLOATS{ static_cast<FLOAT>(val) + 0.1, static_cast<FLOAT>(val) + 0.2 });
-                std::string s = "row" + std::to_string(val);
-                BYTES b(s.begin(), s.end());
-                e->set("f5", b);
-                global_ops.fetch_add(1, std::memory_order_relaxed);
+            auto e = table.create();
+            std::unique_lock wlock{ *e };
+            int val = initial_count + (++local_cnt);
+            e->set("f1", INT{ val });
+            e->set("f2", FLOAT{ static_cast<FLOAT>(val) + 0.5 });
+            e->set("f3", INTS{ val, val * 2 });
+            e->set("f4", FLOATS{ static_cast<FLOAT>(val) + 0.1, static_cast<FLOAT>(val) + 0.2 });
+            std::string s = "row" + std::to_string(val);
+            BYTES b(s.begin(), s.end());
+            e->set("f5", b);
+            global_ops.fetch_add(1, std::memory_order_relaxed);
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         };
@@ -192,10 +190,12 @@ int main(int argc, char** argv) {
 
     // 启动线程：5 个读，1 个写，1 个扫
     const int reader_count = 5;
+    const int writer_count = 1;
+    const int scanner_count = 0;
     std::vector<std::thread> threads;
     for (int i = 0; i < reader_count; ++i) threads.emplace_back(reader_fn, i);
-    threads.emplace_back(writer_fn);
-    threads.emplace_back(scanner_fn);
+    for (int i = 0; i < writer_count; ++i) threads.emplace_back(writer_fn);
+    for (int i = 0; i < scanner_count; ++i) threads.emplace_back(scanner_fn);
 
     // 主线程：每 1s 读取计数器计算 QPS 并打印
     uint64_t last_total = global_ops.load(std::memory_order_relaxed);
