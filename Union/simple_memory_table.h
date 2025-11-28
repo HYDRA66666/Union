@@ -3,9 +3,9 @@
 #include "framework.h"
 
 #include "archivist_interfaces.h"
-#include "single_loader.h"
 
 #include "iMutexies.h"
+#include "utilities.h"
 #include "lib_exceptions.h"
 
 namespace HYDRA15::Union::archivist
@@ -13,7 +13,12 @@ namespace HYDRA15::Union::archivist
     /***************************** 设 计 ****************************
     *
     * 始终在初始化阶段尝试将所有数据加载到内存中，如果内存不足则会收到系统异常
-    * 使用单字段索引加速查询
+    * 使用单字段索引加速查询，加速查询仅在 excute 接口中有效
+    * 
+    * 构造要求：
+    *   构造一个 loader ，其包含的 version == simple_memort_table::version，
+    *   并且其第一个字段为 simple_memory_table::sysfldRowMark
+    *   从此 loader 构造 simple_memory_table 对象
     * 
     * 系统字段：
     *   $RowMark：位图模式的行标记
@@ -42,6 +47,13 @@ namespace HYDRA15::Union::archivist
                 if (lockShared)tableRef.rowMtxs[rowID].lock_shared();
             }
 
+            INT get_row_mark() const
+            {
+                if (auto pint = std::get_if<INT>(&tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(tableRef.sysfldRowMark)]))
+                    return *pint;
+                return simple_memory_table::row_bit_mark::invalid_bit;
+            }
+
         public:     // 系统接口
             virtual ~entry_impl() = default;
             virtual std::unique_ptr<entry> clone() override
@@ -54,12 +66,15 @@ namespace HYDRA15::Union::archivist
 
             virtual entry& erase() // 删除当前记录，迭代器移动到下一条有效记录
             {
-                if(!(std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(sysfldRowMark)]) & simple_memory_table::row_bit_mark::deleted_bit))
                 {
-                    std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(sysfldRowMark)])
-                        |= simple_memory_table::row_bit_mark::deleted_bit;
-                    tableRef.modifiedRows.insert(rowID);
-                    tableRef.update_index(rowID);
+                    std::shared_lock sl{ tableRef.tableMtx };
+                    if (!(get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::deleted_bit)))
+                    {
+                        std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(sysfldRowMark)])
+                            |= simple_memory_table::row_bit_mark::deleted_bit;
+                        tableRef.modifiedRows.insert(rowID);
+                        tableRef.update_index(rowID);
+                    }
                 }
                 operator++();
                 return *this;
@@ -68,15 +83,17 @@ namespace HYDRA15::Union::archivist
             // 获取、写入记录项
             virtual const field& at(const std::string& fieldName) const override  // 返回 指定字段的数据
             {
-                if (std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at("$RowMark")]) & simple_memory_table::row_bit_mark::deleted_bit)
-                    throw exceptions::common("Record has been deleted");
+                std::shared_lock sl{ tableRef.tableMtx };
+                if (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::deleted_bit))
+                    throw exceptions::common("Record id invalid");
                 return tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(fieldName)];
             }
 
             virtual entry& set(const std::string& fieldName, const field& data) override   // 写入指定字段
             {   
-                if (std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at("$RowMark")]) & simple_memory_table::row_bit_mark::deleted_bit)
-                    throw exceptions::common("Writing data to a deleted row is not allowed");
+                std::shared_lock sl{ tableRef.tableMtx };
+                if (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::deleted_bit))
+                    throw exceptions::common("Writing data to a invalid row is not allowed");
                 tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(fieldName)] = data;
                 tableRef.modifiedRows.insert(rowID);
                 tableRef.update_index(rowID);
@@ -86,62 +103,56 @@ namespace HYDRA15::Union::archivist
             // 将数据行对象直接作为迭代器使用，需要支持迭代器的操作
             virtual entry& operator++() override    // 滑动到下一条有效记录
             { 
+                std::shared_lock sl{ tableRef.tableMtx };
                 ID currentRecordCount = tableRef.recordCount.load(std::memory_order::relaxed);
-                if (rowID < currentRecordCount - 1)
+                if (rowID < currentRecordCount)
                     transport(rowID + 1);
-                while (rowID < currentRecordCount - 1 &&
-                    (std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(tableRef.sysfldRowMark)])
-                        & simple_memory_table::row_bit_mark::deleted_bit))
+                while (rowID < currentRecordCount &&
+                    (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
                     transport(rowID + 1);
-                if (rowID >= currentRecordCount - 1 &&
-                    (std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(tableRef.sysfldRowMark)])
-                        & simple_memory_table::row_bit_mark::deleted_bit))
+                if (rowID >= currentRecordCount)
                     rowID = tableRef.end()->id();
                 return *this; 
             }
 
             virtual entry& operator--() override // 滑动到上一条有效记录
             { 
+                std::shared_lock sl{ tableRef.tableMtx };
                 if (rowID > 0)
                     transport(rowID - 1);
                 while (rowID > 0 &&
-                    (std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(tableRef.sysfldRowMark)])
-                        & simple_memory_table::row_bit_mark::deleted_bit))
+                    (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
                     transport(rowID - 1);
                 if (rowID == 0 &&
-                    (std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(tableRef.sysfldRowMark)])
-                        & simple_memory_table::row_bit_mark::deleted_bit))
+                    (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
                     rowID = tableRef.end()->id();
                 return *this; 
             }
 
             virtual const entry& operator++() const override
             {
+                std::shared_lock sl{ tableRef.tableMtx };
                 ID currentRecordCount = tableRef.recordCount.load(std::memory_order::relaxed);
-                if (rowID < currentRecordCount - 1)
+                if (rowID < currentRecordCount)
                     transport(rowID + 1);
-                while (rowID < currentRecordCount - 1 &&
-                    (std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(tableRef.sysfldRowMark)])
-                        & simple_memory_table::row_bit_mark::deleted_bit))
+                while (rowID < currentRecordCount &&
+                    (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
                     transport(rowID + 1);
-                if (rowID >= currentRecordCount - 1 &&
-                    (std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(tableRef.sysfldRowMark)])
-                        & simple_memory_table::row_bit_mark::deleted_bit))
+                if (rowID >= currentRecordCount)
                     rowID = tableRef.end()->id();
                 return *this;
             }
 
             virtual const entry& operator--() const override
             {
+                std::shared_lock sl{ tableRef.tableMtx };
                 if (rowID > 0)
                     transport(rowID - 1);
                 while (rowID > 0 &&
-                    (std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(tableRef.sysfldRowMark)])
-                        & simple_memory_table::row_bit_mark::deleted_bit))
+                    (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
                     transport(rowID - 1);
                 if (rowID == 0 &&
-                    (std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(tableRef.sysfldRowMark)])
-                        & simple_memory_table::row_bit_mark::deleted_bit))
+                    (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
                     rowID = tableRef.end()->id();
                 return *this;
             }
@@ -157,17 +168,17 @@ namespace HYDRA15::Union::archivist
             virtual bool operator==(const entry& oth) const override { return rowID == oth.id(); }
 
         public:     // 行锁
-            virtual void lock() override { tableRef.rowMtxs[rowID].lock(); locked = true; }
+            virtual void lock() override { std::shared_lock sl{ tableRef.tableMtx }; tableRef.rowMtxs[rowID].lock(); locked = true; }
 
-            virtual void unlock() override { tableRef.rowMtxs[rowID].unlock(); locked = false; }
+            virtual void unlock() override { std::shared_lock sl{ tableRef.tableMtx }; tableRef.rowMtxs[rowID].unlock(); locked = false; }
 
-            virtual bool try_lock() override { locked = tableRef.rowMtxs[rowID].try_lock(); return locked; }
+            virtual bool try_lock() override { std::shared_lock sl{ tableRef.tableMtx }; locked = tableRef.rowMtxs[rowID].try_lock(); return locked; }
 
-            virtual void lock_shared() const override { tableRef.rowMtxs[rowID].lock_shared(); lockShared = true; }
+            virtual void lock_shared() const override { std::shared_lock sl{ tableRef.tableMtx }; tableRef.rowMtxs[rowID].lock_shared(); lockShared = true; }
 
-            virtual void unlock_shared() const override { tableRef.rowMtxs[rowID].unlock_shared(); lockShared = false; }
+            virtual void unlock_shared() const override { std::shared_lock sl{ tableRef.tableMtx }; tableRef.rowMtxs[rowID].unlock_shared(); lockShared = false; }
 
-            virtual bool try_lock_shared() const override { lockShared = tableRef.rowMtxs[rowID].try_lock_shared(); return lockShared; }
+            virtual bool try_lock_shared() const override { std::shared_lock sl{ tableRef.tableMtx }; lockShared = tableRef.rowMtxs[rowID].try_lock_shared(); return lockShared; }
 
         public:
             entry_impl(simple_memory_table& tab, ID id) : tableRef(tab), rowID(id) {}
@@ -180,7 +191,7 @@ namespace HYDRA15::Union::archivist
         private:
             const simple_memory_table& tableRef;
 
-            const std::vector<field> rowData;
+            std::vector<field> rowData;
 
 
         public:     // 系统接口
@@ -199,7 +210,11 @@ namespace HYDRA15::Union::archivist
                 return rowData[tableRef.fieldNameTab.at(fieldName)];
             }
 
-            virtual entry& set(const std::string&, const field&) override           { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "set"); }
+            virtual entry& set(const std::string& fieldName, const field& data) override
+            {
+                rowData[tableRef.fieldNameTab.at(fieldName)] = data;
+                return *this;
+            }
 
             // 将数据行对象直接作为迭代器使用，需要支持迭代器的操作
             virtual entry& operator++() override                                    { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "operator++"); }
@@ -218,7 +233,10 @@ namespace HYDRA15::Union::archivist
             virtual bool try_lock_shared() const override                           { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "try_lock_shared"); }
 
         public:
-            data_entry_impl(const simple_memory_table& tab,const std::vector<field>& data) : tableRef(tab), rowData{data} {}
+            data_entry_impl(const simple_memory_table& tab, const std::vector<field>& data = {})
+                : tableRef(tab), rowData{ data } {
+                if (rowData.empty())rowData.resize(tab.fieldTab.size());
+            }
         };
 
     private:
@@ -243,16 +261,16 @@ namespace HYDRA15::Union::archivist
                     return entry_impl::compare_field_ls(lfield, rfield, fieldSpec);
                 }
 
-                bool operator()(ID l, const std::unique_ptr<entry>& r) const 
+                bool operator()(ID l, const entry& r) const 
                 {
                     const field& lfield = tableRef.tabData[l * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(fieldSpec)];
-                    const field& rfield = r->at(fieldSpec);
+                    const field& rfield = r.at(fieldSpec);
                     return entry_impl::compare_field_ls(lfield, rfield, fieldSpec);
                 }
 
-                bool operator()(const std::unique_ptr<entry>& l, ID r) const 
+                bool operator()(const entry& l, ID r) const 
                 {
-                    const field& lfield = l->at(fieldSpec);
+                    const field& lfield = l.at(fieldSpec);
                     const field& rfield = tableRef.tabData[r * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(fieldSpec)];
                     return entry_impl::compare_field_ls(lfield, rfield, fieldSpec);
                 }
@@ -270,43 +288,6 @@ namespace HYDRA15::Union::archivist
             const field_spec& fieldSpec;
 
         public:
-            static std::unordered_set<ID> intersection(const std::list<std::unordered_set<ID>>& sets)
-            {
-                // 寻找最小的set
-                auto minSet = sets.begin();
-                size_t minEntCnt = std::numeric_limits<size_t>::max();
-                for (auto it = sets.begin(); it != sets.end(); it++)
-                    if (it->size() < minEntCnt)
-                    {
-                        minSet = it;
-                        minEntCnt = it->size();
-                    }
-
-                // 构造结果
-                std::unordered_set<ID> res;
-                for (const auto& id : *minSet)
-                {
-                    bool yes = true;
-                    for (const auto& set : sets)if (!set.contains(id))
-                    {
-                        yes = false;
-                        break;
-                    }
-                    if (yes)
-                        res.insert(id);
-                }
-
-                return res;
-            }
-
-            static std::unordered_set<ID> union_set(const std::list<std::unordered_set<ID>>& sets)
-            {
-                std::unordered_set<ID> res;
-                for (const auto& set : sets)
-                    res.insert_range(set);
-                return res;
-            }
-
             void insert(ID id) { std::unique_lock ul{ mtx }; auto it = data.insert(id); id2it[id] = it; }
 
             void erase(ID id)
@@ -318,7 +299,7 @@ namespace HYDRA15::Union::archivist
                     if (*itr == id) { data.erase(itr); break; }
             }
 
-            std::unordered_set<ID> search(const std::unique_ptr<entry>& ent, const std::unordered_set<ID>& ref = {})
+            std::unordered_set<ID> search(const entry& ent, const std::unordered_set<ID>& ref = {})
             {
                 std::unordered_set<ID> result;
                 std::shared_lock sl{ mtx };
@@ -329,7 +310,7 @@ namespace HYDRA15::Union::archivist
                 return result;
             }
 
-            std::unordered_set<ID> search_range(const std::unique_ptr<entry>& lower, const std::unique_ptr<entry>& upper, const std::unordered_set<ID>& ref = {})
+            std::unordered_set<ID> search_range(const entry& lower, const entry& upper, const std::unordered_set<ID>& ref = {})
             {
                 std::unordered_set<ID> result;
                 std::shared_lock sl{ mtx };
@@ -340,7 +321,7 @@ namespace HYDRA15::Union::archivist
                 return result;
             }
 
-            std::unordered_set<ID> search_ls(const std::unique_ptr<entry>& upper, const std::unordered_set<ID>& ref = {})
+            std::unordered_set<ID> search_ls(const entry& upper, const std::unordered_set<ID>& ref = {})
             {
                 std::unordered_set<ID> res;
                 std::shared_lock sl{ mtx };
@@ -351,7 +332,7 @@ namespace HYDRA15::Union::archivist
                 return res;
             }
 
-            std::unordered_set<ID> search_gr(const std::unique_ptr<entry>& lower, const std::unordered_set<ID>& ref = {})
+            std::unordered_set<ID> search_gr(const entry& lower, const std::unordered_set<ID>& ref = {})
             {
                 std::unordered_set<ID> res;
                 std::shared_lock sl{ mtx };
@@ -393,12 +374,12 @@ namespace HYDRA15::Union::archivist
     public:
         struct row_bit_mark
         {
-            static constexpr INT deleted_bit = 0x1;
+            static constexpr INT invalid_bit = 0x1;
+            static constexpr INT deleted_bit = 0x2;
         };
 
         static constexpr std::pair<ID, ID> version{ 0x4172634D656D74,0x0000000100000000 };  // "ArchMemt", 1.0
 
-    private:
         static const inline field_spec sysfldRowMark{ "$RowMark","stores the state of data row",field_spec::field_type::INT };
 
     private:
@@ -417,7 +398,7 @@ namespace HYDRA15::Union::archivist
         std::set<ID> modifiedRows;
 
         // 索引
-        std::list<index_impl> indexTab;
+        std::vector<std::unique_ptr<index_impl>> indexTab;
 
     private:
         std::unique_ptr<entry_impl> get_entry(ID id) { return std::make_unique<entry_impl>(*this, id); }
@@ -428,47 +409,58 @@ namespace HYDRA15::Union::archivist
         {
             for(auto& idx : indexTab)
             {
-                if (idx.contains(id))
-                    idx.erase(id);
-                if (!std::holds_alternative<NOTHING>(tabData[id * fieldTab.size() + fieldNameTab.at(idx.fieldSpec)]))
-                    idx.insert(id);
+                if (!idx)continue;
+                if (idx->contains(id))
+                    idx->erase(id);
+                if (!std::holds_alternative<NOTHING>(tabData[id * fieldTab.size() + fieldNameTab.at(idx->fieldSpec)]))
+                    idx->insert(id);
             }
         }
 
         void sync_all()
         {
             // 按页加载数据
-            recordCount.store(loader->size(), std::memory_order::relaxed);
-            ID pageSize = loader->page_size();
-            ID pageCount = (recordCount.load(std::memory_order::relaxed) - 1) / pageSize + 1;
-            for(ID i = 0; i< pageCount; ++i)
-                tabData.append_range(loader->rows(i).data);
-            tabData.resize(assistant::power_of_2_not_less_than_n(recordCount.load(std::memory_order::relaxed)) * fieldTab.size());
-            rowMtxs.resize(assistant::power_of_2_not_less_than_n(recordCount.load(std::memory_order::relaxed)));
+            tabData.clear(); rowMtxs.clear();
+            ID currentRecordCount = loader->size();
+            recordCount.store(currentRecordCount, std::memory_order::relaxed);
+            if (recordCount > 0)
+            {
+                ID pageSize = loader->page_size();
+                ID pageCount = (currentRecordCount - 1) / pageSize + 1;
+                for (ID i = 0; i < pageCount; ++i)
+                    tabData.append_range(loader->rows(i).data);
+                tabData.resize(assistant::power_of_2_not_less_than_n(currentRecordCount) * fieldTab.size());
+                rowMtxs.resize(assistant::power_of_2_not_less_than_n(currentRecordCount));
+            }
 
             // 加载索引
-            for(const auto& idxSpec : loader->indexies())
-                indexTab.emplace_back(*this,  fieldTab[fieldNameTab.at(idxSpec.fieldSpecs[0])], loader->index_tab(idxSpec).data);
+            indexTab.clear();
+            indexTab.resize(loader->indexies().size());
+            for (const auto& idxSpec : loader->indexies())
+                indexTab[fieldNameTab.at(idxSpec)] = std::make_unique<index_impl>(*this, fieldTab[fieldNameTab.at(idxSpec.fieldSpecs[0])], loader->index_tab(idxSpec).data);
         }
 
         void flush_all()
         {
             // 按页写入数据
             ID pageSize = loader->page_size();
-            ID pageCount = (recordCount.load(std::memory_order::relaxed) - 1) / pageSize + 1;
+            ID currentRecordCount = recordCount.load(std::memory_order::relaxed);
+            ID pageCount = (currentRecordCount - 1) / pageSize + 1;
             for (ID i = 0; i < pageCount; ++i)
             {
-                page pg{ i,i * pageSize,std::min(pageSize, recordCount.load(std::memory_order::relaxed) - i * pageSize) };
+                page pg{ i,i * pageSize,std::min(pageSize, currentRecordCount - i * pageSize) };
                 pg.modified = std::unordered_set<ID>{ modifiedRows.lower_bound(pg.start), modifiedRows.upper_bound(pg.start + pg.count) };
-                pg.data = std::deque<field>(tabData.begin() + pg.start, tabData.begin() + pg.start + pg.count);
+                size_t startElem = pg.start * fieldTab.size();
+                size_t elemCount = pg.count * fieldTab.size();
+                pg.data = std::deque<field>(tabData.begin() + startElem, tabData.begin() + startElem + elemCount);
                 loader->rows(pg);
             }
 
             // 写入索引
-            for (auto& idx : indexTab)
+            for (auto& idx : indexTab)if (idx)
             {
-                index i{ index_spec{idx.fieldSpec.name,"",{idx.fieldSpec}} };
-                i.data = idx.to_deque();
+                index i{ index_spec{idx->fieldSpec.name,"",{idx->fieldSpec}} };
+                i.data = idx->to_deque();
                 loader->index_tab(i);
             }
         }
@@ -488,49 +480,49 @@ namespace HYDRA15::Union::archivist
         virtual ID trim() override             // 优化表记录，返回优化后的记录数
         {
             std::unique_lock ul{ tableMtx };
-            for (auto& mtx : rowMtxs)mtx.lock();
 
-            ID writePos = 0;
-            for (ID readPos = 0; readPos < recordCount; ++readPos)
             {
-                if (!(std::get<INT>(tabData[readPos * fieldTab.size() + fieldNameTab.at(sysfldRowMark)])
-                    & row_bit_mark::deleted_bit))
+                std::queue<std::unique_lock<std::shared_mutex>> lockQueue;
+                for (auto& mtx : rowMtxs)lockQueue.emplace(mtx);
+                ID writePos = 0;
+                for (ID readPos = 0; readPos < recordCount.load(std::memory_order::relaxed); ++readPos)
                 {
-                    if (writePos != readPos)
-                        for (size_t fidx = 0; fidx < fieldTab.size(); fidx++)
-                            tabData[writePos * fieldTab.size() + fidx] = std::move(tabData[readPos * fieldTab.size() + fidx]);
-                    writePos++;
+                    if (!(std::get<INT>(tabData[readPos * fieldTab.size() + fieldNameTab.at(sysfldRowMark)])
+                        & row_bit_mark::deleted_bit))
+                    {
+                        if (writePos != readPos)
+                            for (size_t fidx = 0; fidx < fieldTab.size(); fidx++)
+                                tabData[writePos * fieldTab.size() + fidx] = std::move(tabData[readPos * fieldTab.size() + fidx]);
+                        writePos++;
+                    }
                 }
+                recordCount.store(writePos, std::memory_order::relaxed);
             }
-
-            for (ID i = 0; i < recordCount; ++i)
-                rowMtxs[i].unlock();
-            recordCount = writePos;
-            tabData.resize(assistant::power_of_2_not_less_than_n(recordCount) * fieldTab.size());
-            rowMtxs.resize(assistant::power_of_2_not_less_than_n(recordCount));
-            
+            ID currentRecordCount = recordCount.load(std::memory_order::relaxed);
+            tabData.resize(assistant::power_of_2_not_less_than_n(currentRecordCount) * fieldTab.size());
+            rowMtxs.resize(assistant::power_of_2_not_less_than_n(currentRecordCount));
 
             // 重建索引
-            for (auto& idx : indexTab)
+            for (auto& idx : indexTab)if(idx)
             {
-                idx.clear();
-                for (ID id = 0; id < recordCount; ++id)
+                idx->clear();
+                for (ID id = 0; id < currentRecordCount; ++id)
                 {
-                    if (!std::holds_alternative<NOTHING>(tabData[id * fieldTab.size() + fieldNameTab.at(idx.fieldSpec)]))
-                        idx.insert(id);
+                    if (!std::holds_alternative<NOTHING>(tabData[id * fieldTab.size() + fieldNameTab.at(idx->fieldSpec)]))
+                        idx->insert(id);
                 }
             }
 
             // 更新修改记录
             modifiedRows.clear();
-            for(ID i = 0; i < recordCount; ++i)
+            for(ID i = 0; i < currentRecordCount; ++i)
                 modifiedRows.insert(i);
 
             // 落盘所有数据
             loader->clear();
             flush_all();
             
-            return recordCount;
+            return currentRecordCount;
         }
 
         virtual const field_specs& fields() const override { return fieldTab; } // 返回完整的字段表
@@ -544,18 +536,17 @@ namespace HYDRA15::Union::archivist
             ID pos = recordCount.fetch_add(1, std::memory_order::relaxed);
 
             // 扩展数据存储
-            if(tabData.size() < pos * fieldTab.size())
+            if (tabData.size() < (pos + 1) * fieldTab.size())
             {
                 labourer::upgrade_lock ugl{ tableMtx };
-                size_t newRecSize = assistant::power_of_2_not_less_than_n(pos);
+                size_t newRecSize = assistant::power_of_2_not_less_than_n(pos + 1);
                 tabData.resize(newRecSize * fieldTab.size());
                 rowMtxs.resize(newRecSize);
             }
 
-            auto ety = get_entry(pos);
-            ety->set(sysfldRowMark, INT{ 0 }); // 初始化系统字段
+            tabData[pos * fieldTab.size() + fieldNameTab.at(sysfldRowMark)] = INT{ 0 }; // 初始化系统字段
 
-            return ety;
+            return get_entry(pos);
         }
 
         virtual void drop(std::unique_ptr<entry> ety) override                                          // 删：通过条目对象删除记录
@@ -580,37 +571,8 @@ namespace HYDRA15::Union::archivist
             return result;
         }
 
-        virtual std::list<std::unique_ptr<entry>> excute(const incidents& icdts, const field_specs& specs) override // 执行一系列事件，按照指定字段的排序顺序返回执行结果
+        virtual std::list<std::unique_ptr<entry>> excute(const incidents& icdts, const field_specs& orderSeq = {}) override // 执行一系列事件，按照指定字段的排序顺序返回执行结果
         {
-            // helper：在无索引、或对索引结果做最终过滤时，用于判断某字段值是否满足该字段所有条件（AND）
-            const auto eval_all_conditions = [this](const field& fv, const std::list<incident::condition_param>& conds)->bool {
-                using ctype = incident::condition_param::condition_type;
-                for (const auto& cp : conds)
-                {
-                    const field& ref = cp.reference;
-                    const field_spec& fs = fieldTab[fieldNameTab.at(cp.targetField)];
-                    switch (cp.type)
-                    {
-                    case ctype::equal:
-                        if (!entry::compare_field_eq(fv, ref, fs)) return false;
-                        break;
-                    case ctype::dequal:
-                        if (entry::compare_field_eq(fv, ref, fs)) return false;
-                        break;
-                    case ctype::less:
-                        if (!entry::compare_field_ls(fv, ref, fs)) return false; // fv < ref
-                        break;
-                    case ctype::greater:
-                        // semantics: greater => fv >= ref
-                        if (!(entry::compare_field_ls(ref, fv, fs) || entry::compare_field_eq(fv, ref, fieldTab[fieldNameTab.at(cp.targetField)]))) return false;
-                        break;
-                    default:
-                        return false;
-                    }
-                }
-                return true;
-                };
-
             // 字段搜索条件
             struct field_search_condition
             {
@@ -620,6 +582,29 @@ namespace HYDRA15::Union::archivist
                 bool hasLower = false; field lowerVal = NOTHING{}; // lower is >=
                 bool hasUpper = false; field upperVal = NOTHING{}; // upper is <
             };
+
+            // helper：在无索引、或对索引结果做最终过滤时，用于判断某字段值是否满足该字段所有条件（AND）
+            const auto eval_all_conditions = [this](const field& fv, const field_search_condition& conds, const std::string& fieldName)->bool {
+                using ctype = incident::condition_param::condition_type;
+                if (conds.hasEqual)
+                    if (!entry::compare_field_eq(fv, conds.equalVal, fieldTab[fieldNameTab.at(fieldName)]))
+                        return false;
+                if (conds.hasDequal)
+                    for (const auto& dv : conds.dequalVals)
+                        if (entry::compare_field_eq(fv, dv, fieldTab[fieldNameTab.at(fieldName)]))
+                            return false;
+                if (conds.hasLower)
+                    if (!(entry::compare_field_ls(conds.lowerVal, fv, fieldTab[fieldNameTab.at(fieldName)])
+                        || entry::compare_field_eq(conds.lowerVal, fv, fieldTab[fieldNameTab.at(fieldName)])))
+                        return false;
+                if(conds.hasUpper)
+                    if(!entry::compare_field_ls(fv, conds.upperVal, fieldTab[fieldNameTab.at(fieldName)]))
+                        return false;
+                return true;
+                };
+
+            // 结合操作命名空间
+            using namespace assistant::set_operation;
 
             std::unordered_set<ID> finalResult;
             std::unordered_set<ID> currentResult;
@@ -634,20 +619,18 @@ namespace HYDRA15::Union::archivist
                 {
                 case incident::incident_type::separate:
                 {
-                    finalResult = index_impl::union_set({ finalResult,currentResult });
+                    finalResult = finalResult + currentResult;
                     currentResult = {};
                     break;
                 }
                 case incident::incident_type::join:
                 {
-                    currentResult = index_impl::union_set({ finalResult,currentResult });
+                    currentResult = finalResult + currentResult;
                     finalResult = {};
                     break;
                 }
                 case incident::incident_type::ord_lmt:
                 {
-                    if (!std::holds_alternative<incident::ord_lmt_param>(icdt.param))
-                        throw exceptions::common::BadParameter("incident::param", "not incident::ord_lmt_param", "incident::ord_lmt_param for operation order and limit");
                     incident::ord_lmt_param param = std::get<incident::ord_lmt_param>(icdt.param);
                     std::vector<ID> ordered(currentResult.begin(),currentResult.end());
                     std::sort(ordered.begin(), ordered.end(), [this, param](ID l, ID r) {
@@ -663,9 +646,7 @@ namespace HYDRA15::Union::archivist
                 }
                 case incident::incident_type::create:
                 {
-                    if (!std::holds_alternative<std::unique_ptr<entry>>(icdt.param))
-                        throw exceptions::common::BadParameter("incident::param", "not std::unique_ptr<entry>", "std::unique_ptr<entry> for operation create");
-                    entry& e = *std::get<std::unique_ptr<entry>>(icdt.param);
+                    entry& e = *std::get<std::shared_ptr<entry>>(icdt.param);
                     auto ne = create();
                     std::unique_lock ulpe{ *ne };
                     for (const auto& field : fieldTab)
@@ -685,8 +666,6 @@ namespace HYDRA15::Union::archivist
                 }
                 case incident::incident_type::modify:
                 {
-                    if (!std::holds_alternative<incident::modify_param>(icdt.param))
-                        throw exceptions::common::BadParameter("incident::param", "not incident::ord_lmt_param", "incident::modify_param for operation modify");
                     incident::modify_param param = std::get<incident::modify_param>(icdt.param);
                     for (const auto id : currentResult)
                     {
@@ -694,6 +673,7 @@ namespace HYDRA15::Union::archivist
                         std::unique_lock ule{ *pe };
                         pe->set(param.targetField, param.value);
                     }
+                    break;
                 }
                 case incident::incident_type::search:
                 {
@@ -703,8 +683,6 @@ namespace HYDRA15::Union::archivist
                     {   // 收集连续的 search 事件 并计算全部条件
                         // 收集连续的 search 事件（包含当前这个）
                         std::unordered_map<std::string, std::list<incident::condition_param>> condParamsByField;
-                        if (!std::holds_alternative<incident::condition_param>(icdt.param))
-                            throw exceptions::common::BadParameter("incident::param", "not incident::condition_param", "incident::condition_param for operation search");
                         {
                             incident::condition_param cond = std::get<incident::condition_param>(icdt.param);
                             condParamsByField[cond.targetField].push_back(cond);
@@ -712,8 +690,6 @@ namespace HYDRA15::Union::archivist
                         while (!opers.empty() && opers.front().type == incident::incident_type::search)
                         {
                             auto nxt = std::move(opers.front()); opers.pop();
-                            if (!std::holds_alternative<incident::condition_param>(nxt.param))
-                                throw exceptions::common::BadParameter("incident::param", "not incident::condition_param", "incident::condition_param for operation search");
                             {
                                 incident::condition_param cond = std::get<incident::condition_param>(nxt.param);
                                 condParamsByField[cond.targetField].push_back(cond);
@@ -749,6 +725,11 @@ namespace HYDRA15::Union::archivist
                                 }
                             }
                             // 判断是否有矛盾条件
+                            if (fsc.impossible)
+                            {
+                                impossiable = true;
+                                break;
+                            }
                             // equal 与 dequal 冲突
                             if (fsc.hasEqual && fsc.hasDequal)
                                 for (const auto& ex : fsc.dequalVals)
@@ -809,19 +790,87 @@ namespace HYDRA15::Union::archivist
 
                     // 开始逐个字段筛选结果
                     bool firstSearch = true;
+                    // 先使用有索引的字段进行搜索
                     for (const auto& [fieldName, fsc] : condByField)
                     {
-                        // 找索引
-                        auto idxit = std::find_if(indexTab.begin(), indexTab.end(), [fieldName](const index_impl& idx) { return idx == fieldName; });
-                        if (idxit != indexTab.end())    // 有索引
-                        {
+                        if (!indexTab[fieldNameTab.at(fieldName)])continue; // 无索引跳过
+                        auto& idx = *indexTab[fieldNameTab.at(fieldName)];
 
-                        }
-                        else   // 无索引
+                        if (fsc.hasEqual)
                         {
-
+                            auto pdatent = std::make_unique<data_entry_impl>(*this);
+                            pdatent->set(fieldName, fsc.equalVal);
+                            currentResult = idx.search(*pdatent, currentResult);
                         }
+
+                        if (fsc.hasLower && fsc.hasUpper)
+                        {
+                            auto pdatentLower = std::make_unique<data_entry_impl>(*this);
+                            auto pdatentUpper = std::make_unique<data_entry_impl>(*this);
+                            pdatentLower->set(fieldName, fsc.lowerVal);
+                            pdatentUpper->set(fieldName, fsc.upperVal);
+                            currentResult = idx.search_range(*pdatentLower, *pdatentUpper, currentResult);
+                        }
+
+                        if(fsc.hasLower && !fsc.hasUpper)
+                        {
+                            auto pdatentLower = std::make_unique<data_entry_impl>(*this);
+                            pdatentLower->set(fieldName, fsc.lowerVal);
+                            currentResult = idx.search_gr(*pdatentLower, currentResult);
+                        }
+
+                        if(fsc.hasUpper && !fsc.hasLower)
+                        {
+                            auto pdatentUpper = std::make_unique<data_entry_impl>(*this);
+                            pdatentUpper->set(fieldName, fsc.upperVal);
+                            currentResult = idx.search_ls(*pdatentUpper, currentResult);
+                        }
+
+                        if (fsc.hasDequal)
+                        {
+                            auto pdatent = std::make_unique<data_entry_impl>(*this);
+                            for(const auto& dv : fsc.dequalVals)
+                            {
+                                pdatent->set(fieldName, dv);
+                                auto deqres = idx.search(*pdatent, currentResult);
+                                currentResult = currentResult - deqres;
+                            }
+                        }
+
                         firstSearch = false;
+                    }
+                    // 再使用无索引的字段进行过滤
+                    for (const auto& [fieldName, fsc] : condByField)
+                    {
+                        if (indexTab[fieldNameTab.at(fieldName)])continue; // 有索引跳过
+                        std::shared_lock sl{ tableMtx };
+                        if (firstSearch && currentResult.empty())
+                        {
+                            // 第一次搜索且无索引，需全表扫描
+                            for (ID id = 0; id < recordCount.load(std::memory_order::relaxed); ++id)
+                            {
+                                auto pe = get_const_entry(id);
+                                std::shared_lock sle{ *pe };
+                                const field& fv = pe->at(fieldName);
+                                if (eval_all_conditions(fv, fsc, fieldName))
+                                    currentResult.insert(id);
+                            }
+                            firstSearch = false;
+                        }
+                        else
+                        {
+                            // 对现有结果集进行过滤
+                            for (auto it = currentResult.begin(); it != currentResult.end(); )
+                            {
+                                auto pe = get_const_entry(*it);
+                                std::shared_lock sle{ *pe };
+                                const field& fv = pe->at(fieldName);
+                                if (!eval_all_conditions(fv, fsc, fieldName))
+                                    it = currentResult.erase(it);
+                                else
+                                    ++it;
+                            }
+                        }
                     }
 
                 }
@@ -829,6 +878,16 @@ namespace HYDRA15::Union::archivist
                     break;
                 }
             }
+
+            if (!currentResult.empty())finalResult = finalResult + currentResult;
+            std::list<std::unique_ptr<entry>> result;
+            for(const auto& id : finalResult)
+                result.push_back(get_entry(id));
+            finalResult.clear(); currentResult.clear();
+            if (!orderSeq.empty())result.sort([&orderSeq](const std::unique_ptr<entry>& l, const std::unique_ptr<entry>& r) {
+                return entry::compare_ls(*l, *r, orderSeq);
+                });
+            return result;
         }
         
         virtual std::unique_ptr<entry> at(ID id) override                                               // 通过行号访问记录
@@ -844,22 +903,23 @@ namespace HYDRA15::Union::archivist
         {
             if(fieldSpecs.size() != 1)
                 throw exceptions::common("Only single-field index is supported in simple_memory_table");
-            std::shared_lock sl{ tableMtx };
-            for (auto& idx : indexTab)
-                if (idx == fieldSpecs[0])
-                    throw exceptions::common("Index on field '" + fieldSpecs[0].name + "' already exists");
-            auto& idx = indexTab.emplace_back(*this, fieldSpecs[0]);
+            std::unique_lock sl{ tableMtx };
+            if(indexTab[fieldNameTab.at(fieldSpecs[0])])
+                throw exceptions::common("Index on field '" + fieldSpecs[0].name + "' already exists");
+
+            auto& idx = indexTab[fieldNameTab.at(fieldSpecs[0])];
+            idx = std::make_unique<index_impl>(*this, fieldSpecs[0]);
             for(auto& ent : *this)
             {
                 if (!std::holds_alternative<NOTHING>(tabData[ent.id() * fieldTab.size() + fieldNameTab.at(fieldSpecs[0])]))
-                    idx.insert(ent.id());
+                    idx->insert(ent.id());
             }
         }
 
-        virtual void drop_index(const std::string& name) override               // 删除索引
+        virtual void drop_index(const std::string& name) override 
         {
-            if(!indexTab.remove_if([&name](const index_impl& idx) { return idx == name; }))
-                throw exceptions::common("Index '" + name + "' does not exist, requires field name as index name");
+            std::unique_lock ul{ tableMtx };
+            indexTab[fieldNameTab.at(name)].reset();
         }
 
     private:// 由派生类实现：返回指向首条记录的迭代器 / 尾后迭代器
@@ -868,7 +928,9 @@ namespace HYDRA15::Union::archivist
 
     public: // 表始终从 loader 构造
         simple_memory_table(std::unique_ptr<archivist::loader>&& ld)
-            : loader(std::move(ld)), fieldTab(ld->fields()), fieldNameTab(build_field_name_table(fieldTab)){
+            : loader(std::move(ld)), fieldTab(loader->fields()), fieldNameTab(build_field_name_table(fieldTab)){
+            if (fieldTab[0] != sysfldRowMark || fieldTab[0].type != sysfldRowMark.type)
+                throw exceptions::common("The first field must be the system field '$RowMark'");
             sync_all();
         }
 

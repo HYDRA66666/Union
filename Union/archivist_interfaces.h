@@ -242,7 +242,7 @@ namespace HYDRA15::Union::archivist
         };
         using incident_param = std::variant<
             std::monostate,         // 用于无操作
-            std::unique_ptr<entry>, // 用于 增
+            std::shared_ptr<entry>, // 用于 增
             condition_param,        // 用于 查
             modify_param,           // 用于 改
             ord_lmt_param           // 用于排序

@@ -147,7 +147,6 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="bplus_tree.h" />
     <ClInclude Include="byteswap.h" />
     <ClInclude Include="archivist_interfaces.h" />
     <ClInclude Include="astring.h" />

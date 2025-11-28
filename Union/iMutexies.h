@@ -61,13 +61,13 @@ namespace HYDRA15::Union::labourer
                     std::memory_order::acquire, std::memory_order::relaxed
                 ))break;
                 i++;
-                if (i >= retreatFreq)std::this_thread::yield();
+                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
             }
             while (true)
             {
                 if (readers.load(std::memory_order::acquire) == 0)break;
                 i++;
-                if (i >= retreatFreq)std::this_thread::yield();
+                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
             }
         }
 
@@ -91,14 +91,14 @@ namespace HYDRA15::Union::labourer
             size_t i = 0;
             while (true)
             {
-                if (!writer.load(std::memory_order::acquire))
+                if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))
                 {
                     readers.fetch_add(1, std::memory_order::acquire);
-                    if (!writer.load(std::memory_order::acquire))return;
+                    if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))return;
                     readers.fetch_sub(1, std::memory_order::relaxed);
                 }
                 i++;
-                if (i >= retreatFreq)std::this_thread::yield();
+                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
             }
         }
 
@@ -106,10 +106,10 @@ namespace HYDRA15::Union::labourer
 
         bool try_lock_shared()
         {
-            if (!writer.load(std::memory_order::acquire))
+            if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))
             {
                 readers.fetch_add(1, std::memory_order::acquire);
-                if (!writer.load(std::memory_order::acquire))return true;
+                if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))return true;
                 readers.fetch_sub(1, std::memory_order::relaxed);
             }
             return false;
@@ -128,7 +128,13 @@ namespace HYDRA15::Union::labourer
                     std::memory_order::acquire, std::memory_order::relaxed
                 ))break;
                 i++;
-                if (i >= retreatFreq)std::this_thread::yield();
+                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
+            }
+            while (true)
+            {
+                if ((readers.load(std::memory_order_acquire) & 0xFFFFFFFF) == 0)break;
+                i++;
+                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
             }
         }
 

@@ -3,6 +3,7 @@
 #include "framework.h"
 
 #include "string_utilities.h"
+#include "concepts.h"
 
 namespace HYDRA15::Union::assistant
 {
@@ -240,5 +241,60 @@ namespace HYDRA15::Union::assistant
             power <<= 1;
         return power;
     }
+
+
+    // 集合操作
+    namespace set_operation
+    {
+        template<typename T, template<typename ...>typename S>
+        concept is_set_container =
+            framework::is_really_same_v<S<T>, std::set<T>> ||
+            framework::is_really_same_v<S<T>, std::unordered_set<T>>;
+
+        template<typename T, template<typename ...>typename S>
+            requires is_set_container<T, S>
+        inline S<T> operator+(const S<T>& l, const S<T>& r)
+        {
+            S<T> res;
+            res.insert_range(l);
+            res.insert_range(r);
+            return res;
+        }
+
+        template<typename T, template<typename ...>typename S>
+            requires is_set_container<T, S>
+        inline S<T> operator&(const S<T>& l, const S<T>& r)
+        {
+            if (l.size() < r.size())
+            {
+                S<T> res;
+                for (const auto& i : l)
+                    if (r.contains(i))
+                        res.insert(i);
+                return res;
+            }
+            else 
+            {
+                S<T> res;
+                for (const auto& i : r)
+                    if (l.contains(i))
+                        res.insert(i);
+                return res;
+            }
+        }
+
+        template<typename T, template<typename ...>typename S>
+            requires is_set_container<T, S>
+        inline S<T> operator-(const S<T>& l, const S<T>& r)
+        {
+            S<T> res;
+            for (const auto& i : l)
+                if (!r.contains(i))
+                    res.insert(i);
+            return res;
+        }
+    }
+    
+   
 
 }
