@@ -15,6 +15,8 @@ namespace HYDRA15::Union::archivist
     * 始终在初始化阶段尝试将所有数据加载到内存中，如果内存不足则会收到系统异常
     * 使用单字段索引加速查询，加速查询仅在 excute 接口中有效
     * 
+    * 查询优先：有迭代器（entry）存在时可能会阻塞插入操作
+    * 
     * 构造要求：
     *   构造一个 loader ，其包含的 version == simple_memort_table::version，
     *   并且其第一个字段为 simple_memory_table::sysfldRowMark
@@ -457,6 +459,13 @@ namespace HYDRA15::Union::archivist
             }
         }
 
+        void resize_data_storage(ID newRowSize)
+        {
+            ID targetSize = assistant::power_of_2_not_less_than_n(newRowSize);
+            tabData.resize(targetSize * fieldTab.size());
+            rowMtxs.resize(targetSize);
+        }
+
         static std::unordered_map<std::string, size_t> build_field_name_table(const field_specs& ftab)
         {
             std::unordered_map<std::string, size_t> result;
@@ -491,8 +500,7 @@ namespace HYDRA15::Union::archivist
                 recordCount.store(writePos, std::memory_order::relaxed);
             }
             ID currentRecordCount = recordCount.load(std::memory_order::relaxed);
-            tabData.resize(assistant::power_of_2_not_less_than_n(currentRecordCount) * fieldTab.size());
-            rowMtxs.resize(assistant::power_of_2_not_less_than_n(currentRecordCount));
+            resize_data_storage(currentRecordCount);
 
             // 重建索引
             for (auto& idx : indexTab)if(idx)
@@ -531,9 +539,7 @@ namespace HYDRA15::Union::archivist
             if (tabData.size() < (pos + 1) * fieldTab.size())
             {
                 labourer::upgrade_lock ugl{ tableMtx };
-                size_t newRecSize = assistant::power_of_2_not_less_than_n(pos + 1);
-                tabData.resize(newRecSize * fieldTab.size());
-                rowMtxs.resize(newRecSize);
+                resize_data_storage(pos + 1);
             }
 
             tabData[pos * fieldTab.size() + fieldNameTab.at(sysfldRowMark)] = INT{ 0 }; // 初始化系统字段
@@ -917,6 +923,16 @@ namespace HYDRA15::Union::archivist
     private:// 由派生类实现：返回指向首条记录的迭代器 / 尾后迭代器
         virtual std::unique_ptr<entry> begin_impl() { return get_entry(0); }
         virtual std::unique_ptr<entry> end_impl() { return get_entry(std::numeric_limits<ID>::max()); }
+
+    public:     // 扩展管理接口
+        ID reserve(ID recCount)
+        {
+            ID currentSpace = assistant::power_of_2_not_less_than_n(recordCount.load(std::memory_order::relaxed));
+            if(currentSpace >= recCount)
+                return currentSpace;
+            std::unique_lock ul{ tableMtx };
+            resize_data_storage(recCount);
+        }
 
     public: // 表始终从 loader 构造
         simple_memory_table(std::unique_ptr<archivist::loader>&& ld)
