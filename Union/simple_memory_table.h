@@ -35,7 +35,7 @@ namespace HYDRA15::Union::archivist
         {
         private:
             simple_memory_table& tableRef;
-            std::shared_lock<labourer::atomic_shared_mutex> sl{ tableRef.tableMtx };
+            std::optional<std::shared_lock<labourer::atomic_shared_mutex>> sl{ tableRef.tableMtx };
             mutable ID rowID;
 
             bool locked = false;
@@ -196,7 +196,7 @@ namespace HYDRA15::Union::archivist
             }
 
             // 记录信息
-            virtual ID id() const override                                          { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "id"); }
+            virtual ID id() const override { return std::numeric_limits<ID>::max(); }
             virtual entry& erase() override                                         { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "erase"); }
 
             // 获取、写入记录项
@@ -926,7 +926,7 @@ namespace HYDRA15::Union::archivist
 
     private:// 由派生类实现：返回指向首条记录的迭代器 / 尾后迭代器
         virtual std::unique_ptr<entry> begin_impl() { return get_entry(0); }
-        virtual std::unique_ptr<entry> end_impl() { return get_entry(std::numeric_limits<ID>::max()); }
+        virtual std::unique_ptr<entry> end_impl() { return std::make_unique<data_entry_impl>(*this); }
 
     public:     // 扩展管理接口
         ID reserve(ID recCount)

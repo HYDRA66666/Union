@@ -164,7 +164,7 @@ int main(int argc, char** argv) {
             BYTES b(s.begin(), s.end());
             e->set("f5", b);
             global_ops.fetch_add(1, std::memory_order_relaxed);
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
+            //std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
         };
 
@@ -190,8 +190,8 @@ int main(int argc, char** argv) {
 
     // 启动线程：5 个读，1 个写，1 个扫
     const int reader_count = 5;
-    const int writer_count = 1;
-    const int scanner_count = 0;
+    const int writer_count = 5;
+    const int scanner_count = 1;
     std::vector<std::thread> threads;
     for (int i = 0; i < reader_count; ++i) threads.emplace_back(reader_fn, i);
     for (int i = 0; i < writer_count; ++i) threads.emplace_back(writer_fn);
@@ -203,9 +203,10 @@ int main(int argc, char** argv) {
     for (int s = 0; s < duration_seconds; ++s) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
         uint64_t now_total = global_ops.load(std::memory_order_relaxed);
+        auto now = std::chrono::steady_clock::now();
         uint64_t delta = now_total - last_total;
         last_total = now_total;
-        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(std::chrono::steady_clock::now() - start).count();
+        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
         std::cout << "[t=" << elapsed << "s] ops/sec = " << delta << "  (total ops=" << now_total << ")\n";
     }
 
