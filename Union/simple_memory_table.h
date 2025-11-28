@@ -32,6 +32,7 @@ namespace HYDRA15::Union::archivist
         {
         private:
             simple_memory_table& tableRef;
+            std::shared_lock<labourer::atomic_shared_mutex> sl{ tableRef.tableMtx };
             mutable ID rowID;
 
             bool locked = false;
@@ -66,15 +67,12 @@ namespace HYDRA15::Union::archivist
 
             virtual entry& erase() // 删除当前记录，迭代器移动到下一条有效记录
             {
+                if (!(get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::deleted_bit)))
                 {
-                    std::shared_lock sl{ tableRef.tableMtx };
-                    if (!(get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::deleted_bit)))
-                    {
-                        std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(sysfldRowMark)])
-                            |= simple_memory_table::row_bit_mark::deleted_bit;
-                        tableRef.modifiedRows.insert(rowID);
-                        tableRef.update_index(rowID);
-                    }
+                    std::get<INT>(tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(sysfldRowMark)])
+                        |= simple_memory_table::row_bit_mark::deleted_bit;
+                    tableRef.modifiedRows.insert(rowID);
+                    tableRef.update_index(rowID);
                 }
                 operator++();
                 return *this;
@@ -83,7 +81,6 @@ namespace HYDRA15::Union::archivist
             // 获取、写入记录项
             virtual const field& at(const std::string& fieldName) const override  // 返回 指定字段的数据
             {
-                std::shared_lock sl{ tableRef.tableMtx };
                 if (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::deleted_bit))
                     throw exceptions::common("Record id invalid");
                 return tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(fieldName)];
@@ -91,7 +88,6 @@ namespace HYDRA15::Union::archivist
 
             virtual entry& set(const std::string& fieldName, const field& data) override   // 写入指定字段
             {   
-                std::shared_lock sl{ tableRef.tableMtx };
                 if (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::deleted_bit))
                     throw exceptions::common("Writing data to a invalid row is not allowed");
                 tableRef.tabData[rowID * tableRef.fieldTab.size() + tableRef.fieldNameTab.at(fieldName)] = data;
@@ -103,7 +99,6 @@ namespace HYDRA15::Union::archivist
             // 将数据行对象直接作为迭代器使用，需要支持迭代器的操作
             virtual entry& operator++() override    // 滑动到下一条有效记录
             { 
-                std::shared_lock sl{ tableRef.tableMtx };
                 ID currentRecordCount = tableRef.recordCount.load(std::memory_order::relaxed);
                 if (rowID < currentRecordCount)
                     transport(rowID + 1);
@@ -117,7 +112,6 @@ namespace HYDRA15::Union::archivist
 
             virtual entry& operator--() override // 滑动到上一条有效记录
             { 
-                std::shared_lock sl{ tableRef.tableMtx };
                 if (rowID > 0)
                     transport(rowID - 1);
                 while (rowID > 0 &&
@@ -131,7 +125,6 @@ namespace HYDRA15::Union::archivist
 
             virtual const entry& operator++() const override
             {
-                std::shared_lock sl{ tableRef.tableMtx };
                 ID currentRecordCount = tableRef.recordCount.load(std::memory_order::relaxed);
                 if (rowID < currentRecordCount)
                     transport(rowID + 1);
@@ -145,7 +138,6 @@ namespace HYDRA15::Union::archivist
 
             virtual const entry& operator--() const override
             {
-                std::shared_lock sl{ tableRef.tableMtx };
                 if (rowID > 0)
                     transport(rowID - 1);
                 while (rowID > 0 &&
@@ -168,17 +160,17 @@ namespace HYDRA15::Union::archivist
             virtual bool operator==(const entry& oth) const override { return rowID == oth.id(); }
 
         public:     // 行锁
-            virtual void lock() override { std::shared_lock sl{ tableRef.tableMtx }; tableRef.rowMtxs[rowID].lock(); locked = true; }
+            virtual void lock() override { tableRef.rowMtxs[rowID].lock(); locked = true; }
 
-            virtual void unlock() override { std::shared_lock sl{ tableRef.tableMtx }; tableRef.rowMtxs[rowID].unlock(); locked = false; }
+            virtual void unlock() override { tableRef.rowMtxs[rowID].unlock(); locked = false; }
 
-            virtual bool try_lock() override { std::shared_lock sl{ tableRef.tableMtx }; locked = tableRef.rowMtxs[rowID].try_lock(); return locked; }
+            virtual bool try_lock() override { locked = tableRef.rowMtxs[rowID].try_lock(); return locked; }
 
-            virtual void lock_shared() const override { std::shared_lock sl{ tableRef.tableMtx }; tableRef.rowMtxs[rowID].lock_shared(); lockShared = true; }
+            virtual void lock_shared() const override { tableRef.rowMtxs[rowID].lock_shared(); lockShared = true; }
 
-            virtual void unlock_shared() const override { std::shared_lock sl{ tableRef.tableMtx }; tableRef.rowMtxs[rowID].unlock_shared(); lockShared = false; }
+            virtual void unlock_shared() const override { tableRef.rowMtxs[rowID].unlock_shared(); lockShared = false; }
 
-            virtual bool try_lock_shared() const override { std::shared_lock sl{ tableRef.tableMtx }; lockShared = tableRef.rowMtxs[rowID].try_lock_shared(); return lockShared; }
+            virtual bool try_lock_shared() const override { lockShared = tableRef.rowMtxs[rowID].try_lock_shared(); return lockShared; }
 
         public:
             entry_impl(simple_memory_table& tab, ID id) : tableRef(tab), rowID(id) {}
