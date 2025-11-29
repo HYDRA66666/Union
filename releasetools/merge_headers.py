@@ -1,10 +1,13 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 import os
 import re
 import sys
 from enum import Enum
 import argparse
 from collections import deque
+
+
+
 
 # 尝试导入 graphviz，失败则禁用绘图
 try:
@@ -13,6 +16,8 @@ try:
 except ImportError:
     HAS_GRAPHVIZ = False
     print("提示: 未安装 graphviz 库，将仅输出 .dot 源文件（可手动渲染）", file=sys.stderr)
+
+
 
 
 # 全局参数
@@ -27,6 +32,7 @@ sortedHeaders = []
 
 # debug标志
 debug = False
+
 
 
 
@@ -109,6 +115,7 @@ class header:
             print(f'警告：无法打开文件{self.nameWithPath}: {e}')
 
 
+
 # 解析依赖关系：遍历mainRoot，将其中的头文件和所需的头文件添加至列表中
 def parse_rely():
     global mainRoot
@@ -128,7 +135,6 @@ def parse_rely():
     # 列表逐个解析
     for h in headers:
         h.parse_include()
-
 
 
 
@@ -199,11 +205,16 @@ def wirte_dot_file(dotPath):
         print(f'创建依赖图失败：{e}')
 
 
+
+
 def upper_marco_for_header(headerFullPath):
     res = '_HYDRA15_' + os.path.basename(os.path.dirname(headerFullPath)).replace('.','_').upper() + '_'
     if os.path.isfile(headerFullPath):
         res = res + os.path.basename(headerFullPath).replace('.','_').upper() + '_'
     return res
+
+
+
 
 def generate_header_file(output):
     global sortedHeaders
