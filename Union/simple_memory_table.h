@@ -25,12 +25,14 @@ namespace HYDRA15::Union::archivist
     * 
     * 系统字段：
     *   $RowMark：位图模式的行标记
-    *       0x1 已删除标记
+    *       0x1 无效记录标记 当此字段没有数据时默认为此标记
+    *       0x2 已删除标记
     * 
     * ****************************************************************/
     class simple_memory_table : public table
     {
     public:
+        // 表关联的 entry 容器，拥有迭代和修改数据能力，但是可能会影响全表性能，应限制作用域
         class entry_impl : public entry
         {
         private:
@@ -178,15 +180,18 @@ namespace HYDRA15::Union::archivist
             virtual bool try_lock_shared() const override { lockShared = tableRef.rowMtxs[rowID].try_lock_shared(); return lockShared; }
 
         public:
+            simple_memory_table& get_table() const { return tableRef; }
+
+        public:
             entry_impl(simple_memory_table& tab, ID id) : tableRef(tab), rowID(id) {}
         };
         friend class entry_impl;
 
-        // 仅在索引查询时用于比较的条目, 在内部存储数据，不涉及的接口不实现
+        // 存储数据的 entry 容器，不关联表，不能修改表中数据，不能迭代，不涉及的接口不实现
         class data_entry_impl : public entry
         {
         private:
-            const simple_memory_table& tableRef;
+            const std::unordered_map<std::string, size_t> fieldNameTab;
 
             std::vector<field> rowData;
 
@@ -194,7 +199,7 @@ namespace HYDRA15::Union::archivist
         public:     // 系统接口
             virtual std::unique_ptr<entry> clone() override
             {
-                return std::make_unique<data_entry_impl>(tableRef, rowData);
+                return std::make_unique<data_entry_impl>(*this);
             }
 
             // 记录信息
@@ -205,12 +210,12 @@ namespace HYDRA15::Union::archivist
             // 获取、写入记录项
             virtual const field& at(const std::string& fieldName) const override  // 返回 指定字段的数据
             {
-                return rowData[tableRef.fieldNameTab.at(fieldName)];
+                return rowData[fieldNameTab.at(fieldName)];
             }
 
             virtual entry& set(const std::string& fieldName, const field& data) override
             {
-                rowData[tableRef.fieldNameTab.at(fieldName)] = data;
+                rowData[fieldNameTab.at(fieldName)] = data;
                 return *this;
             }
 
@@ -232,10 +237,21 @@ namespace HYDRA15::Union::archivist
 
         public:
             data_entry_impl(const simple_memory_table& tab, const std::vector<field>& data = {})
-                : tableRef(tab), rowData{ data } {
+                : rowData{ data }, fieldNameTab(tab.fieldNameTab) {
                 if (rowData.empty())rowData.resize(tab.fieldTab.size());
             }
+            data_entry_impl(const data_entry_impl& oth)
+                : rowData{ oth.rowData }, fieldNameTab(oth.fieldNameTab) {
+            }
+            data_entry_impl(const entry_impl& oth)
+                : rowData{}, fieldNameTab(oth.get_table().fieldNameTab) {
+                ID rid = oth.id();
+                rowData.resize(oth.get_table().fieldTab.size());
+                for (size_t i = 0; i < rowData.size(); i++)
+                    rowData[i] = oth.get_table().tabData[rid * oth.get_table().fieldTab.size() + i];
+            }
         };
+        friend class data_entry_impl;
 
     private:
         // 单字段索引表

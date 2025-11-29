@@ -251,6 +251,7 @@ namespace HYDRA15::Union::assistant
             framework::is_really_same_v<S<T>, std::set<T>> ||
             framework::is_really_same_v<S<T>, std::unordered_set<T>>;
 
+        // 并集
         template<typename T, template<typename ...>typename S>
             requires is_set_container<T, S>
         inline S<T> operator+(const S<T>& l, const S<T>& r)
@@ -261,6 +262,7 @@ namespace HYDRA15::Union::assistant
             return res;
         }
 
+        // 交集
         template<typename T, template<typename ...>typename S>
             requires is_set_container<T, S>
         inline S<T> operator&(const S<T>& l, const S<T>& r)
@@ -283,6 +285,7 @@ namespace HYDRA15::Union::assistant
             }
         }
 
+        // 查集
         template<typename T, template<typename ...>typename S>
             requires is_set_container<T, S>
         inline S<T> operator-(const S<T>& l, const S<T>& r)
@@ -292,6 +295,14 @@ namespace HYDRA15::Union::assistant
                 if (!r.contains(i))
                     res.insert(i);
             return res;
+        }
+
+        // 对称交集
+        template<typename T, template<typename ...>typename S>
+            requires is_set_container<T, S>
+        inline S<T> operator|(const S<T>& l, const S<T>& r)
+        {
+            return (l + r) - (l & r);
         }
     }
     
