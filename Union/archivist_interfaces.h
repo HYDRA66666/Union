@@ -135,6 +135,7 @@ namespace HYDRA15::Union::archivist
 
         // 记录信息与控制
         virtual ID id() const = 0;  // 返回 记录 ID
+        virtual const field_specs& fields() const = 0; // 返回完整的字段表
         virtual entry& erase() = 0; // 删除当前记录，迭代器移动到下一条有效记录
 
         // 获取、写入记录项
@@ -158,6 +159,64 @@ namespace HYDRA15::Union::archivist
         virtual bool try_lock_shared() const = 0;
 
     public:     // 扩展功能
+        std::string str() const
+        {
+            std::stringstream ss;
+            ss << std::format(" {:8X} |", id());
+            for (const auto& field : fields())
+            {
+                switch (field.type)
+                {
+                case field_spec::field_type::INT:
+                    ss << std::format(" {:8X} |", std::get<INT>(at(field)));
+                    break;
+                case field_spec::field_type::FLOAT:
+                    ss << std::format(" {:6.2f} |", std::get<FLOAT>(at(field)));
+                    break;
+                case field_spec::field_type::INTS:
+                    ss << std::format(" {:8X} items |", std::get<INTS>(at(field)).size());
+                    break;
+                case field_spec::field_type::FLOATS:
+                    ss << std::format(" {:8X} items |", std::get<FLOATS>(at(field)).size());
+                    break;
+                case field_spec::field_type::BYTES:
+                    // 检查是否为可打印字符串
+                {
+                    const auto& bdata = std::get<BYTES>(at(field));
+                    bool isPrintable = true;
+                    for (const auto& b : bdata)
+                        if (b < 32 || b > 126)
+                        {
+                            isPrintable = false;
+                            break;
+                        }
+                    if (isPrintable)
+                    {
+                        std::string s(bdata.begin(), bdata.end());
+                        ss << std::format(" {:8} |", s);
+                    }
+                    else
+                        ss << std::format(" {:8X} bytes |", bdata.size());
+                }
+                break;
+                default:
+                    ss << std::format(" {:10} |", "");
+                    break;
+                }
+            }
+        }
+
+        std::string header_str() const
+        {
+            std::stringstream ss;
+            ss << "   RecordID |";
+            for (const auto& field : fields())
+            {
+                ss << std::format(" {:8} |", field.name);
+            }
+            return ss.str();
+        }
+
         static bool compare_field_ls(const field& l, const field& r, const field_spec& spec)
         {
             // NOTHING 总是最小的
@@ -205,12 +264,23 @@ namespace HYDRA15::Union::archivist
             }
         }
 
-        static bool compare_ls(const entry& l, const entry& r, const field_specs& specs)
+        static bool compare_ls(const entry& l, const entry& r)
         {
-            for (const auto& spec : specs)
+            if (l.fields() != r.fields())throw exceptions::common("Cannot compare entries with different field specs");
+            for (const auto& spec : l.fields())
                 if (compare_field_eq(l.at(spec), r.at(spec), spec))
                     continue;
                 else return compare_field_ls(l.at(spec), r.at(spec), spec);
+            return false;
+        }
+
+        static bool compare_eq(const entry& l, const entry& r)
+        {
+            if (l.fields() != r.fields())throw exceptions::common("Cannot compare entries with different field specs");
+            for (const auto& spec : l.fields())
+                if (!compare_field_eq(l.at(spec), r.at(spec), spec))
+                    return false;
+            return true;
         }
     };
 

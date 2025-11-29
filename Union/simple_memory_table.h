@@ -68,6 +68,8 @@ namespace HYDRA15::Union::archivist
             // 记录信息
             virtual ID id() const override { return rowID; };  // 返回 记录 ID
 
+            virtual const field_specs& fields() const override { return tableRef.fieldTab; } // 返回完整的字段表
+
             virtual entry& erase() // 删除当前记录，迭代器移动到下一条有效记录
             {
                 if (!(get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::deleted_bit)))
@@ -197,6 +199,7 @@ namespace HYDRA15::Union::archivist
 
             // 记录信息
             virtual ID id() const override { return std::numeric_limits<ID>::max(); }
+            virtual const field_specs& fields() const override { return tableRef.fieldTab; } // 返回完整的字段表
             virtual entry& erase() override                                         { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "erase"); }
 
             // 获取、写入记录项

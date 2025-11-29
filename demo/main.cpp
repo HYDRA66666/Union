@@ -191,7 +191,7 @@ int main(int argc, char** argv) {
     // 启动线程：5 个读，1 个写，1 个扫
     const int reader_count = 5;
     const int writer_count = 5;
-    const int scanner_count = 1;
+    const int scanner_count = 5;
     std::vector<std::thread> threads;
     for (int i = 0; i < reader_count; ++i) threads.emplace_back(reader_fn, i);
     for (int i = 0; i < writer_count; ++i) threads.emplace_back(writer_fn);
