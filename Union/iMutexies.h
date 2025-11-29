@@ -5,7 +5,7 @@
 namespace HYDRA15::Union::labourer
 {
     template<size_t retreatFreq = 32>
-    class atomic_mutex_temp
+    class basic_atomic_mutex
     {
     private:
         std::atomic_bool lck = false;
@@ -30,7 +30,7 @@ namespace HYDRA15::Union::labourer
         }
     };
 
-    using atomic_mutex = atomic_mutex_temp<>;
+    using atomic_mutex = basic_atomic_mutex<>;
 
 
     // 使用原子变量实现的读写锁，自旋等待，适用于短临界区或读多写少
@@ -43,7 +43,7 @@ namespace HYDRA15::Union::labourer
     //  std::shared_mutex      480w tps      670w tps
     //  atomic_shared_mutex    920w tps     1470w tps
     template<size_t retreatFreq = 32>
-    class atomic_shared_mutex_temp
+    class basic_atomic_shared_mutex
     {
     private:
         std::atomic_bool writer = false;
@@ -146,7 +146,7 @@ namespace HYDRA15::Union::labourer
         }
     };
 
-    using atomic_shared_mutex = atomic_shared_mutex_temp<>;
+    using atomic_shared_mutex = basic_atomic_shared_mutex<>;
 
 
 
