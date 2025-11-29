@@ -7,6 +7,7 @@
 #include "iMutexies.h"
 #include "utilities.h"
 #include "lib_exceptions.h"
+#include "shared_containers.h"
 
 namespace HYDRA15::Union::archivist
 {
@@ -36,7 +37,7 @@ namespace HYDRA15::Union::archivist
         {
         private:
             simple_memory_table& tableRef;
-            std::shared_lock<labourer::atomic_shared_mutex> sl{ tableRef.tableMtx };
+            std::optional<std::shared_lock<labourer::atomic_shared_mutex>> sl{ tableRef.tableMtx };
             mutable ID rowID;
 
             bool locked = false;
@@ -68,6 +69,8 @@ namespace HYDRA15::Union::archivist
 
             // 记录信息
             virtual ID id() const override { return rowID; };  // 返回 记录 ID
+
+            virtual const field_specs& fields() const override { return tableRef.fieldTab; } // 返回完整的字段表
 
             virtual entry& erase() // 删除当前记录，迭代器移动到下一条有效记录
             {
@@ -200,7 +203,8 @@ namespace HYDRA15::Union::archivist
             }
 
             // 记录信息
-            virtual ID id() const override                                          { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "id"); }
+            virtual ID id() const override { return std::numeric_limits<ID>::max(); }
+            virtual const field_specs& fields() const override { return tableRef.fieldTab; } // 返回完整的字段表
             virtual entry& erase() override                                         { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "erase"); }
 
             // 获取、写入记录项
@@ -403,9 +407,10 @@ namespace HYDRA15::Union::archivist
 
         // 数据
         std::atomic<ID> recordCount = 0;
+        std::atomic<ID> fakeRecordCount = 0;
         std::deque<field> tabData;
         mutable std::deque<std::shared_mutex> rowMtxs;
-        std::set<ID> modifiedRows;
+        labourer::basic_shared_set<ID> modifiedRows;
 
         // 索引
         std::vector<std::unique_ptr<index_impl>> indexTab;
@@ -548,29 +553,32 @@ namespace HYDRA15::Union::archivist
         // 行访问接口
         virtual std::unique_ptr<entry> create() override                                                // 增：创建一条记录，返回相关的条目对象
         {
-            std::shared_lock sl{ tableMtx };
-            ID pos = recordCount.fetch_add(1, std::memory_order::relaxed);
-
-            // 扩展数据存储
-            if (tabData.size() < (pos + 1) * fieldTab.size())
+            ID pos;
             {
-                labourer::upgrade_lock ugl{ tableMtx };
-                resize_data_storage(pos + 1);
+                std::shared_lock sl{ tableMtx };
+                pos = fakeRecordCount.fetch_add(1, std::memory_order::relaxed);
+
+                // 扩展数据存储
+                if (tabData.size() < (pos + 1) * fieldTab.size())
+                {
+                    labourer::upgrade_lock ugl{ tableMtx };
+                    if (tabData.size() < (pos + 1) * fieldTab.size())
+                        resize_data_storage(pos + 1);
+                }
+
+                tabData[pos * fieldTab.size() + fieldNameTab.at(sysfldRowMark)] = INT{ 0 }; // 初始化系统字段
+                recordCount.fetch_add(1, std::memory_order::relaxed);
             }
-
-            tabData[pos * fieldTab.size() + fieldNameTab.at(sysfldRowMark)] = INT{ 0 }; // 初始化系统字段
-
             return get_entry(pos);
         }
 
         virtual void drop(std::unique_ptr<entry> ety) override                                          // 删：通过条目对象删除记录
         {
-            std::shared_lock sl{ tableMtx };
             std::unique_lock rul{ *ety };
             ety->erase();
         }
 
-        virtual std::list<std::unique_ptr<entry>> at(const std::function<bool(const entry&)> filter) override // 改、查：通过过滤器查找记录
+        virtual std::list<std::unique_ptr<entry>> at(const std::function<bool(const entry&)>& filter) override // 改、查：通过过滤器查找记录
         {
             std::list<std::unique_ptr<entry>> result;
             std::shared_lock sl{ tableMtx };
@@ -585,7 +593,7 @@ namespace HYDRA15::Union::archivist
             return result;
         }
 
-        virtual std::list<std::unique_ptr<entry>> excute(const incidents& icdts, const field_specs& orderSeq = {}) override // 执行一系列事件，按照指定字段的排序顺序返回执行结果
+        virtual std::list<std::unique_ptr<entry>> excute(const incidents& icdts) override // 执行一系列事件，按照指定字段的排序顺序返回执行结果
         {
             // 字段搜索条件
             struct field_search_condition
@@ -897,16 +905,11 @@ namespace HYDRA15::Union::archivist
             std::list<std::unique_ptr<entry>> result;
             for(const auto& id : finalResult)
                 result.push_back(get_entry(id));
-            finalResult.clear(); currentResult.clear();
-            if (!orderSeq.empty())result.sort([&orderSeq](const std::unique_ptr<entry>& l, const std::unique_ptr<entry>& r) {
-                return entry::compare_ls(*l, *r, orderSeq);
-                });
             return result;
         }
         
         virtual std::unique_ptr<entry> at(ID id) override                                               // 通过行号访问记录
         {
-            std::shared_lock sl{ tableMtx };
             if (id >= recordCount.load(std::memory_order::relaxed))
                 throw exceptions::common("Record ID out of range");
             return get_entry(id);
@@ -938,7 +941,7 @@ namespace HYDRA15::Union::archivist
 
     private:// 由派生类实现：返回指向首条记录的迭代器 / 尾后迭代器
         virtual std::unique_ptr<entry> begin_impl() { return get_entry(0); }
-        virtual std::unique_ptr<entry> end_impl() { return get_entry(std::numeric_limits<ID>::max()); }
+        virtual std::unique_ptr<entry> end_impl() { return std::make_unique<data_entry_impl>(*this); }
 
     public:     // 扩展管理接口
         ID reserve(ID recCount)
