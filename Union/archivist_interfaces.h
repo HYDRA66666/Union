@@ -264,20 +264,18 @@ namespace HYDRA15::Union::archivist
             }
         }
 
-        static bool compare_ls(const entry& l, const entry& r)
+        static bool compare_ls(const entry& l, const entry& r, const field_specs& specs)
         {
-            if (l.fields() != r.fields())throw exceptions::common("Cannot compare entries with different field specs");
-            for (const auto& spec : l.fields())
+            for (const auto& spec : specs)
                 if (compare_field_eq(l.at(spec), r.at(spec), spec))
                     continue;
                 else return compare_field_ls(l.at(spec), r.at(spec), spec);
             return false;
         }
 
-        static bool compare_eq(const entry& l, const entry& r)
+        static bool compare_eq(const entry& l, const entry& r, const field_specs& specs)
         {
-            if (l.fields() != r.fields())throw exceptions::common("Cannot compare entries with different field specs");
-            for (const auto& spec : l.fields())
+            for (const auto& spec : specs)
                 if (!compare_field_eq(l.at(spec), r.at(spec), spec))
                     return false;
             return true;
@@ -337,8 +335,8 @@ namespace HYDRA15::Union::archivist
         // 行访问接口
         virtual std::unique_ptr<entry> create() = 0;                                                // 增：创建一条记录，返回相关的条目对象
         virtual void drop(std::unique_ptr<entry>) = 0;                                              // 删：通过条目对象删除记录
-        virtual std::list<std::unique_ptr<entry>> at(const std::function<bool(const entry&)>) = 0;  // 改、查：通过过滤器查找记录
-        virtual std::list<std::unique_ptr<entry>> excute(const incidents&, const field_specs&) = 0; // 执行一系列事件，按照 field_spec 的排序顺序返回执行结果
+        virtual std::list<std::unique_ptr<entry>> at(const std::function<bool(const entry&)>&) = 0; // 改、查：通过过滤器查找记录
+        virtual std::list<std::unique_ptr<entry>> excute(const incidents&) = 0;                     // 执行一系列事件，按照 field_spec 的排序顺序返回执行结果
         virtual std::unique_ptr<entry> at(ID id) = 0;                                               // 通过行号访问记录
 
         // 索引接口

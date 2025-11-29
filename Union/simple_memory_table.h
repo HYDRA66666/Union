@@ -562,7 +562,7 @@ namespace HYDRA15::Union::archivist
             ety->erase();
         }
 
-        virtual std::list<std::unique_ptr<entry>> at(const std::function<bool(const entry&)> filter) override // 改、查：通过过滤器查找记录
+        virtual std::list<std::unique_ptr<entry>> at(const std::function<bool(const entry&)>& filter) override // 改、查：通过过滤器查找记录
         {
             std::list<std::unique_ptr<entry>> result;
             std::shared_lock sl{ tableMtx };
@@ -577,7 +577,7 @@ namespace HYDRA15::Union::archivist
             return result;
         }
 
-        virtual std::list<std::unique_ptr<entry>> excute(const incidents& icdts, const field_specs& orderSeq = {}) override // 执行一系列事件，按照指定字段的排序顺序返回执行结果
+        virtual std::list<std::unique_ptr<entry>> excute(const incidents& icdts) override // 执行一系列事件，按照指定字段的排序顺序返回执行结果
         {
             // 字段搜索条件
             struct field_search_condition
@@ -889,10 +889,6 @@ namespace HYDRA15::Union::archivist
             std::list<std::unique_ptr<entry>> result;
             for(const auto& id : finalResult)
                 result.push_back(get_entry(id));
-            finalResult.clear(); currentResult.clear();
-            if (!orderSeq.empty())result.sort([&orderSeq](const std::unique_ptr<entry>& l, const std::unique_ptr<entry>& r) {
-                return entry::compare_ls(*l, *r, orderSeq);
-                });
             return result;
         }
         
