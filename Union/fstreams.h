@@ -278,7 +278,7 @@ namespace HYDRA15::Union::assistant
                 const size_t currentTgtPos = std::min(dataByteSize, i > 0 ? i * segSize - pos : 0);
                 const size_t remainTgtSize = dataByteSize - currentTgtPos;
                 const size_t currentSrcPos = i > 0 ? 0 : pos;
-                const size_t currentSrcSize = std::min(remainTgtSize, segSize);
+                const size_t currentSrcSize = i > 0 ? std::min(remainTgtSize, segSize) : std::min(segSize - pos, remainTgtSize);
 
                 if (remainTgtSize == 0)continue;
 
@@ -335,7 +335,7 @@ namespace HYDRA15::Union::assistant
                 const size_t currentSrcPos = std::min(dataByteSize, i > 0 ? i * segSize - pos : 0);
                 const size_t remainSrcSize = dataByteSize - currentSrcPos;
                 const size_t currentTgtPos = i > 0 ? 0 : pos;
-                const size_t currentTgtSize = std::min(remainSrcSize, segSize);
+                const size_t currentTgtSize = i > 0 ? std::min(remainSrcSize, segSize) : std::min(remainSrcSize, segSize - currentTgtPos);
 
                 if (remainSrcSize == 0)continue;    // 没有更多数据
 

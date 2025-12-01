@@ -59,7 +59,7 @@ namespace HYDRA15::Union::referee
             if (enableDebug)
             {
                 if (!info.empty())whatStr += " " + detail();
-                if (!info.empty())whatStr += "\n" + trace();
+                if (!stackTrace.empty())whatStr += "\n" + trace();
             }
             return whatStr.c_str();
         }

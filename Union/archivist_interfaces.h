@@ -61,7 +61,7 @@ namespace HYDRA15::Union::archivist
     // 表页
     struct page
     {
-        ID no;      // 页号
+        ID id;      // 页号
         ID start;   // 页中首条记录的 ID
         ID count;   // 页内有效记录条数
         std::unordered_set<ID> modified; // 修改过的记录列表
@@ -331,16 +331,17 @@ namespace HYDRA15::Union::archivist
         virtual ID trim() = 0;              // 优化表记录，返回优化后的记录数
         virtual const field_specs& fields() const = 0;                     // 返回完整的字段表
         virtual const field_spec& get_field(const std::string&) const = 0; // 通过字段名获取指定的字段信息
+        virtual const field_specs system_fields() const = 0;               // 返回系统字段表（如有）
 
         // 行访问接口
         virtual std::unique_ptr<entry> create() = 0;                            // 增：创建一条记录，返回相关的条目对象
         virtual void drop(std::unique_ptr<entry>) = 0;                          // 删：通过条目对象删除记录
+        virtual std::unique_ptr<entry> at(ID id) = 0;                           // 通过行号访问记录
         virtual std::list<ID> at(const std::function<bool(const entry&)>&) = 0; // 改、查：通过过滤器查找记录
         virtual std::list<ID> excute(const incidents&) = 0;                     // 执行一系列事件，按照 field_spec 的排序顺序返回执行结果
-        virtual std::unique_ptr<entry> at(ID id) = 0;                           // 通过行号访问记录
 
         // 索引接口
-        virtual void create_index(const std::string&, field_specs) = 0; // 创建指定名称、基于指定字段的索引
+        virtual void create_index(const std::string&, const field_specs&) = 0; // 创建指定名称、基于指定字段的索引
         virtual void drop_index(const std::string&) = 0;                // 删除索引
         
     private:// 由派生类实现：返回指向首条记录的迭代器 / 尾后迭代器

@@ -60,8 +60,6 @@ namespace HYDRA15::Union::archivist
                 return simple_memory_table::row_bit_mark::invalid_bit;
             }
 
-            
-
             void init() const { if (!sl)sl.emplace(tableRef.tableMtx); }    // 延迟锁表到首次访问时
 
         public:     // 系统接口
@@ -307,7 +305,7 @@ namespace HYDRA15::Union::archivist
         private:
             std::multiset<ID, comparator> data;
             std::unordered_map<ID, std::multiset<ID, comparator>::iterator> id2it;
-            labourer::atomic_shared_mutex mtx;
+            mutable labourer::atomic_shared_mutex mtx;
 
         public:
             const field_spec& fieldSpec;
@@ -324,7 +322,7 @@ namespace HYDRA15::Union::archivist
                     if (*itr == id) { data.erase(itr); break; }
             }
 
-            std::unordered_set<ID> search(const entry& ent, const std::unordered_set<ID>& ref = {})
+            std::unordered_set<ID> search(const entry& ent, const std::unordered_set<ID>& ref = {}) const
             {
                 std::unordered_set<ID> result;
                 std::shared_lock sl{ mtx };
@@ -335,44 +333,46 @@ namespace HYDRA15::Union::archivist
                 return result;
             }
 
-            std::unordered_set<ID> search_range(const entry& lower, const entry& upper, const std::unordered_set<ID>& ref = {})
+            std::unordered_set<ID> search_range(const entry& lower, const entry& upper, const std::unordered_set<ID>& ref = {}) const
             {
                 std::unordered_set<ID> result;
                 std::shared_lock sl{ mtx };
-                auto range = std::make_pair(data.lower_bound(lower), data.upper_bound(upper));
+                auto range = std::make_pair(data.lower_bound(lower), data.lower_bound(upper));
                 for (auto& it = range.first; it != range.second; ++it)
                     if (ref.empty()) result.insert(*it);
                     else if (ref.contains(*it)) result.insert(*it);
                 return result;
             }
 
-            std::unordered_set<ID> search_ls(const entry& upper, const std::unordered_set<ID>& ref = {})
+            std::unordered_set<ID> search_ls(const entry& upper, const std::unordered_set<ID>& ref = {}) const
             {
                 std::unordered_set<ID> res;
                 std::shared_lock sl{ mtx };
-                auto up = data.upper_bound(upper);
+                auto up = data.lower_bound(upper);
                 for (auto it = data.begin(); it != up; it++)
                     if (ref.empty()) res.insert(*it);
                     else if (ref.contains(*it)) res.insert(*it);
                 return res;
             }
 
-            std::unordered_set<ID> search_gr(const entry& lower, const std::unordered_set<ID>& ref = {})
+            std::unordered_set<ID> search_gr(const entry& lower, const std::unordered_set<ID>& ref = {}) const
             {
                 std::unordered_set<ID> res;
                 std::shared_lock sl{ mtx };
-                auto lw = data.upper_bound(lower);
+                auto lw = data.lower_bound(lower);
                 for (auto it = lw; it != data.end(); it++)
                     if (ref.empty()) res.insert(*it);
                     else if (ref.contains(*it)) res.insert(*it);
                 return res;
             }
 
-            bool contains(ID id) { std::shared_lock sl{ mtx }; return id2it.contains(id); }
+            bool contains(ID id) const { std::shared_lock sl{ mtx }; return id2it.contains(id); }
+
+            size_t size() const { std::shared_lock sl{ mtx }; return id2it.size(); }
 
             void clear() { std::unique_lock ul{ mtx }; data.clear(); id2it.clear(); }
 
-            std::deque<ID> to_deque() { std::shared_lock sl{ mtx }; return std::deque<ID>(data.begin(), data.end()); }
+            std::deque<ID> to_deque() const { std::shared_lock sl{ mtx }; return std::deque<ID>(data.begin(), data.end()); }
 
         public:
             bool operator==(const index_impl& oth) const { return fieldSpec == oth.fieldSpec; }
@@ -447,9 +447,9 @@ namespace HYDRA15::Union::archivist
         {
             // 按页加载数据
             tabData.clear(); rowMtxs.clear();
-            ID currentRecordCount = loader->size();
+            ID currentRecordCount = loader->tab_size();
             recordCount.store(currentRecordCount, std::memory_order::relaxed);
-            if (recordCount > 0)
+            if (currentRecordCount > 0)
             {
                 ID pageSize = loader->page_size();
                 ID pageCount = (currentRecordCount - 1) / pageSize + 1;
@@ -461,7 +461,7 @@ namespace HYDRA15::Union::archivist
 
             // 加载索引
             indexTab.clear();
-            indexTab.resize(loader->indexies().size());
+            indexTab.resize(fieldNameTab.size());
             for (const auto& idxSpec : loader->indexies())
                 indexTab[fieldNameTab.at(idxSpec)] = std::make_unique<index_impl>(*this, fieldTab[fieldNameTab.at(idxSpec.fieldSpecs[0])], loader->index_tab(idxSpec).data);
         }
@@ -474,8 +474,12 @@ namespace HYDRA15::Union::archivist
             ID pageCount = (currentRecordCount - 1) / pageSize + 1;
             for (ID i = 0; i < pageCount; ++i)
             {
-                page pg{ i,i * pageSize,std::min(pageSize, currentRecordCount - i * pageSize) };
-                pg.modified = std::unordered_set<ID>{ modifiedRows.lower_bound(pg.start), modifiedRows.upper_bound(pg.start + pg.count) };
+                page pg{ 
+                    .id = i,
+                    .start = i * pageSize,
+                    .count = std::min(pageSize, currentRecordCount - i * pageSize) 
+                };
+                pg.modified = std::unordered_set<ID>{ modifiedRows.lower_bound(pg.start), modifiedRows.lower_bound(pg.start + pg.count) };
                 size_t startElem = pg.start * fieldTab.size();
                 size_t elemCount = pg.count * fieldTab.size();
                 pg.data = std::deque<field>(tabData.begin() + startElem, tabData.begin() + startElem + elemCount);
@@ -485,7 +489,13 @@ namespace HYDRA15::Union::archivist
             // 写入索引
             for (auto& idx : indexTab)if (idx)
             {
-                index i{ index_spec{idx->fieldSpec.name,"",{idx->fieldSpec}} };
+                index i{ .spec = index_spec{
+                    .name = idx->fieldSpec.name,
+                    .comment = "",
+                    .fieldSpecs = field_specs{
+                        idx->fieldSpec
+                    }
+                } };
                 i.data = idx->to_deque();
                 loader->index_tab(i);
             }
@@ -561,6 +571,8 @@ namespace HYDRA15::Union::archivist
 
         virtual const field_spec& get_field(const std::string& name) const override { return fieldTab[fieldNameTab.at(name)]; }// 通过字段名获取指定的字段信息
 
+        virtual const field_specs system_fields() const { return field_specs{ sysfldRowMark }; }               // 返回系统字段表（如有）
+
         // 行访问接口
         virtual std::unique_ptr<entry> create() override                                                // 增：创建一条记录，返回相关的条目对象
         {
@@ -577,6 +589,7 @@ namespace HYDRA15::Union::archivist
                         resize_data_storage(pos + 1);
                 }
 
+                std::unique_lock rul{ rowMtxs[pos] };
                 tabData[pos * fieldTab.size() + fieldNameTab.at(sysfldRowMark)] = INT{ 0 }; // 初始化系统字段
                 recordCount.fetch_add(1, std::memory_order::relaxed);
             }
@@ -587,6 +600,13 @@ namespace HYDRA15::Union::archivist
         {
             std::unique_lock rul{ *ety };
             ety->erase();
+        }
+
+        virtual std::unique_ptr<entry> at(ID id) override                                               // 通过行号访问记录
+        {
+            if (id >= recordCount.load(std::memory_order::relaxed))
+                throw exceptions::common("Record ID out of range");
+            return get_entry(id);
         }
 
         virtual std::list<ID> at(const std::function<bool(const entry&)>& filter) override // 改、查：通过过滤器查找记录
@@ -611,26 +631,56 @@ namespace HYDRA15::Union::archivist
             };
 
             // helper：在无索引、或对索引结果做最终过滤时，用于判断某字段值是否满足该字段所有条件（AND）
-            const auto eval_all_conditions = [this](const field& fv, const field_search_condition& conds, const std::string& fieldName)->bool {
-                using ctype = incident::condition_param::condition_type;
-                if (conds.hasEqual)
-                    if (!entry::compare_field_eq(fv, conds.equalVal, fieldTab[fieldNameTab.at(fieldName)]))
-                        return false;
-                if (conds.hasDequal)
-                    for (const auto& dv : conds.dequalVals)
-                        if (entry::compare_field_eq(fv, dv, fieldTab[fieldNameTab.at(fieldName)]))
+            const auto eval_range_conditions = [this](const field& fv, const field_search_condition& conds, const std::string& fieldName)->bool 
+                {
+                    using ctype = incident::condition_param::condition_type;
+
+                    if (conds.hasLower)
+                        if (!(entry::compare_field_ls(conds.lowerVal, fv, fieldTab[fieldNameTab.at(fieldName)])
+                            || entry::compare_field_eq(conds.lowerVal, fv, fieldTab[fieldNameTab.at(fieldName)])))
                             return false;
-                if (conds.hasLower)
-                    if (!(entry::compare_field_ls(conds.lowerVal, fv, fieldTab[fieldNameTab.at(fieldName)])
-                        || entry::compare_field_eq(conds.lowerVal, fv, fieldTab[fieldNameTab.at(fieldName)])))
-                        return false;
-                if(conds.hasUpper)
-                    if(!entry::compare_field_ls(fv, conds.upperVal, fieldTab[fieldNameTab.at(fieldName)]))
-                        return false;
-                return true;
+                    if (conds.hasUpper)
+                        if (!entry::compare_field_ls(fv, conds.upperVal, fieldTab[fieldNameTab.at(fieldName)]))
+                            return false;
+                    return true;
                 };
 
-            // 结合操作命名空间
+            const auto eval_eq_deq_conditions = [this](const field& fv, const field_search_condition& conds, const std::string& fieldName)->bool
+                {
+                    if (conds.hasEqual)
+                        if (!entry::compare_field_eq(fv, conds.equalVal, fieldTab[fieldNameTab.at(fieldName)]))
+                            return false;
+                    if (conds.hasDequal)
+                        for (const auto& dv : conds.dequalVals)
+                            if (entry::compare_field_eq(fv, dv, fieldTab[fieldNameTab.at(fieldName)]))
+                                return false;
+                    return true;
+                };
+
+            const auto eval_qeual_by_index = [this](const index_impl& idx, const std::unordered_set<ID>& ref,const std::string& fieldName, const field_search_condition& fsc)->std::unordered_set<ID>
+                {
+                    using namespace assistant::set_operation;
+                    std::unordered_set<ID> currentResult = ref;
+                    if (fsc.hasEqual)
+                    {
+                        auto pdatent = std::make_unique<data_entry_impl>(*this);
+                        pdatent->set(fieldName, fsc.equalVal);
+                        currentResult = idx.search(*pdatent, currentResult);
+                    }
+                    // 处理不等于条件
+                    if (fsc.hasDequal)
+                    {
+                        auto pdatent = std::make_unique<data_entry_impl>(*this);
+                        for (const auto& dv : fsc.dequalVals)
+                        {
+                            pdatent->set(fieldName, dv);
+                            currentResult = currentResult - idx.search(*pdatent, currentResult);
+                        }
+                    }
+                    return currentResult;
+                };
+
+            // 集合操作命名空间
             using namespace assistant::set_operation;
 
             std::unordered_set<ID> finalResult;
@@ -661,9 +711,9 @@ namespace HYDRA15::Union::archivist
                     incident::ord_lmt_param param = std::get<incident::ord_lmt_param>(icdt.param);
                     std::vector<ID> ordered(currentResult.begin(),currentResult.end());
                     std::sort(ordered.begin(), ordered.end(), [this, param](ID l, ID r) {
-                        auto le = get_const_entry(l); std::shared_lock sll{ *le };
-                        auto re = get_const_entry(r); std::shared_lock slr{ *re };
-                        return entry::compare_ls(*le, *re, param.targetFields);
+                        data_entry_impl le{ *get_const_entry(l) };
+                        data_entry_impl re{ *get_const_entry(r) };
+                        return entry::compare_ls(le, re, param.targetFields);
                         });
 
                     ordered.resize(std::min(param.limit,ordered.size()));
@@ -815,91 +865,92 @@ namespace HYDRA15::Union::archivist
                         break;
                     }
 
-                    // 开始逐个字段筛选结果
-                    bool firstSearch = true;
-                    // 先使用有索引的字段进行搜索
-                    for (const auto& [fieldName, fsc] : condByField)
-                    {
-                        if (!indexTab[fieldNameTab.at(fieldName)])continue; // 无索引跳过
-                        auto& idx = *indexTab[fieldNameTab.at(fieldName)];
+                    std::shared_lock sl{ tableMtx };
 
-                        if (fsc.hasEqual)
+                    // 寻找最佳索引
+                    index_impl* perfectIdx = nullptr;
+                    std::string perfectIdxField;
+                    {   // 寻找总体积最小的索引，如果有相等条件就在相等条件终寻找
+                        size_t minIdxSize = std::numeric_limits<size_t>::max();
+                        bool hasEqual = false;
+                        for (const auto& [fieldName, fsc] : condByField)
                         {
-                            auto pdatent = std::make_unique<data_entry_impl>(*this);
-                            pdatent->set(fieldName, fsc.equalVal);
-                            currentResult = idx.search(*pdatent, currentResult);
-                        }
-
-                        if (fsc.hasLower && fsc.hasUpper)
-                        {
-                            auto pdatentLower = std::make_unique<data_entry_impl>(*this);
-                            auto pdatentUpper = std::make_unique<data_entry_impl>(*this);
-                            pdatentLower->set(fieldName, fsc.lowerVal);
-                            pdatentUpper->set(fieldName, fsc.upperVal);
-                            currentResult = idx.search_range(*pdatentLower, *pdatentUpper, currentResult);
-                        }
-
-                        if(fsc.hasLower && !fsc.hasUpper)
-                        {
-                            auto pdatentLower = std::make_unique<data_entry_impl>(*this);
-                            pdatentLower->set(fieldName, fsc.lowerVal);
-                            currentResult = idx.search_gr(*pdatentLower, currentResult);
-                        }
-
-                        if(fsc.hasUpper && !fsc.hasLower)
-                        {
-                            auto pdatentUpper = std::make_unique<data_entry_impl>(*this);
-                            pdatentUpper->set(fieldName, fsc.upperVal);
-                            currentResult = idx.search_ls(*pdatentUpper, currentResult);
-                        }
-
-                        if (fsc.hasDequal)
-                        {
-                            auto pdatent = std::make_unique<data_entry_impl>(*this);
-                            for(const auto& dv : fsc.dequalVals)
+                            if (hasEqual && !fsc.hasEqual)continue;
+                            if (!hasEqual && fsc.hasEqual)
                             {
-                                pdatent->set(fieldName, dv);
-                                auto deqres = idx.search(*pdatent, currentResult);
-                                currentResult = currentResult - deqres;
+                                perfectIdx = indexTab[fieldNameTab.at(fieldName)].get();
+                                perfectIdxField = fieldName;
+                                minIdxSize = perfectIdx->size();
+                                hasEqual = true;
+                            }
+                            else if (fsc.hasEqual && indexTab[fieldNameTab.at(fieldName)] && indexTab[fieldNameTab.at(fieldName)]->size() < minIdxSize)
+                            {
+                                perfectIdx = indexTab[fieldNameTab.at(fieldName)].get();
+                                perfectIdxField = fieldName;
+                                minIdxSize = perfectIdx->size();
+                            }
+                            else if (indexTab[fieldNameTab.at(fieldName)] && indexTab[fieldNameTab.at(fieldName)]->size() < minIdxSize)
+                            {
+                                perfectIdx = indexTab[fieldNameTab.at(fieldName)].get();
+                                perfectIdxField = fieldName;
+                                minIdxSize = perfectIdx->size();
                             }
                         }
-
-                        firstSearch = false;
                     }
-                    // 再使用无索引的字段进行过滤
+
+                    // 使用最佳索引进行初步搜索
+                    if (perfectIdx)
+                    {
+                        auto& fsc = condByField[perfectIdxField];
+                        currentResult = eval_qeual_by_index(*perfectIdx, currentResult, perfectIdxField, fsc);
+                        if (currentResult.empty())
+                            impossiable = true;
+                    }
+
+                    if (impossiable) break;
+
+                    // 其他字段如果有索引且是 equal 条件，则继续使用索引缩小结果集，否则使用无索引过滤
                     for (const auto& [fieldName, fsc] : condByField)
                     {
-                        if (indexTab[fieldNameTab.at(fieldName)])continue; // 有索引跳过
-                        std::shared_lock sl{ tableMtx };
-                        if (firstSearch && currentResult.empty())
+                        if (fieldName == perfectIdxField)continue;
+                        if (indexTab[fieldNameTab.at(fieldName)] && fsc.hasEqual)
                         {
-                            // 第一次搜索且无索引，需全表扫描
+                            auto& idx = *indexTab[fieldNameTab.at(fieldName)];
+                            currentResult = eval_qeual_by_index(idx, currentResult, fieldName, fsc);
+                        }
+                        else if (currentResult.empty())  // 首次查询且无索引，需全表扫描
                             for (ID id = 0; id < recordCount.load(std::memory_order::relaxed); ++id)
                             {
-                                auto pe = get_const_entry(id);
-                                std::shared_lock sle{ *pe };
-                                const field& fv = pe->at(fieldName);
-                                if (eval_all_conditions(fv, fsc, fieldName))
+                                std::shared_lock rsl{ rowMtxs[id] };
+                                if (std::get<INT>(tabData[id * fieldNameTab.size() + fieldNameTab.at(sysfldRowMark)]) & row_bit_mark::deleted_bit)continue;
+                                if (eval_range_conditions(tabData[id * fieldNameTab.size() + fieldNameTab.at(fieldName)], fsc, fieldName)
+                                    && eval_eq_deq_conditions(tabData[id * fieldNameTab.size() + fieldNameTab.at(fieldName)], fsc, fieldName))
                                     currentResult.insert(id);
                             }
-                            firstSearch = false;
-                        }
-                        else
+                        else  // 对现有结果集进行过滤
                         {
-                            // 对现有结果集进行过滤
+                            bool dequalEvaled = false;
+                            if (fsc.hasDequal && indexTab[fieldNameTab.at(fieldName)])
+                            {
+                                auto& idx = *indexTab[fieldNameTab.at(fieldName)];
+                                currentResult = currentResult - eval_qeual_by_index(idx, currentResult, fieldName, fsc);
+                                dequalEvaled = true;
+                            }
                             for (auto it = currentResult.begin(); it != currentResult.end(); )
                             {
-                                auto pe = get_const_entry(*it);
-                                std::shared_lock sle{ *pe };
-                                const field& fv = pe->at(fieldName);
-                                if (!eval_all_conditions(fv, fsc, fieldName))
+                                std::shared_lock rsl{ rowMtxs[*it] };
+                                if ((!dequalEvaled && !eval_eq_deq_conditions(tabData[*it * fieldNameTab.size() + fieldNameTab.at(fieldName)], fsc, fieldName))
+                                    || !eval_range_conditions(tabData[*it * fieldNameTab.size() + fieldNameTab.at(fieldName)], fsc, fieldName))
                                     it = currentResult.erase(it);
                                 else
                                     ++it;
                             }
                         }
+
+                        if (currentResult.empty()) { impossiable = true; break; }
                     }
 
+                    if (impossiable) break;
                 }
                 default:
                     break;
@@ -912,24 +963,20 @@ namespace HYDRA15::Union::archivist
             return result;
         }
         
-        virtual std::unique_ptr<entry> at(ID id) override                                               // 通过行号访问记录
-        {
-            if (id >= recordCount.load(std::memory_order::relaxed))
-                throw exceptions::common("Record ID out of range");
-            return get_entry(id);
-        }
-
         // 索引接口
-        virtual void create_index(const std::string&, field_specs fieldSpecs) override// 创建指定名称、基于指定字段的索引
+        virtual void create_index(const std::string&, const field_specs& fieldSpecs) override// 创建指定名称、基于指定字段的索引
         {
-            if(fieldSpecs.size() != 1)
-                throw exceptions::common("Only single-field index is supported in simple_memory_table");
-            std::unique_lock sl{ tableMtx };
-            if(indexTab[fieldNameTab.at(fieldSpecs[0])])
-                throw exceptions::common("Index on field '" + fieldSpecs[0].name + "' already exists");
+            {
+                if (fieldSpecs.size() != 1)
+                    throw exceptions::common("Only single-field index is supported in simple_memory_table");
+                std::unique_lock sl{ tableMtx };
+                if (indexTab[fieldNameTab.at(fieldSpecs[0])])
+                    throw exceptions::common("Index on field '" + fieldSpecs[0].name + "' already exists");
 
+                auto& idx = indexTab[fieldNameTab.at(fieldSpecs[0])];
+                idx = std::make_unique<index_impl>(*this, fieldTab[fieldNameTab.at(fieldSpecs[0])]);
+            }
             auto& idx = indexTab[fieldNameTab.at(fieldSpecs[0])];
-            idx = std::make_unique<index_impl>(*this, fieldSpecs[0]);
             for(auto& ent : *this)
             {
                 if (!std::holds_alternative<NOTHING>(tabData[ent.id() * fieldTab.size() + fieldNameTab.at(fieldSpecs[0])]))
@@ -945,7 +992,11 @@ namespace HYDRA15::Union::archivist
 
     private:// 由派生类实现：返回指向首条记录的迭代器 / 尾后迭代器
         virtual std::unique_ptr<entry> begin_impl() { return get_entry(0); }
+
         virtual std::unique_ptr<entry> end_impl() { return std::make_unique<data_entry_impl>(*this); }
+
+    public:
+        std::unique_ptr<entry> operator[](ID id) { return at(id); }
 
     public:     // 扩展管理接口
         ID reserve(ID recCount)

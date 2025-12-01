@@ -469,7 +469,7 @@ namespace HYDRA15::Union::archivist
                     throw exceptions::common("A single row's data exceeds the capacity of a single data package");
 
                 // 检查数据包空间是否充足，如不充足则创建新数据包
-                if (currentPackUsedSize + requiredPackSize > sfs.seg_size() - datPkgDatStartOffset)
+                if (currentPackUsedSize + requiredPackSize > std::numeric_limits<uint32_t>::max())
                 {
                     // 保存旧的数据包已用大小
                     sfs.write<uint32_t>(std::format(dataSectionFmt.data(), currentPackID), 0,
@@ -648,7 +648,7 @@ namespace HYDRA15::Union::archivist
             tabVer(oth.tabVer) {
         }
 
-        virtual ~single_loader() = default;
+        virtual ~single_loader() { flush_header(); }
 
     public:     // 工厂方法
         // 方式 1：创建新文件，如果文件已存在则报错

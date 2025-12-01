@@ -1,219 +1,129 @@
 ﻿#include "pch.h"
-#include "Union/simple_memory_table.h"
 
-#include <atomic>
-#include <chrono>
-#include <iomanip>
+
 #include <iostream>
-#include <memory>
-#include <mutex>
-#include <random>
-#include <sstream>
-#include <string>
-#include <thread>
+#include <filesystem>
 #include <vector>
+#include <string>
+#include <iomanip>
+#include <chrono>
+
+#include "Union\simple_memory_table.h"
+#include "Union\single_loader.h"
 
 using namespace HYDRA15::Union::archivist;
-using namespace HYDRA15::Union;
+namespace fs = std::filesystem;
 
-// 内存 loader（用于测试）
-class inmem_loader : public loader {
-private:
-    field_specs ftab;
-    ID pageSz;
-    std::deque<field> storage; // 每行连续 ftab.size() 个 field
-    std::atomic<ID> recCount{ 0 };
-
-public:
-    inmem_loader(const field_specs& fields, ID page_size = 16)
-        : ftab(fields), pageSz(page_size) {
-    }
-
-    virtual std::pair<ID, ID> version() const override { return simple_memory_table::version; }
-
-    virtual size_t size() const override { return static_cast<size_t>(recCount.load()); }
-    virtual ID tab_size() const override { return recCount.load(); }
-    virtual ID page_size() const override { return pageSz; }
-    virtual field_specs fields() const override { return ftab; }
-    virtual void clear() override { storage.clear(); recCount.store(0); }
-
-    virtual page rows(ID pageNo) const override {
-        page pg;
-        pg.no = pageNo;
-        pg.start = pageNo * pageSz;
-        ID cur = recCount.load();
-        if (pg.start >= cur) { pg.count = 0; return pg; }
-        pg.count = std::min(pageSz, cur - pg.start);
-        pg.data.clear();
-        size_t startElem = static_cast<size_t>(pg.start) * ftab.size();
-        size_t elemCount = static_cast<size_t>(pg.count) * ftab.size();
-        if (startElem + elemCount <= storage.size()) {
-            for (size_t i = 0; i < elemCount; ++i) pg.data.push_back(storage[startElem + i]);
-        }
-        else {
-            // 防止竞态导致越界：安全返回可用范围
-            size_t avail = storage.size() > startElem ? storage.size() - startElem : 0;
-            for (size_t i = 0; i < std::min(avail, elemCount); ++i) pg.data.push_back(storage[startElem + i]);
-            // 不足则补 NOTHING
-            for (size_t i = pg.data.size(); i < elemCount; ++i) pg.data.push_back(NOTHING{});
-        }
-        return pg;
-    }
-
-    virtual void rows(const page& pg) override {
-        ID neededRecords = std::max(recCount.load(), pg.start + pg.count);
-        if (neededRecords > recCount.load()) {
-            size_t newSize = static_cast<size_t>(assistant::power_of_2_not_less_than_n(static_cast<size_t>(neededRecords)));
-            storage.resize(newSize * ftab.size());
-            recCount.store(neededRecords);
-        }
-        size_t startElem = static_cast<size_t>(pg.start) * ftab.size();
-        for (size_t i = 0; i < pg.data.size(); ++i)
-            storage[startElem + i] = pg.data[i];
-    }
-
-    virtual index_specs indexies() const override { return {}; }
-    virtual void index_tab(index) override {}
-    virtual index index_tab(const std::string&) const override { return index{}; }
-};
-
-// 小工具：构造测试字段表
-static field_specs make_test_fields() {
-    return field_specs{
-        simple_memory_table::sysfldRowMark,
-        field_spec{ "f1", "int field", field_spec::field_type::INT },
-        field_spec{ "f2", "float field", field_spec::field_type::FLOAT },
-        field_spec{ "f3", "ints field", field_spec::field_type::INTS },
-        field_spec{ "f4", "floats field", field_spec::field_type::FLOATS },
-        field_spec{ "f5", "bytes field", field_spec::field_type::BYTES }
-    };
+// 将 filesystem::file_time_type 转为 YYYYMMDDhhmmss 格式的整数 (例如 20251201100000)
+static INT filetime_to_yyyymmddhhmmss(const fs::file_time_type& ftime)
+{
+    // 可移植转换：把 file_time 转换为 system_clock::time_point
+    using file_clock = fs::file_time_type::clock;
+    auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+        ftime - file_clock::now() + std::chrono::system_clock::now());
+    std::time_t t = std::chrono::system_clock::to_time_t(sctp);
+    std::tm tm;
+#if defined(_WIN32)
+    localtime_s(&tm, &t);
+#else
+    localtime_r(&t, &tm);
+#endif
+    // 组合为 YYYYMMDDhhmmss
+    INT val = static_cast<INT>(
+        (tm.tm_year + 1900) * 10000000000LL +
+        (tm.tm_mon + 1) * 100000000LL +
+        tm.tm_mday * 1000000LL +
+        tm.tm_hour * 10000LL +
+        tm.tm_min * 100LL +
+        tm.tm_sec);
+    return val;
 }
 
-int main(int argc, char** argv) {
-    // 运行时长（秒），默认 15s
-    int duration_seconds = 150;
-    if (argc > 1) {
-        try { duration_seconds = std::max(1, std::stoi(argv[1])); }
-        catch (...) { duration_seconds = 15; }
-    }
+int main()
+{
 
-    // 全局计数器（所有线程在完成一次操作后 +1）
-    std::atomic<uint64_t> global_ops{ 0 };
+        // 数据库文件名（保存在工作目录）
+        fs::path dbPath = fs::current_path() / "file_index.arch";
 
-    // 创建表（使用内存 loader）
-    auto ftab = make_test_fields();
-    std::unique_ptr<loader> ld = std::make_unique<inmem_loader>(ftab, 16);
-    simple_memory_table table(std::move(ld));
-
-    // 先插入 100 条初始记录
-    const int initial_count = 10000;
-    for (int i = 0; i < initial_count; ++i) {
-        auto e = table.create();
-        std::unique_lock wlock{ *e }; // 按照库示例对 entry 加写锁
-        e->set("f1", INT{ i });
-        e->set("f2", FLOAT{ static_cast<FLOAT>(i) + 0.5 });
-        e->set("f3", INTS{ i, i * 2 });
-        e->set("f4", FLOATS{ static_cast<FLOAT>(i) + 0.1, static_cast<FLOAT>(i) + 0.2 });
-        std::string s = "row" + std::to_string(i);
-        BYTES b(s.begin(), s.end());
-        e->set("f5", b);
-        global_ops.fetch_add(1, std::memory_order_relaxed); // 初始插入也计入
-    }
-
-    // 控制变量
-    std::atomic<bool> stopFlag{ false };
-
-    // 读取线程函数（不停随机读单行）
-    auto reader_fn = [&](int thread_index) {
-        std::mt19937_64 rng(static_cast<uint64_t>(std::chrono::steady_clock::now().time_since_epoch().count()) + thread_index);
-        while (!stopFlag.load(std::memory_order_relaxed)) {
-            ID sz = table.size();
-            if (sz == 0) { std::this_thread::sleep_for(std::chrono::milliseconds(1)); continue; }
-            std::uniform_int_distribution<ID> dist(0, sz - 1);
-            ID idx = dist(rng);
-            auto ent = table.at(idx);
-            std::shared_lock sl{ *ent };
-                // 读取若干字段（仅作为负载）
-            if (!std::holds_alternative<NOTHING>(ent->at("f1")))
+        // 1) 扫描工作目录（含子目录）收集文件名与修改时间
+        std::vector<std::pair<std::string, INT>> files;
+        for (auto it = fs::recursive_directory_iterator(fs::current_path()); it != fs::recursive_directory_iterator(); ++it)
+        {
+            try
             {
-                volatile INT v1 = std::get<INT>(ent->at("f1"));
-                (void)v1;
-            }
-                
-            if (!std::holds_alternative<NOTHING>(ent->at("f2")))
-            {
-                volatile FLOAT v2 = std::get<FLOAT>(ent->at("f2"));
-                (void)v2;
-            }
-            global_ops.fetch_add(1, std::memory_order_relaxed);
-        }
-        };
-
-    // 写入线程函数（每 10ms 插入一条新数据）
-    auto writer_fn = [&]() {
-        int local_cnt = 0;
-        while (!stopFlag.load(std::memory_order_relaxed)) {
-            auto e = table.create();
-            std::unique_lock wlock{ *e };
-            int val = initial_count + (++local_cnt);
-            e->set("f1", INT{ val });
-            e->set("f2", FLOAT{ static_cast<FLOAT>(val) + 0.5 });
-            e->set("f3", INTS{ val, val * 2 });
-            e->set("f4", FLOATS{ static_cast<FLOAT>(val) + 0.1, static_cast<FLOAT>(val) + 0.2 });
-            std::string s = "row" + std::to_string(val);
-            BYTES b(s.begin(), s.end());
-            e->set("f5", b);
-            global_ops.fetch_add(1, std::memory_order_relaxed);
-            //std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
-        };
-
-    // 扫描线程函数（不停做一次全表扫描，每次扫描完成计数+1）
-    auto scanner_fn = [&]() {
-        while (!stopFlag.load(std::memory_order_relaxed)) {
-                for (auto it = table.begin(); it != table.end(); ++it) {
-                    entry& ent = *it;
-                    std::shared_lock sl{ ent };
-                        // 访问一个字段以产生负载
-                    if (!std::holds_alternative<NOTHING>(ent.at("f1")))
-                    {
-                        volatile INT v = std::get<INT>(ent.at("f1")); 
-                        (void)v;
-                    }
-
-                    if (stopFlag.load(std::memory_order_relaxed)) break;
+                if (fs::is_regular_file(it->path()))
+                {
+                    std::string name = it->path().string();
+                    auto mtime = filetime_to_yyyymmddhhmmss(fs::last_write_time(it->path()));
+                    files.emplace_back(std::move(name), mtime);
                 }
-                global_ops.fetch_add(1, std::memory_order_relaxed); // 一次完整扫描完成
-
+            }
+            catch (const std::exception&)
+            {
+                // 忽略单个文件可能的访问错误
+            }
         }
-        };
 
-    // 启动线程：5 个读，1 个写，1 个扫
-    const int reader_count = 5;
-    const int writer_count = 5;
-    const int scanner_count = 5;
-    std::vector<std::thread> threads;
-    for (int i = 0; i < reader_count; ++i) threads.emplace_back(reader_fn, i);
-    for (int i = 0; i < writer_count; ++i) threads.emplace_back(writer_fn);
-    for (int i = 0; i < scanner_count; ++i) threads.emplace_back(scanner_fn);
+        // 2) 创建表：系统字段 + 两个字段：filename (BYTES/string), mtime (INT)
+        field_specs ftab;
+        ftab.push_back(simple_memory_table::sysfldRowMark);
+        ftab.push_back(field_spec{ "filename", "file path", field_spec::field_type::BYTES });
+        ftab.push_back(field_spec{ "mtime", "modification time YYYYMMDDhhmmss", field_spec::field_type::INT });
 
-    // 主线程：每 1s 读取计数器计算 QPS 并打印
-    uint64_t last_total = global_ops.load(std::memory_order_relaxed);
-    auto start = std::chrono::steady_clock::now();
-    for (int s = 0; s < duration_seconds; ++s) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-        uint64_t now_total = global_ops.load(std::memory_order_relaxed);
-        auto now = std::chrono::steady_clock::now();
-        uint64_t delta = now_total - last_total;
-        last_total = now_total;
-        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(now - start).count();
-        std::cout << "[t=" << elapsed << "s] ops/sec = " << delta << "  (total ops=" << now_total << ")\n";
-    }
+        // 若已存在同名文件，删除以重新创建
+        if (fs::exists(dbPath)) fs::remove(dbPath);
 
-    // 停止线程并 join
-    stopFlag.store(true, std::memory_order_relaxed);
-    for (auto& th : threads) if (th.joinable()) th.join();
+        // 创建 single_loader + simple_memory_table 并写入数据
+        {
+            auto loader = single_loader::make_unique(dbPath, ftab, simple_memory_table::version, sfstream::segment_size_level::I);
+            simple_memory_table tbl(std::move(loader));
 
-    std::cout << "Test finished. total ops = " << global_ops.load() << std::endl;
-    return 0;
+            for (const auto& [name, mtime] : files)
+            {
+                auto ent = tbl.create();
+                std::unique_lock lock{ *ent };
+
+                // filename -> BYTES 类型（使用 ASCII/UTF-8 字节）
+                BYTES b(name.begin(), name.end());
+                ent->set("filename", field{ b });
+
+                // mtime -> INT
+                ent->set("mtime", field{ mtime });
+            }
+
+            // 表的析构会执行 flush_all 并落盘，此处离开作用域会保存数据
+        }
+
+        // 3) 重新从磁盘加载该表并打印所有记录
+        {
+            auto loader2 = single_loader::make_unique(dbPath);
+            simple_memory_table tbl2(std::move(loader2));
+
+            std::cout << "Loaded records: " << tbl2.size() << "\n";
+            for (ID id = 0; id < tbl2.size(); ++id)
+            {
+                auto ent = tbl2.at(id);
+                std::unique_lock lock{ *ent };
+
+                // 读取 filename
+                const field& f_name = ent->at("filename");
+                std::string name;
+                if (auto p = std::get_if<BYTES>(&f_name))
+                    name.assign(p->begin(), p->end());
+                else
+                    name = "<non-bytes>";
+
+                // 读取 mtime
+                const field& f_mtime = ent->at("mtime");
+                INT mtime = 0;
+                if (auto p = std::get_if<INT>(&f_mtime))
+                    mtime = *p;
+
+                // 打印
+                std::cout << std::setw(6) << id << "  " << mtime << "  " << name << "\n";
+            }
+        }
+
+        return 0;
+
 }

@@ -34,12 +34,12 @@ namespace HYDRA15::Union::labourer
 
 
     // 使用原子变量实现的读写锁，自旋等待，适用于短临界区或读多写少
-    // 支持锁升级，此特性对于一般读写锁操作没有额外开销
+    // 支持锁升级，此特性对于一般读写锁操作几乎没有额外开销
     // 限制总读锁数量为 0xFFFFFFFF
     // 
     // 性能测试：
     //                           debug       release
-    //  无锁（纯 std::atomic）4450w tps     6360w tps
+    //  无锁（纯原子计数器）  4450w tps     6360w tps
     //  std::shared_mutex      480w tps      670w tps
     //  atomic_shared_mutex    920w tps     1470w tps
     template<size_t retreatFreq = 32>
@@ -126,7 +126,7 @@ namespace HYDRA15::Union::labourer
                 bool expected = false;
                 if(upgraded.compare_exchange_strong(
                     expected, true,
-                    std::memory_order::acquire, std::memory_order::relaxed
+                    std::memory_order::acq_rel, std::memory_order::relaxed
                 ))break;
                 i++;
                 if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
@@ -144,10 +144,32 @@ namespace HYDRA15::Union::labourer
             readers.fetch_sub(0xFFFFFFFF, std::memory_order::release);
             upgraded.store(false, std::memory_order::release);
         }
+
+        bool try_upgrade()
+        {
+            readers.fetch_add(0xFFFFFFFF, std::memory_order::acquire);
+
+            bool expected = false;
+            if (!upgraded.compare_exchange_strong(
+                expected, true,
+                std::memory_order::acq_rel, std::memory_order::relaxed))
+            {
+                readers.fetch_sub(0xFFFFFFFF, std::memory_order::relaxed);
+                return false;
+            }
+
+            if ((readers.load(std::memory_order::relaxed) & 0xFFFFFFFFu) != 1u)
+            {
+                upgraded.store(false, std::memory_order::relaxed);
+                readers.fetch_sub(0xFFFFFFFF, std::memory_order::relaxed);
+                return false;
+            }
+
+            return true;
+        }
     };
 
     using atomic_shared_mutex = basic_atomic_shared_mutex<>;
-
 
 
     // 将在多次失败之后回退到系统调度的混合型互斥锁
@@ -300,6 +322,146 @@ namespace HYDRA15::Union::labourer
     };
 
     using mixed_shared_mutex = mixed_shared_mutex_temp<>;
+
+
+    // 在同一线程重复上锁时不会重复操作底层锁的读写锁
+    // 有效解决读写锁在重入时的性能和死锁问题
+    // 要求解锁必须按照上锁的逆序进行，与标准库一致，否则行为未定义
+    template<typename L>
+    class thread_mutex
+    {
+    private:
+        struct state
+        {
+            size_t readers = 0;
+            size_t writer = 0;
+            bool upgraded = 0;
+        };
+
+    private:
+        static thread_local std::unordered_map<const void*, state> states;
+
+        L mtx;
+
+    private:
+        state& state() { return states[static_cast<const void*>(this)]; }
+
+    public:
+        void lock()
+        {
+            auto& s = state();
+            if (s.writers++ > 0) return; // 已持有写锁，重入仅计数
+
+            if (s.readers > 0)
+            {
+                // 有本线程的读锁：需要升级到写锁（阻塞式）
+                mtx.upgrade();
+                s.upgraded = true;
+                // 升级后底层已成为写锁（并保留了本线程的读计数语义）
+            }
+            else
+            {
+                mtx.lock();
+            }
+        }
+
+        void unlock()
+        {
+            auto& s = state();
+            if (--s.writers > 0) return; // 仍有重入写锁，延迟释放
+
+            // 最后一个写锁释放：根据是否通过 upgrade 获得决定降级或直接释放
+            if (s.upgraded)
+            {
+                // 之前由读升级到写：降级恢复为读（底层会处理 readers 计数）
+                mtx.downgrade();
+                s.upgraded = false;
+                // 保留 s.readers 原来的计数（调用者可能还持有读锁）
+            }
+            else
+            {
+                mtx.unlock();
+            }
+        }
+
+        bool try_lock()
+        {
+            auto& s = state();
+            if (s.writers > 0)
+            {
+                ++s.writers;
+                return true;
+            }
+            if (s.readers > 0)
+            {
+                if (mtx.try_upgrade())
+                {
+                    ++s.writers;
+                    s.upgraded = true;
+                    return true;
+                }
+                else return false;
+            }
+            if (mtx.try_lock())
+            {
+                ++s.writers;
+                return true;
+            }
+            return false;
+        }
+
+        void lock_shared()
+        {
+            auto& s = state();
+            if (s.writers > 0)
+            {
+                // 已持有写锁，本次 shared 只是逻辑计数
+                ++s.readers;
+                return;
+            }
+            if (s.readers++ == 0)
+                mtx.lock_shared(); // 真正第一次读时申请底层读锁
+        }
+
+        void unlock_shared()
+        {
+            auto& s = state();
+            if (s.writers > 0)
+            {
+                // 在写锁下的读只是局部计数
+                if (s.readers > 0) --s.readers;
+                return;
+            }
+            if (s.readers == 0) return; // 防御性：多余的 unlock 忽略（或可断言）
+            if (--s.readers == 0)
+                mtx.unlock_shared(); // 最后一个本线程的读释放底层读锁
+        }
+
+        bool try_lock_shared()
+        {
+            auto& s = state();
+            if (s.writers > 0)
+            {
+                ++s.readers;
+                return true;
+            }
+            if (s.readers == 0)
+            {
+                if (mtx.try_lock_shared())
+                {
+                    ++s.readers;
+                    return true;
+                }
+                return false;
+            }
+            else
+            {
+                // 已有本线程读锁，重入直接成功
+                ++s.readers;
+                return true;
+            }
+        }
+    };
 
 
     template<typename L>
