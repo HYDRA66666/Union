@@ -29,26 +29,26 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v143</PlatformToolset>
+    <PlatformToolset>v145</PlatformToolset>
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -148,35 +148,29 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="byteswap.h" />
-    <ClInclude Include="archivist_exception.h" />
     <ClInclude Include="archivist_interfaces.h" />
-    <ClInclude Include="assistant_exception.h" />
     <ClInclude Include="astring.h" />
     <ClInclude Include="background.h" />
-    <ClInclude Include="basic_mailbox.h" />
-    <ClInclude Include="basic_mailrouter.h" />
-    <ClInclude Include="basic_mailsender.h" />
-    <ClInclude Include="files.h" />
+    <ClInclude Include="fstreams.h" />
+    <ClInclude Include="lib_exceptions.h" />
     <ClInclude Include="iExceptionManager.h" />
     <ClInclude Include="iMutexies.h" />
+    <ClInclude Include="simple_memory_table.h" />
+    <ClInclude Include="sfstream.h" />
     <ClInclude Include="shared_containers.h" />
+    <ClInclude Include="single_loader.h" />
     <ClInclude Include="string_utilities.h" />
     <ClInclude Include="secretary_streambuf.h" />
     <ClInclude Include="concepts.h" />
     <ClInclude Include="datetime.h" />
-    <ClInclude Include="expressman_exception.h" />
-    <ClInclude Include="expressman_interfaces.h" />
-    <ClInclude Include="factory.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="iExceptionBase.h" />
-    <ClInclude Include="labourer_exception.h" />
-    <ClInclude Include="libID.h" />
+    <ClInclude Include="lib_info.h" />
     <ClInclude Include="log.h" />
     <ClInclude Include="logger.h" />
     <ClInclude Include="PrintCenter.h" />
     <ClInclude Include="progress.h" />
     <ClInclude Include="ScanCenter.h" />
-    <ClInclude Include="secretary_exception.h" />
     <ClInclude Include="ThreadLake.h" />
     <ClInclude Include="utilities.h" />
   </ItemGroup>
@@ -187,21 +181,8 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="archivist_exception.cpp" />
-    <ClCompile Include="assistant_exception.cpp" />
-    <ClCompile Include="background.cpp" />
-    <ClCompile Include="secretary_streambuf.cpp" />
-    <ClCompile Include="expressman_exception.cpp" />
-    <ClCompile Include="expressman_interfaces.cpp" />
-    <ClCompile Include="factory.cpp" />
-    <ClCompile Include="iExceptionBase.cpp" />
-    <ClCompile Include="labourer_exception.cpp" />
-    <ClCompile Include="log.cpp" />
-    <ClCompile Include="logger.cpp" />
     <ClCompile Include="PrintCenter.cpp" />
-    <ClCompile Include="progress.cpp" />
     <ClCompile Include="ScanCenter.cpp" />
-    <ClCompile Include="secretary_exception.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

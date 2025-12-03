@@ -2,7 +2,6 @@
 #include "framework.h"
 #include "pch.h"
 
-#include "secretary_exception.h"
 #include "background.h"
 #include "PrintCenter.h"
 #include "logger.h"
@@ -20,8 +19,8 @@ namespace HYDRA15::Union::secretary
         /***************************** 快速接口 *****************************/
     public:
         // 获取输入，可选在输入前展示提示词 promt，指定的 id 将在程序发送伪输入时作为识别依据
-        static std::string getline(std::string promt = vslz.promt.data(), unsigned long long id = 0);
-        static std::future<std::string> getline_async(std::string promt = vslz.promt.data(), unsigned long long id = 0);    // 非同步获取输入
+        static std::string getline(std::string promt = " > ", unsigned long long id = 0);
+        static std::future<std::string> getline_async(std::string promt = " > ", unsigned long long id = 0);    // 非同步获取输入
         static void setline(std::string line, unsigned long long id = 0);    // 伪输入
 
         /***************************** 公有单例 *****************************/
@@ -34,18 +33,13 @@ namespace HYDRA15::Union::secretary
 
         /***************************** 系 统 *****************************/
     private:
-        static struct visualize
-        {
-            static_string promt = " > ";
-        }vslz;
-    private:
         PrintCenter& pc = PrintCenter::get_instance();
         secretary::logger lgr{ "ScanCenter" };
 
         // 后台线程
     private:
         std::atomic<bool> working = true;
-        virtual void work(thread_info& info) noexcept override;
+        virtual void work() noexcept override;
 
     private:    
         // 用于重定向输入

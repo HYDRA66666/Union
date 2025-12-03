@@ -1,10 +1,13 @@
-#!/usr/bin/env python3
+﻿#!/usr/bin/env python3
 import os
 import re
 import sys
 from enum import Enum
 import argparse
 from collections import deque
+
+
+
 
 # 尝试导入 graphviz，失败则禁用绘图
 try:
@@ -13,6 +16,8 @@ try:
 except ImportError:
     HAS_GRAPHVIZ = False
     print("提示: 未安装 graphviz 库，将仅输出 .dot 源文件（可手动渲染）", file=sys.stderr)
+
+
 
 
 # 全局参数
@@ -27,6 +32,7 @@ sortedHeaders = []
 
 # debug标志
 debug = False
+
 
 
 
@@ -109,6 +115,7 @@ class header:
             print(f'警告：无法打开文件{self.nameWithPath}: {e}')
 
 
+
 # 解析依赖关系：遍历mainRoot，将其中的头文件和所需的头文件添加至列表中
 def parse_rely():
     global mainRoot
@@ -128,7 +135,6 @@ def parse_rely():
     # 列表逐个解析
     for h in headers:
         h.parse_include()
-
 
 
 
@@ -199,23 +205,30 @@ def wirte_dot_file(dotPath):
         print(f'创建依赖图失败：{e}')
 
 
+
+
 def upper_marco_for_header(headerFullPath):
     res = '_HYDRA15_' + os.path.basename(os.path.dirname(headerFullPath)).replace('.','_').upper() + '_'
     if os.path.isfile(headerFullPath):
         res = res + os.path.basename(headerFullPath).replace('.','_').upper() + '_'
     return res
 
+
+
+
 def generate_header_file(output):
     global sortedHeaders
     global debug
     with open(output,'w',encoding='utf-8-sig') as f:
         f.write('#pragma once\n')
-        f.write(f'#ifndef {upper_marco_for_header(mainRoot)}\n#define {upper_marco_for_header(mainRoot)}\n')
+        if antiCollisionMarcoDefine:
+            f.write(f'#ifndef {upper_marco_for_header(mainRoot)}\n#define {upper_marco_for_header(mainRoot)}\n')
         for h in sortedHeaders:
             if not (h.type == header.header_type.main or h.type == header.header_type.rely):
                 continue
             content = f'\n\n\n/*************** 合并自 {os.path.basename(h.nameWithPath)} ***************/\n'
-            content += f'#ifndef {upper_marco_for_header(h.nameWithPath)}\n#define {upper_marco_for_header(h.nameWithPath)}\n'
+            if antiCollisionMarcoDefine:
+                content += f'#ifndef {upper_marco_for_header(h.nameWithPath)}\n#define {upper_marco_for_header(h.nameWithPath)}\n'
             with open(h.nameWithPath,'r',encoding='utf-8-sig') as s:
                 content += s.read()
                 content = content.replace('#pragma once','// #pragma once')
@@ -223,11 +236,14 @@ def generate_header_file(output):
                     if debug:
                         print(f'替换include行：{r}')
                     content = content.replace(r,f'// {r}')
-            content += '\n#endif\n'
+            content += '\n'
+            if antiCollisionMarcoDefine:
+                content += '#endif\n'
             f.write(content)
             if debug:
                 print(f'已将文件 {h.nameWithPath} 添加到合并结果中')
-        f.write('#endif')
+        if antiCollisionMarcoDefine:
+            f.write('#endif')
     print(f'已完成合并，共合并 {len([i for i in sortedHeaders if (i.type == header.header_type.main or i.type == header.header_type.rely)])} 个文件')
 
 

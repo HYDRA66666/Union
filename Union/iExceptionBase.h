@@ -2,52 +2,112 @@
 #include "pch.h"
 #include "framework.h"
 
-#include "astring.h"
-
 namespace HYDRA15::Union::referee
 {
-	// 异常处理的基础
-	// 相比标准库异常，额外记录了：
-	//    - 描述字符串
-	//    - 异常信息
-    //    - （可选）调用栈
-    using iException_code = unsigned int;
-	class iExceptionBase :public std::exception
-	{
-		static_string baseWhatStrFormat = "iException: {0} ( 0x{1:08X} : 0x{2:08X} )";
-
-        // 配置项
+    class iExceptionBase : public std::exception
+    {
     public:
-        inline static bool enableDebug = debug;
+        using expt_code = unsigned int;
 
-	protected:
-		// what字符串缓存
-		mutable std::string whatStr;
+    private:    // 数据
+        const expt_code exptCode;           // 错误码（必需）
+        const std::string desp;             // 错误描述
+        std::unordered_map<std::string, std::string> info;  // 错误信息 / 参数
+        std::list<std::string> stackTrace;  // 调用栈
+    public:     // 数据配置
+        bool enableDebug = debug;
 
-	public:
-        // 记录的信息
-        const iException_code libID;
-        const iException_code exptCode;
-        const std::string description;
-
-		// 构造和析构
-		iExceptionBase() noexcept = delete;
-		iExceptionBase(const std::string& desp, const iException_code& id, const iException_code& code) noexcept;
-		virtual ~iExceptionBase() noexcept = default;
-
-		// what()
-		virtual const char* what() const noexcept override;
-
-
-		// 启用栈跟踪支持
+    private:    // 工具函数
 #ifdef UNION_IEXPT_STACKTRACE_ENABLE
-	private:
-		static_string baseStackTraceFormat = "Stack Trace: \n{0}";
+        static std::string format_stacktrace_entry(const std::stacktrace_entry& e)
+        {
+            if (e.source_file().empty())
+                return std::format("at {}", e.description());
+
+            std::filesystem::path path{ e.source_file() };
+            auto fileName = path.filename();
+            auto filePath = path.parent_path().filename();
+            return std::format(
+                "at {} in {} ({}),",
+                e.description(),
+                std::format("{}/{}",filePath.string(), fileName.string()),
+                e.source_line()
+            );
+        }
+#endif
+
+    public:     // 接口
+        expt_code code() const { return exptCode; }
+
+        const std::string& description() const { return desp; }
+
+        const std::unordered_map<std::string, std::string>& infomation() const { return info; }
+        const std::string& get(const std::string& k)const { return info.at(k); }
+        iExceptionBase& set(const std::string& k, const std::string& v) { info[k] = v; return *this; }
+
+        const std::list<std::string>& stack_trace() const { return stackTrace; }
+
     protected:
-        mutable std::string stackTraceStr;
-	public:
-        const std::stacktrace stackTrace;
-        const char* stack_trace() const;
-#endif // LIB_IEXPT_STACKTRACE_ENABLE
-	};
+        mutable std::string whatStr;
+    public:     // 系统接口
+        virtual const char* what() const noexcept override
+        {
+            if (desp.empty())
+                whatStr = std::format("unknow exception. (0x{:08X})", exptCode);
+            else
+                whatStr = std::format("{}. (0x{:08X})", desp, exptCode);
+            if (enableDebug)
+            {
+                if (!info.empty())whatStr += " " + detail();
+                if (!stackTrace.empty())whatStr += "\n" + trace();
+            }
+            return whatStr.c_str();
+        }
+
+    public:     // 扩展信息接口
+        virtual std::string detail() const
+        {
+            if (info.empty())return {};
+            size_t size = 2;
+            for (const auto& [k, v] : info)
+                size += k.size() + v.size() + 5;
+            std::string res{ "[" };
+            res.reserve(size);
+            for (const auto& [k, v] : info)
+                res.append(std::format("{} : {}, ", k, v));
+            res.pop_back(); res.pop_back();
+            res.append("]");
+            return res;
+        }
+
+        virtual std::string trace() const
+        {
+            if (stackTrace.empty())return {};
+            size_t size = 13;
+            for (const auto& i : stackTrace)
+                size += i.size() + 6;
+            std::string res{ "Stack trace:\n" };
+            res.reserve(size);
+            for (const auto& i : stackTrace)
+                res.append(i.empty() ? "" : std::format("    {}\n", i));
+            res.pop_back(); res.pop_back();
+            return res;
+        }
+
+    public:     // 构造
+        iExceptionBase(expt_code c, const std::string& d = std::string{}) 
+            :exptCode(c), desp(d)
+        {
+#ifdef UNION_IEXPT_STACKTRACE_ENABLE
+            auto stks = std::stacktrace::current();
+            size_t i = 0;
+            for (const auto& e : stks)
+                stackTrace.push_back(format_stacktrace_entry(e));
+#endif // UNION_IEXPT_STACKTRACE_ENABLE
+        }
+
+        virtual ~iExceptionBase() = default;
+    };
+
+
 }

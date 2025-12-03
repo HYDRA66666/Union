@@ -2,8 +2,6 @@
 #include "pch.h"
 #include "framework.h"
 
-#include "assistant_exception.h"
-
 namespace HYDRA15::Union::assistant
 {
     // 将一个字符串重复数遍
@@ -128,13 +126,17 @@ namespace HYDRA15::Union::assistant
     }
 
     // 检查字符串内容是否全部合法，如不合法则报错
-    inline void check_content(
+    inline bool check_content(
         const std::string& str,
-        std::function<bool(char)> is_valid = [](char c) {return c > 0x20 && c < 0x7F; }
+        std::function<bool(char)> is_valid = [](char c) {return c > 0x20 && c < 0x7F; },
+        bool throwExpt = true
     ) {
         for (const auto& c : str)
             if (!is_valid(c))
-                throw exceptions::assistant::UtilityInvalidChar();
+                if (throwExpt)
+                    throw exceptions::common("Invalid character detected");
+                else return false;
+        return true;
     }
 
     // 用给定的字符切分字符串
@@ -171,6 +173,23 @@ namespace HYDRA15::Union::assistant
                 res.splice(res.end(), split_by(str, deliniter));
         }
 
+        return res;
+    }
+
+    template<typename C>
+        requires requires(const C& c) {
+            { c.begin() } -> std::input_or_output_iterator;
+            { c.end() } -> std::sentinel_for<decltype(c.begin())>;
+            { std::to_string(*(c.begin())) }->std::convertible_to<std::string>;
+            { c.empty() }->std::convertible_to<bool>;
+    }
+    std::string container_to_string(const C& c)
+    {
+        if (c.empty())return {};
+        std::string res;
+        for (const auto& i : c)
+            res += std::to_string(i) + ", ";
+        res.pop_back(); res.pop_back();
         return res;
     }
 }

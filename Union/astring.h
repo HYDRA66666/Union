@@ -29,7 +29,7 @@ namespace HYDRA15::Union::framework
         {
             for (const auto& c : *this)
                 if (!is_ascii(c))
-                    return;
+                    throw std::exception("astring can only handle ascii characters");
         }
     };
 }

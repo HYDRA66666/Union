@@ -22,6 +22,7 @@ namespace HYDRA15::Union::exceptions
             static_uint files = 0xA00;
             static_uint FileIOError = 0xA01;
             static_uint FileNotAccessable = 0xA02;
+            static_uint FileInvalidAccess = 0xA03;
         }iExptCodes;
 
     private:
@@ -37,6 +38,7 @@ namespace HYDRA15::Union::exceptions
             static_string FileIOErrorFormat = "Error occures during file io operation: {}:{}";
             static_string FileNotAccessable = "File not accessable";
             static_string FileNotAccessableFormat = "File not accessable: {}:{}";
+            static_string FileInvalidAccess = "The file access request is invalid";
         }vslz;
 
     public:
@@ -59,5 +61,6 @@ namespace HYDRA15::Union::exceptions
         static assistant FileIOError() noexcept;
         static assistant FileNotAccessable(const std::error_code& ec) noexcept;
         static assistant FileNotAccessable() noexcept;
+        static assistant FileInvalidAccess() noexcept;
     };
 }

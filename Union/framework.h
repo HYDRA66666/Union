@@ -14,9 +14,14 @@
 
 // 启用栈跟踪支持
 // 启用可能会影响安全性和性能
+// debug 模式下默认启用，使用 UNION_IEXPT_STACKTRACE_DISABLE 宏以禁用
+// release 模式下默认不启用，使用 UNION_IEXPT_STACKTRACE_ENABLE 宏以启用
+#ifdef _DEBUG
 #ifndef UNION_IEXPT_STACKTRACE_DISABLE
-#define UNION_IEXPT_STACKTRACE_ENABLE 
-#endif
+#define UNION_IEXPT_STACKTRACE_ENABLE
+#endif // !UNION_IEXPT_STACKTRACE_DISABLE
+#endif // _DEBUG
+
 
 // 默认线程池线程数目
 #define UNION_DEFAULT_THREAD_COUNT std::thread::hardware_concurrency() / 2

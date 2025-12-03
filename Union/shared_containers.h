@@ -3,6 +3,7 @@
 #include "framework.h"
 
 #include "concepts.h"
+#include "iMutexies.h"
 
 namespace HYDRA15::Union::labourer
 {
@@ -166,5 +167,26 @@ namespace HYDRA15::Union::labourer
 
         void notify_exit() { working.store(false, std::memory_order_release); }
 
+    };
+
+
+    // 基于 atomic_mutex 的共享 set
+    template<typename T>
+    class basic_shared_set
+    {
+        atomic_mutex mtx;
+        std::set<T> set;
+
+    public:
+        template<typename U>
+        auto insert(U&& t) { std::unique_lock ul{ mtx }; return set.insert(std::forward<U>(t)); }
+
+        template<typename U>
+        auto lower_bound(U&& t) { std::unique_lock ul{ mtx }; return set.lower_bound(std::forward<U>(t)); }
+
+        template<typename U>
+        auto upper_bound(U&& t) { std::unique_lock ul{ mtx }; return set.upper_bound(std::forward<U>(t)); }
+
+        auto clear() { std::unique_lock ul{ mtx }; return set.clear(); }
     };
 }

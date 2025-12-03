@@ -2,7 +2,6 @@
 #include "framework.h"
 #include "pch.h"
 
-#include "secretary_exception.h"
 #include "background.h"
 #include "datetime.h"
 #include "string_utilities.h"
@@ -30,8 +29,8 @@ namespace HYDRA15::Union::secretary
         template<typename ... Args>
         static size_t printf(const std::string& fstr, Args...args) { return println(std::vformat(fstr, std::make_format_args(args...))); }
         static unsigned long long set(const std::string& str, bool forceDisplay = false, bool neverExpire = false);
-        static bool update(unsigned long long id, const std::string& str);
-        static bool remove(unsigned long long id);
+        static void update(unsigned long long id, const std::string& str);
+        static void remove(unsigned long long id);
         static void set_stick_btm(const std::string& str);
         static size_t fprint(const std::string& str);
         PrintCenter& operator<<(const std::string& content);    // 快速输出，滚动消息+文件+刷新
@@ -62,7 +61,6 @@ namespace HYDRA15::Union::secretary
             static constexpr milliseconds refreshInterval = milliseconds(30000); // 最短刷新间隔
 
             static_uint btmMaxLines = 3;
-            static_string btmMoreFormat = " ... and {0} more";
             static constexpr milliseconds btmDispTimeout = milliseconds(1000);
             static constexpr milliseconds btmExpireTimeout = milliseconds(30000);
             
@@ -93,7 +91,7 @@ namespace HYDRA15::Union::secretary
         std::atomic<bool> working = true;
         std::atomic<bool> forceRefresh = false;
         time_point lastRefresh = time_point::clock::now();
-        virtual void work(background::thread_info&) noexcept override;
+        virtual void work() noexcept override;
 
         // 高级接口
     public:

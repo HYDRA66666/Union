@@ -2,8 +2,8 @@
 #include "pch.h"
 #include "framework.h"
 
-#include "assistant_exception.h"
 #include "string_utilities.h"
+#include "concepts.h"
 
 namespace HYDRA15::Union::assistant
 {
@@ -103,7 +103,7 @@ namespace HYDRA15::Union::assistant
                     // unicode 字符不处理
                 case 'u':
                     if (i + 5 >= ppts.size())
-                        throw exceptions::assistant::PropretiesParseFaild();
+                        throw exceptions::common::UnsupportedFormat("Unicode charactor format must be '\\uxxxx'");
                     content += ppts.substr(i, 6);
                     i += 5;
                     break;
@@ -158,7 +158,7 @@ namespace HYDRA15::Union::assistant
         for (auto& entryPair : entryLst)
         {
             if (entryPair.size() != 2)
-                throw exceptions::assistant::PropretiesParseFaild();
+                throw exceptions::common::UnsupportedFormat("Key - value pair joined by '='");
             res.emplace(std::pair{ std::move(entryPair.front()),std::move(entryPair.back()) });
         }
 
@@ -231,5 +231,81 @@ namespace HYDRA15::Union::assistant
         if (m == 0) return 0;
         return ((n + m - 1) / m) * m;
     }
+
+    // 计算不小于某数的2的幂次
+    inline size_t power_of_2_not_less_than_n(size_t n)
+    {
+        if (n == 0) return 0;
+        size_t power = 1;
+        while (power < n)
+            power <<= 1;
+        return power;
+    }
+
+
+    // 集合操作
+    namespace set_operation
+    {
+        template<typename T, template<typename ...>typename S>
+        concept is_set_container =
+            framework::is_really_same_v<S<T>, std::set<T>> ||
+            framework::is_really_same_v<S<T>, std::unordered_set<T>>;
+
+        // 并集
+        template<typename T, template<typename ...>typename S>
+            requires is_set_container<T, S>
+        inline S<T> operator+(const S<T>& l, const S<T>& r)
+        {
+            S<T> res;
+            res.insert_range(l);
+            res.insert_range(r);
+            return res;
+        }
+
+        // 交集
+        template<typename T, template<typename ...>typename S>
+            requires is_set_container<T, S>
+        inline S<T> operator&(const S<T>& l, const S<T>& r)
+        {
+            if (l.size() < r.size())
+            {
+                S<T> res;
+                for (const auto& i : l)
+                    if (r.contains(i))
+                        res.insert(i);
+                return res;
+            }
+            else 
+            {
+                S<T> res;
+                for (const auto& i : r)
+                    if (l.contains(i))
+                        res.insert(i);
+                return res;
+            }
+        }
+
+        // 查集
+        template<typename T, template<typename ...>typename S>
+            requires is_set_container<T, S>
+        inline S<T> operator-(const S<T>& l, const S<T>& r)
+        {
+            S<T> res;
+            for (const auto& i : l)
+                if (!r.contains(i))
+                    res.insert(i);
+            return res;
+        }
+
+        // 对称交集
+        template<typename T, template<typename ...>typename S>
+            requires is_set_container<T, S>
+        inline S<T> operator|(const S<T>& l, const S<T>& r)
+        {
+            return (l + r) - (l & r);
+        }
+    }
+    
+   
 
 }

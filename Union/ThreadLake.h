@@ -3,7 +3,6 @@
 #include "framework.h"
 
 #include "background.h"
-#include "labourer_exception.h"
 #include "concepts.h"
 #include "shared_containers.h"
 
@@ -19,7 +18,7 @@ namespace HYDRA15::Union::labourer
     public:
         virtual ~mission_base() = default;
 
-        virtual void task() noexcept = 0;
+        virtual void operator()() noexcept = 0;
     };
     using mission = std::unique_ptr<mission_base>;
 
@@ -38,22 +37,27 @@ namespace HYDRA15::Union::labourer
         queue_t queue;
     private:
         std::atomic_bool working = true;
+        std::atomic<unsigned int> activeCount = 0;
+        std::mutex gexptrMtx;
+        std::exception_ptr gexptr = nullptr;
 
     private: // 后台任务
-        virtual void work(background::thread_info& info) noexcept override
+        virtual void work() noexcept override
         {
-            mission mis;
-            info.thread_state = background::thread_info::state::idle;
-            while (working.load(std::memory_order_acquire) || !queue.empty())
+            try
             {
-                // 取任务
-                info.thread_state = background::thread_info::state::waiting;
-                mis = queue.pop();
-                // 执行任务
-                info.thread_state = background::thread_info::state::working;
-                info.workStartTime = std::chrono::steady_clock::now();
-                mis->task();
+                mission mis;
+                while (working.load(std::memory_order::relaxed) || !queue.empty())
+                {
+                    // 取任务
+                    mis = queue.pop();
+                    // 执行任务
+                    activeCount.fetch_add(1, std::memory_order::relaxed);
+                    (*mis)();
+                    activeCount.fetch_add(-1, std::memory_order::relaxed);
+                }
             }
+            catch (...) { std::unique_lock ul{ gexptrMtx }; gexptr = std::current_exception(); }
         }
 
     public: // 提交接口
@@ -72,10 +76,14 @@ namespace HYDRA15::Union::labourer
         }
 
     public: // 管理接口
-        size_t waiting() const { return queue.size(); }
-        using background::iterator;
-        using background::begin;
-        using background::end;
+        size_t size() const { return queue.size(); }
+        unsigned int active() const { return activeCount.load(std::memory_order::relaxed); }
+        bool alive() const  // 任意一个线程出错则抛出最后一个异常，否则返回 true
+        { 
+            std::unique_lock ul{ gexptrMtx }; 
+            if (gexptr)std::rethrow_exception(gexptr); 
+            return true; 
+        } 
     };
 
     /***************************** 基本线程池实现 *****************************/
@@ -92,7 +100,7 @@ namespace HYDRA15::Union::labourer
             :tsk(task), cb(callback) {
         }
 
-        virtual void task() noexcept override
+        virtual void operator()() noexcept override
         {
             try
             {

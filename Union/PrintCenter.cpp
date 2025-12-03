@@ -12,32 +12,16 @@ namespace HYDRA15::Union::secretary
         return ret;
     }
 
-    bool PrintCenter::update(unsigned long long id, const std::string& str)
+    void PrintCenter::update(unsigned long long id, const std::string& str)
     {
-        try
-        {
-            PrintCenter& instance = get_instance();
-            instance.update_bottom(id, str);
-            instance.flush();
-        }
-        catch (referee::iExceptionBase&)
-        {
-            return false;
-        }
-        return true;
+        PrintCenter& instance = get_instance();
+        instance.update_bottom(id, str);
+        instance.flush();
     }
 
-    bool PrintCenter::remove(unsigned long long id)
+    void PrintCenter::remove(unsigned long long id)
     {
-        try
-        {
-            get_instance().remove_bottom(id);
-        }
-        catch (referee::iExceptionBase&)
-        {
-            return false;
-        }
-        return true;
+        get_instance().remove_bottom(id);
     }
 
     void PrintCenter::set_stick_btm(const std::string& str)
@@ -165,7 +149,7 @@ namespace HYDRA15::Union::secretary
         {
             if(lastBtmLines > 0)
                 str.append("\n");
-            str.append(std::format(cfg.btmMoreFormat.data(), more));
+            str.append(std::format(" ... and {0} more", more));
             lastBtmLines++;
         }
 
@@ -203,7 +187,7 @@ namespace HYDRA15::Union::secretary
         return str;
     }
 
-    void PrintCenter::work(background::thread_info&) noexcept
+    void PrintCenter::work() noexcept
     {
         while (
             working.load(std::memory_order_acquire) || // 工作中
@@ -311,8 +295,6 @@ namespace HYDRA15::Union::secretary
             btmMsgNextID = 0;
         while (btmMsgTab.contains(btmMsgNextID) && btmMsgNextID != std::numeric_limits<ID>::max())
             btmMsgNextID++;
-        if (btmMsgNextID == std::numeric_limits<ID>::max()) // 找不到空缺位置，则抛出异常
-            throw exceptions::secretary::PrintCenterBtmMsgFull();
         return btmMsgNextID;
     }
 

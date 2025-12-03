@@ -2,7 +2,6 @@
 #include "framework.h"
 #include "pch.h"
 
-#include "secretary_exception.h"
 #include "log.h"
 
 namespace HYDRA15::Union::secretary
@@ -15,14 +14,7 @@ namespace HYDRA15::Union::secretary
     public:
         logger() = delete;
         logger(const logger&) = default;
-        logger(const std::string&);
-
-        std::string info(const std::string& content);
-        std::string warn(const std::string& content);
-        std::string error(const std::string& content);
-        std::string fatal(const std::string& content);
-        std::string debug(const std::string& content);
-        std::string trace(const std::string& content);
+        logger(const std::string& title) :title(title) {}
 
 #define logf(type) template<typename ... Args> std::string type(const std::string& fstr, Args...args) { return log::type(title, std::vformat(fstr, std::make_format_args(args...))); }
 
