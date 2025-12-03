@@ -18,7 +18,6 @@ namespace HYDRA15::Union::framework
         static_uint assistant = 0x0B0000;
         static_uint labourer = 0x0C0000;
         static_uint secretary = 0x0D0000;
-        static_uint expressman = 0x0E0000;
     }libID;
 
 }
