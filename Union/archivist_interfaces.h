@@ -338,7 +338,7 @@ namespace HYDRA15::Union::archivist
         virtual void drop(std::unique_ptr<entry>) = 0;                          // 删：通过条目对象删除记录
         virtual std::unique_ptr<entry> at(ID id) = 0;                           // 通过行号访问记录
         virtual std::list<ID> at(const std::function<bool(const entry&)>&) = 0; // 改、查：通过过滤器查找记录
-        virtual std::list<ID> excute(const incidents&) = 0;                     // 执行一系列事件，按照 field_spec 的排序顺序返回执行结果
+        virtual std::list<ID> excute(const incidents&) = 0;                     // 执行一系列事件，按照 ID 顺序返回执行结果
 
         // 索引接口
         virtual void create_index(const std::string&, const field_specs&) = 0; // 创建指定名称、基于指定字段的索引
