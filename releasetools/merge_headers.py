@@ -221,12 +221,14 @@ def generate_header_file(output):
     global debug
     with open(output,'w',encoding='utf-8-sig') as f:
         f.write('#pragma once\n')
-        f.write(f'#ifndef {upper_marco_for_header(mainRoot)}\n#define {upper_marco_for_header(mainRoot)}\n')
+        if antiCollisionMarcoDefine:
+            f.write(f'#ifndef {upper_marco_for_header(mainRoot)}\n#define {upper_marco_for_header(mainRoot)}\n')
         for h in sortedHeaders:
             if not (h.type == header.header_type.main or h.type == header.header_type.rely):
                 continue
             content = f'\n\n\n/*************** 合并自 {os.path.basename(h.nameWithPath)} ***************/\n'
-            content += f'#ifndef {upper_marco_for_header(h.nameWithPath)}\n#define {upper_marco_for_header(h.nameWithPath)}\n'
+            if antiCollisionMarcoDefine:
+                content += f'#ifndef {upper_marco_for_header(h.nameWithPath)}\n#define {upper_marco_for_header(h.nameWithPath)}\n'
             with open(h.nameWithPath,'r',encoding='utf-8-sig') as s:
                 content += s.read()
                 content = content.replace('#pragma once','// #pragma once')
@@ -234,11 +236,14 @@ def generate_header_file(output):
                     if debug:
                         print(f'替换include行：{r}')
                     content = content.replace(r,f'// {r}')
-            content += '\n#endif\n'
+            content += '\n'
+            if antiCollisionMarcoDefine:
+                content += '#endif\n'
             f.write(content)
             if debug:
                 print(f'已将文件 {h.nameWithPath} 添加到合并结果中')
-        f.write('#endif')
+        if antiCollisionMarcoDefine:
+            f.write('#endif')
     print(f'已完成合并，共合并 {len([i for i in sortedHeaders if (i.type == header.header_type.main or i.type == header.header_type.rely)])} 个文件')
 
 

@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.14.36408.4
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.11222.15 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Union", "Union\Union.vcxproj", "{9F06E26E-BAB1-4D3B-B302-7E3F932EDD68}"
 EndProject
@@ -20,6 +20,11 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "releasetools", "releasetool
 	ProjectSection(SolutionItems) = preProject
 		releasetools\hexdump.html = releasetools\hexdump.html
 		releasetools\merge_headers.py = releasetools\merge_headers.py
+	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "release", "release", "{FC18690C-F6B2-4E62-9F44-72E00F40081D}"
+	ProjectSection(SolutionItems) = preProject
+		release\Union.h = release\Union.h
 	EndProjectSection
 EndProject
 Global
