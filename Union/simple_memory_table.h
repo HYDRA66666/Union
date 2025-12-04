@@ -690,7 +690,7 @@ namespace HYDRA15::Union::archivist
             while (!opers.empty())
             {
                 auto icdt = std::move(opers.front());
-                opers.pop();
+                opers.pop_front();
 
                 switch (icdt.type)
                 {
@@ -766,7 +766,7 @@ namespace HYDRA15::Union::archivist
                         }
                         while (!opers.empty() && opers.front().type == incident::incident_type::search)
                         {
-                            auto nxt = std::move(opers.front()); opers.pop();
+                            auto nxt = std::move(opers.front()); opers.pop_front();
                             {
                                 incident::condition_param cond = std::get<incident::condition_param>(nxt.param);
                                 condParamsByField[cond.targetField].push_back(cond);
@@ -876,7 +876,7 @@ namespace HYDRA15::Union::archivist
                         for (const auto& [fieldName, fsc] : condByField)
                         {
                             if (hasEqual && !fsc.hasEqual)continue;
-                            if (!hasEqual && fsc.hasEqual)
+                            if (!hasEqual && fsc.hasEqual && indexTab[fieldNameTab.at(fieldName)])
                             {
                                 perfectIdx = indexTab[fieldNameTab.at(fieldName)].get();
                                 perfectIdxField = fieldName;

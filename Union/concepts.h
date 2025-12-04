@@ -46,6 +46,12 @@ namespace HYDRA15::Union::framework
         { t.unlock_shared() } -> std::same_as<void>;
     };
 
+    template<typename T>
+    concept upgrade_lockable = shared_lockable<T> && requires(T t) {
+        { t.upgrade() } -> std::same_as<void>;
+        { t.downgrade() } -> std::same_as<void>;
+    };
+
     // 去除修饰符后真实类型
     template<typename T, typename RT>
     concept is_really_same_v = std::is_same_v<std::remove_cvref_t<T>, std::remove_cvref_t<RT>>;

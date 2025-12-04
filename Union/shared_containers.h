@@ -7,13 +7,14 @@
 
 namespace HYDRA15::Union::labourer
 {
-    // 基于 std::queue std::mutex std::conditional_variable 的基本阻塞队列
-    template<typename T>
+    // 基于 std::queue std::conditional_variable 的基本阻塞队列
+    template<typename T, typename L = std::mutex>
+        requires framework::lockable<L>
     class basic_blockable_queue
     {
         std::queue<T> queue;
-        std::mutex mtx;
-        std::condition_variable cv;
+        L mtx;
+        std::condition_variable_any cv;
         std::atomic_bool working = true;
 
     public:
@@ -21,7 +22,6 @@ namespace HYDRA15::Union::labourer
             requires framework::is_really_same_v<T, U>
         void push(U&& item)
         {
-            if (!working.load(std::memory_order_acquire))return;
             std::unique_lock ul{ mtx };
             queue.push(std::forward<U>(item));
             cv.notify_one();
@@ -32,7 +32,7 @@ namespace HYDRA15::Union::labourer
         {
             std::unique_lock ul{ mtx };
             while (working.load(std::memory_order_acquire) && queue.empty())cv.wait(ul);
-            if (!working.load(std::memory_order_acquire))return T{};
+            if (!working.load(std::memory_order_acquire) && queue.empty())return T{};
             if constexpr (std::is_move_constructible_v<T>)
             {
                 T t = std::move(queue.front());

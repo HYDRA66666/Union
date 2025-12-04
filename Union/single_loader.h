@@ -128,7 +128,7 @@ namespace HYDRA15::Union::archivist
         {   // 行和节以最小公倍数对齐
             uint64_t rowSize = assistant::multiple_m_not_less_than_n(32, (fieldSpecs.size() + 1) * 8);
             uint64_t pageByteSize = std::lcm(rowSize, segSize);
-            return pageByteSize / segSize;
+            return pageByteSize / fieldSpecs.size();
         }
 
         static uint64_t caculate_field_spec_tab_size(const field_specs& fieldSpecs)

@@ -53,7 +53,8 @@ namespace HYDRA15::Union::labourer
                     mis = queue.pop();
                     // 执行任务
                     activeCount.fetch_add(1, std::memory_order::relaxed);
-                    (*mis)();
+                    if (mis)
+                        (*mis)();
                     activeCount.fetch_add(-1, std::memory_order::relaxed);
                 }
             }
