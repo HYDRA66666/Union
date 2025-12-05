@@ -568,6 +568,8 @@ namespace HYDRA15::Union::archivist
             // 更新当前数据包已用大小
             sfs.write<uint32_t>(std::format(dataSectionFmt.data(), currentPackID), 0,
                 std::vector<uint32_t>{ assistant::byteswap::to_big_endian(currentPackUsedSize) });
+
+            flush_header();
         }
 
         // 索引相关
@@ -600,6 +602,8 @@ namespace HYDRA15::Union::archivist
                     idx.data.begin() + i + std::min(pageSize, static_cast<ID>(idx.data.size() - i)));
                 sfs.write<ID>(std::format(indexSectionFmt.data(), idx.spec.name), idxDatStartOffset + i * sizeof(ID), idxPage);
             }
+
+            flush_header();
         }
 
         virtual index index_tab(const std::string& idxName) const override  // 加载索引表

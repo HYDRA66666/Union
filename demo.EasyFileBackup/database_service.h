@@ -43,9 +43,15 @@ public:
                 );
 
         dbInstance.reset(new database_service(std::move(loader)));
+
+        if (dbInstance->index_tab().empty())
+        {
+            dbInstance->create_index(dbFields[2], { dbFields[2] });
+            dbInstance->create_index(dbFields[5], { dbFields[5] });
+        }
     }
 
-    static database_service& get_instance(const std::filesystem::path& dbpath)
+    static database_service& get_instance()
     {
         if (!dbInstance)
             throw exceptions::common("Database service is not initialized. Call database_service::init() first.");

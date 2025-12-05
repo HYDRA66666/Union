@@ -180,16 +180,17 @@ namespace HYDRA15::Union::assistant
         requires requires(const C& c) {
             { c.begin() } -> std::input_or_output_iterator;
             { c.end() } -> std::sentinel_for<decltype(c.begin())>;
-            { std::to_string(*(c.begin())) }->std::convertible_to<std::string>;
+            { std::stringstream{} << (*(c.begin())) }->std::convertible_to<std::stringstream>;
             { c.empty() }->std::convertible_to<bool>;
     }
     std::string container_to_string(const C& c)
     {
         if (c.empty())return {};
-        std::string res;
+        std::stringstream res;
+        res << "[ ";
         for (const auto& i : c)
-            res += std::to_string(i) + ", ";
-        res.pop_back(); res.pop_back();
-        return res;
+            res << i << ", ";
+        res << " ]";
+        return res.str();
     }
 }

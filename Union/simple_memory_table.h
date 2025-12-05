@@ -88,6 +88,8 @@ namespace HYDRA15::Union::archivist
                 return *this;
             }
 
+            virtual bool valid() const {return !(get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)); } // 返回 当前记录是否有效
+
             // 获取、写入记录项
             virtual const field& at(const std::string& fieldName) const override  // 返回 指定字段的数据
             {
@@ -215,6 +217,7 @@ namespace HYDRA15::Union::archivist
             virtual ID id() const override { return std::numeric_limits<ID>::max(); }
             virtual const field_specs& fields() const override                      { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "fields"); }
             virtual entry& erase() override                                         { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "erase"); }
+            virtual bool valid() const override { return true; }
 
             // 获取、写入记录项
             virtual const field& at(const std::string& fieldName) const override  // 返回 指定字段的数据
@@ -234,7 +237,7 @@ namespace HYDRA15::Union::archivist
             virtual const entry& operator++() const override                        { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "operator++ const"); }
             virtual const entry& operator--() const override                        { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "operator-- const"); }
             virtual std::strong_ordering operator<=>(const entry&) const override   { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "operator<=>"); }
-            virtual bool operator==(const entry&) const override                    { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "operator=="); }
+            virtual bool operator==(const entry& e) const override { return e.id() == std::numeric_limits<ID>::max(); }
 
             // 行锁
             virtual void lock() override                                            { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "lock"); }
@@ -499,6 +502,8 @@ namespace HYDRA15::Union::archivist
                 i.data = idx->to_deque();
                 loader->index_tab(i);
             }
+
+            
         }
 
         void resize_data_storage(ID newRowSize)
@@ -951,6 +956,15 @@ namespace HYDRA15::Union::archivist
                     }
 
                     if (impossiable) break;
+                    break;
+                }
+                case incident::incident_type::filter:
+                {
+                    std::function<bool(const entry&)> filter = std::get<std::function<bool(const entry&)>>(icdt.param);
+                    for (auto it = currentResult.begin(); it != currentResult.end();)
+                        if (filter(*get_entry(*it)))
+                            it++;
+                        else it = currentResult.erase(it);
                 }
                 default:
                     break;
@@ -990,8 +1004,16 @@ namespace HYDRA15::Union::archivist
             indexTab[fieldNameTab.at(name)].reset();
         }
 
+        virtual index_specs index_tab() const override
+        {
+            index_specs res;
+            for (const auto& idx : indexTab)
+                if (idx) res.push_back(index_spec{ .name = idx->fieldSpec, .comment = "", .fieldSpecs = {idx->fieldSpec} });
+            return res;
+        }
+
     private:// 由派生类实现：返回指向首条记录的迭代器 / 尾后迭代器
-        virtual std::unique_ptr<entry> begin_impl() { return get_entry(0); }
+        virtual std::unique_ptr<entry> begin_impl() { return recordCount.load(std::memory_order::relaxed) > 0 ? get_entry(0) : end_impl(); }
 
         virtual std::unique_ptr<entry> end_impl() { return std::make_unique<data_entry_impl>(*this); }
 
@@ -1007,6 +1029,8 @@ namespace HYDRA15::Union::archivist
             std::unique_lock ul{ tableMtx };
             resize_data_storage(recCount);
         }
+
+        void flush() { std::unique_lock ul{ tableMtx }; flush_all(); }
 
     public: // 表始终从 loader 构造
         simple_memory_table(std::unique_ptr<archivist::loader>&& ld)

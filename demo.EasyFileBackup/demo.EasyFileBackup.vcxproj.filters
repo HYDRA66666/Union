@@ -8,6 +8,6 @@
     <ClInclude Include="scan_service.h" />
     <ClInclude Include="resources.h" />
     <ClInclude Include="database_service.h" />
-    <ClInclude Include="global.h" />
+    <ClInclude Include="sync_service.h" />
   </ItemGroup>
 </Project>

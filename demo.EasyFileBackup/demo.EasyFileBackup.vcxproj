@@ -157,9 +157,9 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="database_service.h" />
-    <ClInclude Include="global.h" />
     <ClInclude Include="resources.h" />
     <ClInclude Include="scan_service.h" />
+    <ClInclude Include="sync_service.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
