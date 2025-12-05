@@ -53,12 +53,11 @@ private:
                     archivist::INT updateTime = get_date_time();
                     archivist::INT size = static_cast<archivist::INT>(std::filesystem::file_size(path));
                     // 获取文件的 last_write_time 并转换为 time_t，然后传入 get_date_time
-                    auto ftime = std::filesystem::last_write_time(path);
-                    auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
-                        ftime - decltype(ftime)::clock::now() + std::chrono::system_clock::now());
-                    std::time_t mod_time = std::chrono::system_clock::to_time_t(sctp);
-                    archivist::INT dateTime = get_date_time(mod_time);
-
+                    archivist::INT datetime = get_date_time(
+                        std::chrono::system_clock::to_time_t(
+                            std::chrono::clock_cast<std::chrono::system_clock>(std::filesystem::last_write_time(path))
+                        )
+                    );
 
                     // 构建事件查找表记录
                     archivist::incident inct{
@@ -66,7 +65,7 @@ private:
                         .param = archivist::incident::condition_param{
                             .targetField = dbFields[2],
                             .type = archivist::incident::condition_param::condition_type::equal,
-                            .reference = archivist::create_string_field(path.string())
+                            .reference = archivist::create_string_field(path.u8string())
                         }
                     };
 
@@ -78,8 +77,8 @@ private:
                         auto newEntry = db.create();
                         std::unique_lock rul{ *newEntry };
                         newEntry->set(dbFields[1], updateTime);
-                        newEntry->set(dbFields[2], archivist::create_string_field(path.string()));
-                        newEntry->set(dbFields[3], dateTime);
+                        newEntry->set(dbFields[2], archivist::create_string_field(path.u8string()));
+                        newEntry->set(dbFields[3], datetime);
                         newEntry->set(dbFields[4], size);
                         newEntry->set(dbFields[5], static_cast<archivist::INT>(file_states::updated)); // 初始状态为未备份
                         add_count(true);
@@ -92,9 +91,9 @@ private:
                         std::unique_lock rul{ *entry };
 
                         bool modified = false;
-                        if (std::get<archivist::INT>(entry->at(dbFields[3])) != dateTime)
+                        if (std::get<archivist::INT>(entry->at(dbFields[3])) != datetime)
                         {
-                            entry->set(dbFields[3], dateTime);
+                            entry->set(dbFields[3], datetime);
                             modified = true;
                         }
                         if (std::get<archivist::INT>(entry->at(dbFields[4])) != size)
@@ -114,8 +113,24 @@ private:
                     }
                 }
             }
-            catch (const std::exception& e) { lgr.error("Error on scanning path {}: {}", path.string(), e.what()); }
-            catch (...) { lgr.error("Unknown error on scanning path {}", path.string()); }
+            catch (const std::exception& e) 
+            { 
+                try {
+                    lgr.error("Error on scanning path {}: {}", path.string(), e.what());
+                }
+                catch(...) {
+                    lgr.error("Error on scanning path (unknown path): {}", e.what());
+                }
+            }
+            catch (...) 
+            { 
+                try {
+                    lgr.error("Unknown error on scanning path {}", to_string(path.u8string()));
+                }
+                catch (...) {
+                    lgr.error("Unknown error on scanning path (unknown path)");
+                }
+            }
         }
     };
 
@@ -123,6 +138,7 @@ private:
 
 private:
     scan_thread_pool threadPool{ std::thread::hardware_concurrency() > 4 ? std::thread::hardware_concurrency() / 4 : 1 };
+    //scan_thread_pool threadPool{ 1 };
     std::atomic<size_t> updatedFilesCount{ 0 };
     std::atomic<size_t> scannedFilesCount{ 0 };
 
@@ -155,7 +171,7 @@ private:
     std::atomic<size_t> scannedFilesCount{ 0 };
 
     std::atomic<archivist::ID> nextScanID{ 0 };
-    const archivist::ID totalRecords{ db.size() };
+    const archivist::ID totalRecords;
 
 private:
     virtual void work() noexcept override
@@ -169,7 +185,7 @@ private:
             {
                 auto entry = db.at(id);
                 if (!entry->valid())continue;
-                std::filesystem::path filepath = archivist::extract_string(entry->at(dbFields[2]));
+                std::filesystem::path filepath = archivist::extract_string<char8_t>(entry->at(dbFields[2]));
                 if (!std::filesystem::exists(filepath) || !std::filesystem::is_regular_file(filepath))
                 {
                     // 文件不存在，标记为已删除
@@ -190,7 +206,11 @@ public:
     scan_count count() const { return { .updated = updatedFilesCount.load(std::memory_order::relaxed),.scanned = scannedFilesCount.load(std::memory_order::relaxed) }; }
 
 public:
-    record_scan_service() :background(std::thread::hardware_concurrency() > 4 ? std::thread::hardware_concurrency() / 4 : 1) { start(); }
+    record_scan_service() 
+        :background(std::thread::hardware_concurrency() > 4 ? std::thread::hardware_concurrency() / 4 : 1),
+        //:background(2),
+        totalRecords(database_service::get_instance().size())
+    { start(); }
 
     ~record_scan_service() { wait_for_end(); }
 };

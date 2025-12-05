@@ -54,7 +54,7 @@ private:
                 auto pety = db.at(*it);
                 std::shared_lock rsl{ *pety };
 
-                std::filesystem::path srcPath = archivist::extract_string(pety->at(dbFields[2]));
+                std::filesystem::path srcPath = archivist::extract_string<char8_t>(pety->at(dbFields[2]));
                 std::filesystem::path destPath = path / std::filesystem::relative(srcPath);
                 file_states state = static_cast<file_states>(std::get<archivist::INT>(pety->at(dbFields[5])));
 
@@ -71,11 +71,10 @@ private:
                     std::filesystem::remove(destPath, ec);
                     break;
                 default:
-                    lgr.error("no need for sync: {}", srcPath.string());
                     break;
                 }
                 if (ec)
-                    lgr.error("failed to copy file {}: {}", srcPath.string(), ec.message());
+                    lgr.error("failed to copy file {}: {}", to_string(srcPath.u8string()), ec.message());
                 else pety->set(dbFields[5], static_cast<archivist::INT>(file_states::normal));
 
             }

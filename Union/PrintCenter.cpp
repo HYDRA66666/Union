@@ -267,11 +267,6 @@ namespace HYDRA15::Union::secretary
         printFile = fprintFunc;
     }
 
-    void PrintCenter::enable_ansi_color(bool c)
-    {
-        enableAnsiColor = c;
-    }
-
     size_t PrintCenter::rolling(const std::string& content)
     {
         std::lock_guard lg(rollMsgLock);

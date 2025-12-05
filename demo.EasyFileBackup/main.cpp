@@ -219,7 +219,7 @@ void get_handler(std::list<std::string>& params)
             srhIcdt.param = archivist::incident::condition_param{
                 .targetField = dbFields[2],
                 .type = archivist::incident::condition_param::condition_type::equal,
-                .reference = archivist::create_string_field(std::filesystem::absolute(param).string())
+                .reference = archivist::create_string_field(std::filesystem::absolute(param).u8string())
             };
 
         srhRes = database_service::get_instance().excute({ srhIcdt });
@@ -237,7 +237,7 @@ void get_handler(std::list<std::string>& params)
             std::shared_lock rsl{ *pety };
             archivist::INT state = std::get<archivist::INT>(pety->at(dbFields[5]));
             archivist::INT datetime = std::get<archivist::INT>(pety->at(dbFields[3]));
-            std::string filepath = archivist::extract_string(pety->at(dbFields[2]));
+            std::string filepath = std::filesystem::path(archivist::extract_string<char8_t>(pety->at(dbFields[2]))).string();
 
             pc.println(std::format("| {:6} | 0x{:04X} | {} | {}", id, state, datetime, filepath));
         }
@@ -254,6 +254,9 @@ class initializer
 public:
     initializer(const std::list<std::string>& params)
     {
+        referee::iExceptionBase::enableDebug = true;
+        secretary::PrintCenter::enableAnsiColor = false;
+
         secretary::log::print = [](const std::string& msg) {static secretary::PrintCenter& pc = secretary::PrintCenter::get_instance(); pc.println(msg); };
 
         if (params.empty() || params.front().front() == '-')
@@ -293,7 +296,7 @@ int main(int argc, char* argv[])
 
             lgr.info("record scan completed, scanned {}, updated {}", srres.scanned, srres.updated);
             lgr.info("file scan completed, scanned {}, updated {}", sfres.scanned, sfres.updated);
-            database_service::get_instance().flush();
+            db.flush();
             lgr.info("database saved");
         }
 

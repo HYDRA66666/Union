@@ -15,7 +15,7 @@ namespace HYDRA15::Union::referee
         std::unordered_map<std::string, std::string> info;  // 错误信息 / 参数
         std::list<std::string> stackTrace;  // 调用栈
     public:     // 数据配置
-        bool enableDebug = debug;
+        static inline bool enableDebug = debug;
 
     private:    // 工具函数
 #ifdef UNION_IEXPT_STACKTRACE_ENABLE

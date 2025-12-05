@@ -452,6 +452,7 @@ namespace HYDRA15::Union::archivist
             tabData.clear(); rowMtxs.clear();
             ID currentRecordCount = loader->tab_size();
             recordCount.store(currentRecordCount, std::memory_order::relaxed);
+            fakeRecordCount.store(currentRecordCount, std::memory_order::relaxed);
             if (currentRecordCount > 0)
             {
                 ID pageSize = loader->page_size();
@@ -545,6 +546,7 @@ namespace HYDRA15::Union::archivist
                     }
                 }
                 recordCount.store(writePos, std::memory_order::relaxed);
+                fakeRecordCount.store(writePos, std::memory_order::relaxed);
             }
             ID currentRecordCount = recordCount.load(std::memory_order::relaxed);
             resize_data_storage(currentRecordCount);

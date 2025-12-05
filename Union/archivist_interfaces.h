@@ -25,15 +25,17 @@ namespace HYDRA15::Union::archivist
     // 字段
     using field = std::variant<NOTHING, INT, FLOAT, INTS, FLOATS, BYTES>;
 
-    std::string extract_string(const field& f)
+    template<typename C = char>
+    std::basic_string<C> extract_string(const field& f)
     {
         if (!std::holds_alternative<BYTES>(f))
             throw exceptions::common("Field does not hold BYTES data.");
         const auto& bdata = std::get<BYTES>(f);
-        return std::string(bdata.begin(), bdata.end());
+        return std::basic_string<C>(bdata.begin(), bdata.end());
     }
 
-    field create_string_field(const std::string& s) { return BYTES(s.begin(), s.end()); }
+    template<typename C>
+    field create_string_field(const std::basic_string<C>& s) { return BYTES(s.begin(), s.end()); }
 
     // 字段信息
     struct field_spec

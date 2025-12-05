@@ -62,3 +62,10 @@ inline int64_t get_date_time(time_t stamp)
 
 inline int64_t get_date_time() { return get_date_time(std::time(nullptr)); }
 
+inline std::string to_string(const std::u8string& str)
+{
+    std::string res;
+    res.resize(str.size());
+    assistant::memcpy(reinterpret_cast<const char*>(str.data()), reinterpret_cast<char*>(res.data()), str.size());
+    return res;
+}

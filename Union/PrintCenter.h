@@ -82,7 +82,8 @@ namespace HYDRA15::Union::secretary
         std::function<void(const std::string&)> printFile;
 
         // 是否启用ansi颜色
-        bool enableAnsiColor = true;
+    public:
+        static inline bool enableAnsiColor = true;
 
         // 工作
     private:
@@ -100,7 +101,6 @@ namespace HYDRA15::Union::secretary
         void lock();   // 锁定，防止刷新
         void unlock(); // 解锁，允许刷新
         void fredirect(std::function<void(const std::string&)> fprintFunc);
-        void enable_ansi_color(bool c);
 
         /***************************** 滚动消息相关 *****************************/
         // 类型定义
