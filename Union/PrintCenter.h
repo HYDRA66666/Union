@@ -81,9 +81,9 @@ namespace HYDRA15::Union::secretary
         std::function<void(const std::string&)> print;
         std::function<void(const std::string&)> printFile;
 
-        // 是否启用ansi颜色
+        // 是否启用 ansi 控制串
     public:
-        static inline bool enableAnsiColor = true;
+        static inline bool enableAnsi = true;
 
         // 工作
     private:

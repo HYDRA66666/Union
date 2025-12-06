@@ -193,4 +193,19 @@ namespace HYDRA15::Union::assistant
         res << " ]";
         return res.str();
     }
+
+    // 仅为按位拷贝，不涉及字符集转换
+    // 模板类型为字符类型，调用时只需指定目标字符类型
+    template<typename C, typename S>
+    std::basic_string<C> string_type_cvt(const std::basic_string<S>& src)
+    {
+        size_t resSize = src.size() * sizeof(S) / sizeof(C);
+        std::basic_string<C> res;
+        res.resize(resSize);
+        const C* pSrc = reinterpret_cast<const C*>(src.data());
+        C* pRes = res.data();
+        for (size_t i = 0; i < resSize; i++)
+            pRes[i] = pSrc[i];
+        return res;
+    }
 }

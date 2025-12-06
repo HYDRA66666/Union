@@ -55,7 +55,7 @@ namespace HYDRA15::Union::secretary
         pPCOutBuf = std::make_shared<ostreambuf>([this](const std::string& str) {*this << str; });
         std::streambuf* pSysOstreamBuf = std::cout.rdbuf(pPCOutBuf.get());
         pSysOutStream = std::make_shared<std::ostream>(pSysOstreamBuf);
-        print = [this](const std::string& str) {*pSysOutStream << str; };
+        print = [this](const std::string& str) { if (enableAnsi) *pSysOutStream << str; else *pSysOutStream << assistant::strip_ansi_secquence(str); };
 
         // 启动清屏
         print("\0x1B[2J\0x1B[H");
@@ -106,10 +106,11 @@ namespace HYDRA15::Union::secretary
 
         std::string str;
         for (auto& msg : *pRollMsgLstBack)
-            if (enableAnsiColor)
-                str.append(assistant::strip(msg, is_valid_with_ansi) + "\n");
-            else
-                str.append(assistant::strip_color(assistant::strip(msg, is_valid_with_ansi) + "\n"));
+            str.append(msg + "\n");
+            //if (enableAnsiColor)
+            //    str.append(assistant::strip(msg, is_valid_with_ansi) + "\n");
+            //else
+            //    str.append(assistant::strip_color(assistant::strip(msg, is_valid_with_ansi) + "\n"));
         pRollMsgLstBack->clear();
 
         return str;

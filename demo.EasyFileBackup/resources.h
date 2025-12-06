@@ -17,14 +17,14 @@ inline const archivist::field_specs dbFields{
 };
 
 constexpr std::string_view help_str{
-    "用法：\n"
-    "    启动参数(dbPath)：数据库文件的路径。数据库的父目录将会被视为源目录。\n"
-    "    命令 set_all [normal, updated]：将所有文件状态设置为指定状态\n"
-    "    命令 sync (destPath) [normal, deleted, updated, del_upd]：将源目录中的文件同步到目标目录，可选选项指定要同步的文件状态\n"
-    "    命令 get [deleted, updated]：获取数据库中所有指定状态的文件的列表\n"
-    "    命令 get [path]：获取指定路径的文件信息\n"
-    "    命令 help：显示帮助信息\n"
-    "以上命令加上 \"-\" 便可作为启动参数"
+    "usage：\n"
+    "    init param (dbPath)：path to database file。\n"
+    "    commald set [normal, updated]：set all file state to specificed state\n"
+    "    command sync (destPath) [normal, deleted, updated, del_upd]：sync files to destination path, optional file state\n"
+    "    command get [deleted, updated]：obtain db records for specificed state\n"
+    "    command get [path]：obtain db records for specificed file\n"
+    "    command help：show this infomation\n"
+    "all those commands provided with \"-\" can be used as init params"
 };
 
 

@@ -75,7 +75,12 @@ private:
                 }
                 if (ec)
                     lgr.error("failed to copy file {}: {}", to_string(srcPath.u8string()), ec.message());
-                else pety->set(dbFields[5], static_cast<archivist::INT>(file_states::normal));
+                else 
+                {
+                    pety->set(dbFields[5], static_cast<archivist::INT>(file_states::normal));
+                    if (state == file_states::deleted)
+                        pety->erase();
+                }
 
             }
             catch (const std::exception& e) { lgr.error("failed to parse record {}: ", *it, e.what()); }

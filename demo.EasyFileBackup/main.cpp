@@ -89,7 +89,7 @@ scan_count scan_record()
 void set_handler(std::list<std::string>& params)
 {
     if (params.empty())
-        throw exceptions::common::BadParameter("set 命令", "空", "normal 或者 updated");
+        throw exceptions::common::BadParameter("set command", "empty", "normal or updated");
 
     std::string param = params.front();
 
@@ -114,20 +114,20 @@ void set_handler(std::list<std::string>& params)
         return;
     }
     else
-        throw exceptions::common::BadParameter("set 命令", assistant::container_to_string(params), "normal 或者 updated");
+        throw exceptions::common::BadParameter("set command", assistant::container_to_string(params), "normal or updated");
 
 }
 
 void sync_handler(std::list<std::string>& params)
 {
     if (params.empty())
-        throw exceptions::common::BadParameter("set 命令", "空", "normal, deleted, updated 或者文件路径");
+        throw exceptions::common::BadParameter("set command", "empty", "normal, deleted, updated or destination path");
 
     std::string param = params.front();
     params.pop_front();
 
     if (!std::filesystem::exists(param) || !std::filesystem::is_directory(param))
-        throw exceptions::common::BadParameter("sync 命令", param, "目标目录路径，且必须存在");
+        throw exceptions::common::BadParameter("sync command", param, "an existing destination path");
 
     bool syncDeled = false;
     bool syncUpdated = false;
@@ -184,7 +184,7 @@ void sync_handler(std::list<std::string>& params)
 void get_handler(std::list<std::string>& params)
 {
     if (params.empty())
-        throw exceptions::common::BadParameter("set 命令", "空", "normal, deleted, updated 或者文件路径");
+        throw exceptions::common::BadParameter("set command", "empty", "normal, deleted, updated or file path");
 
     std::string param = params.front();
     params.pop_front();
@@ -225,7 +225,7 @@ void get_handler(std::list<std::string>& params)
         srhRes = database_service::get_instance().excute({ srhIcdt });
     }
 
-    lgr.info("对 {} 的查询得到 {} 条结果", param, srhRes.size());
+    lgr.info("query for {} obtained {} results", param, srhRes.size());
 
 
     pc.println("|        |  state | last modified time | file path");
@@ -255,14 +255,14 @@ public:
     initializer(const std::list<std::string>& params)
     {
         referee::iExceptionBase::enableDebug = true;
-        secretary::PrintCenter::enableAnsiColor = false;
+        secretary::PrintCenter::enableAnsi = false;
 
         secretary::log::print = [](const std::string& msg) {static secretary::PrintCenter& pc = secretary::PrintCenter::get_instance(); pc.println(msg); };
 
         if (params.empty() || params.front().front() == '-')
         {
             help_handler();
-            throw exceptions::common::BadParameter("启动参数", assistant::container_to_string(params), "见帮助信息");
+            throw exceptions::common::BadParameter("init params", assistant::container_to_string(params), "see help infomation");
         }
 
         lgr.debug("init with params: {}", assistant::container_to_string(params));
@@ -274,14 +274,17 @@ public:
 
 int main(int argc, char* argv[])
 {
+    secretary::logger lgr = UNION_CREATE_LOGGER();
+    secretary::PrintCenter& pc{ secretary::PrintCenter::get_instance() };
+
     try
     {
-        secretary::logger lgr = UNION_CREATE_LOGGER();
-        secretary::PrintCenter& pc{ secretary::PrintCenter::get_instance() };
         std::list<std::string> params;
         for (int i = 1; i < argc; i++)
             params.emplace_back(argv[i]);
         initializer init{ params };
+
+        lgr.info("initializing and loading databass...");
 
         database_service& db{ database_service::get_instance() };
 
@@ -289,6 +292,8 @@ int main(int argc, char* argv[])
         params.pop_front();
 
         {   // 启动先执行扫描任务
+            lgr.info("starting scan tasks...");
+
             auto srfut = std::async(scan_record);
             auto sffut = std::async(scan_file, basePath);
             auto srres = srfut.get();
@@ -366,8 +371,5 @@ int main(int argc, char* argv[])
             
         }
     }
-    catch (const std::exception& e) 
-    { 
-        secretary::PrintCenter::println(e.what());
-    }
+    catch (const std::exception& e) { lgr.fatal("fatal exception: {}", e.what()); return -1; }
 }
