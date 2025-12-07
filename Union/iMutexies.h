@@ -2,6 +2,9 @@
 #include "pch.h"
 #include "framework.h"
 
+#include "concepts.h"
+#include "lib_exceptions.h"
+
 namespace HYDRA15::Union::labourer
 {
     template<size_t retreatFreq = 32>
@@ -326,85 +329,115 @@ namespace HYDRA15::Union::labourer
 
     // 在同一线程重复上锁时不会重复操作底层锁的读写锁
     // 有效解决读写锁在重入时的性能和死锁问题
-    // 要求解锁必须按照上锁的逆序进行，与标准库一致，否则行为未定义
+    // 要求解锁必须按照上锁的逆序进行，否则行为未定义
     template<typename L>
     class thread_mutex
     {
     private:
-        struct state
+        struct local_state
         {
+            std::weak_ptr<void> ctrl;   // 用于锁实例销毁时清理线程局部状态
             size_t readers = 0;
-            size_t writer = 0;
+            size_t writers = 0;
             bool upgraded = 0;
+            local_state(const std::shared_ptr<void>& c) :ctrl(c) {}
         };
 
     private:
-        static thread_local std::unordered_map<const void*, state> states;
+        static thread_local inline std::unordered_map<const void*, local_state> states{};
 
         L mtx;
 
+        std::shared_ptr<void> ctrl;
+
     private:
-        state& state() { return states[static_cast<const void*>(this)]; }
+        local_state& state() 
+        { 
+            if (!states.contains(static_cast<const void*>(this)))
+            {
+                states.emplace(static_cast<const void*>(this), ctrl);
+                // 每次新建状态时清理已过期的状态
+                for (auto it = states.begin(); it != states.end(); )
+                {
+                    if (it->second.ctrl.expired())
+                        it = states.erase(it);
+                    else
+                        ++it;
+                }
+            }
+            return states.at(static_cast<const void*>(this));
+        }
 
     public:
         void lock()
         {
             auto& s = state();
-            if (s.writers++ > 0) return; // 已持有写锁，重入仅计数
+            auto beforeWriters = s.writers;
+            s.writers++;
+
+            if (beforeWriters > 0) return; // 已持有写锁，重入仅计数
 
             if (s.readers > 0)
-            {
-                // 有本线程的读锁：需要升级到写锁（阻塞式）
-                mtx.upgrade();
-                s.upgraded = true;
-                // 升级后底层已成为写锁（并保留了本线程的读计数语义）
-            }
-            else
-            {
-                mtx.lock();
-            }
+                if constexpr (framework::upgrade_lockable<L>)
+                {
+                    // 有本线程的读锁：需要升级到写锁（阻塞式）
+                    mtx.upgrade();
+                    s.upgraded = true;
+                    return;
+                }
+                else throw exceptions::common("operation requires upgradeable lock");
+            
+            // 首次上锁
+            mtx.lock();
+            return;
         }
 
         void unlock()
         {
             auto& s = state();
-            if (--s.writers > 0) return; // 仍有重入写锁，延迟释放
+            s.writers--;
+
+            if (s.writers > 0) return; // 仍有重入写锁，延迟释放
 
             // 最后一个写锁释放：根据是否通过 upgrade 获得决定降级或直接释放
             if (s.upgraded)
-            {
-                // 之前由读升级到写：降级恢复为读（底层会处理 readers 计数）
-                mtx.downgrade();
-                s.upgraded = false;
-                // 保留 s.readers 原来的计数（调用者可能还持有读锁）
-            }
-            else
-            {
-                mtx.unlock();
-            }
+                if constexpr (framework::upgrade_lockable<L>)
+                {
+                    // 之前由读升级到写：降级恢复为读（底层会处理 readers 计数）
+                    mtx.downgrade();
+                    s.upgraded = false;
+                    return;
+                }
+
+            mtx.unlock();
         }
 
         bool try_lock()
         {
             auto& s = state();
+
             if (s.writers > 0)
             {
                 ++s.writers;
                 return true;
             }
+
             if (s.readers > 0)
-            {
-                if (mtx.try_upgrade())
+                if constexpr (requires(L l) { { l.try_upgrade() }->std::same_as<bool>; })
                 {
-                    ++s.writers;
-                    s.upgraded = true;
-                    return true;
+                    if (mtx.try_upgrade())
+                    {
+                        s.writers++;
+                        s.upgraded = true;
+                        return true;
+                    }
+                    else return false;
                 }
                 else return false;
-            }
+
             if (mtx.try_lock())
             {
-                ++s.writers;
+                s.writers++;
                 return true;
             }
             return false;
@@ -413,59 +446,64 @@ namespace HYDRA15::Union::labourer
         void lock_shared()
         {
             auto& s = state();
+            auto beforeReaders = s.readers;
+            s.readers++;
+
             if (s.writers > 0)
-            {
                 // 已持有写锁，本次 shared 只是逻辑计数
-                ++s.readers;
                 return;
-            }
-            if (s.readers++ == 0)
-                mtx.lock_shared(); // 真正第一次读时申请底层读锁
+
+            // 首次上锁
+            if (beforeReaders == 0)
+                mtx.lock_shared(); 
         }
 
         void unlock_shared()
         {
             auto& s = state();
+            s.readers--;
+
             if (s.writers > 0)
-            {
                 // 在写锁下的读只是局部计数
-                if (s.readers > 0) --s.readers;
                 return;
-            }
-            if (s.readers == 0) return; // 防御性：多余的 unlock 忽略（或可断言）
-            if (--s.readers == 0)
-                mtx.unlock_shared(); // 最后一个本线程的读释放底层读锁
+
+            if (s.readers == 0)
+                // 最后一个本线程的读释放底层读锁
+                mtx.unlock_shared();
         }
 
         bool try_lock_shared()
         {
             auto& s = state();
+
             if (s.writers > 0)
             {
-                ++s.readers;
+                s.readers++;
                 return true;
             }
+
             if (s.readers == 0)
             {
                 if (mtx.try_lock_shared())
                 {
-                    ++s.readers;
+                    s.readers++;
                     return true;
                 }
                 return false;
             }
-            else
-            {
-                // 已有本线程读锁，重入直接成功
-                ++s.readers;
-                return true;
-            }
+
+            // 已有本线程读锁，重入直接成功
+            s.readers++;
+            return true;
         }
+    
+    public:
+        thread_mutex() :ctrl(std::make_shared<char>(0)) {}
     };
 
 
     template<typename L>
-        requires requires(L l) { l.upgrade(); l.downgrade(); }
+        requires framework::upgrade_lockable<L>
     class upgrade_lock
     {
     private:

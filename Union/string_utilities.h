@@ -115,7 +115,7 @@ namespace HYDRA15::Union::assistant
         {
             fast = str.find('\x1b', fast);
             if (fast == str.npos)fast = str.size();
-            res.append(str.substr(slow, fast));
+            res.append(str.substr(slow, fast - slow));
             for (; fast < str.size(); fast++)
                 if (is_charactor(str[fast]))
                     break;
@@ -180,16 +180,32 @@ namespace HYDRA15::Union::assistant
         requires requires(const C& c) {
             { c.begin() } -> std::input_or_output_iterator;
             { c.end() } -> std::sentinel_for<decltype(c.begin())>;
-            { std::to_string(*(c.begin())) }->std::convertible_to<std::string>;
+            { std::stringstream{} << (*(c.begin())) }->std::convertible_to<std::stringstream>;
             { c.empty() }->std::convertible_to<bool>;
     }
     std::string container_to_string(const C& c)
     {
         if (c.empty())return {};
-        std::string res;
+        std::stringstream res;
+        res << "[ ";
         for (const auto& i : c)
-            res += std::to_string(i) + ", ";
-        res.pop_back(); res.pop_back();
+            res << i << ", ";
+        res << " ]";
+        return res.str();
+    }
+
+    // 仅为按位拷贝，不涉及字符集转换
+    // 模板类型为字符类型，调用时只需指定目标字符类型
+    template<typename C, typename S>
+    std::basic_string<C> string_type_cvt(const std::basic_string<S>& src)
+    {
+        size_t resSize = src.size() * sizeof(S) / sizeof(C);
+        std::basic_string<C> res;
+        res.resize(resSize);
+        const C* pSrc = reinterpret_cast<const C*>(src.data());
+        C* pRes = res.data();
+        for (size_t i = 0; i < resSize; i++)
+            pRes[i] = pSrc[i];
         return res;
     }
 }

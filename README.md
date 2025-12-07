@@ -1,6 +1,6 @@
 ﻿# Union
 
-> HYDRA15.Union ver.lib.beta.1.2.0 @HYDRA15 MIT
+> HYDRA15.Union ver.lib.beta.1.2.1 @HYDRA15 MIT
 
 提供应用中常用的工具和模块。    
 
@@ -24,6 +24,15 @@
 要使用本库：    
 1. 包含 Union 目录下你想要的头文件，或者直接包含单头文件 Union.h
 1. 链接对应版本的静态库 Union.lib
+
+## update lib.beta.1.2.1
+
+> 剩余未完成单头文件改造的模块还有：``secretary::ScanCenter``
+
+更新内容：
+- 新增示例程序 demo.EasyFileBackup，演示本库部分常用模块的用法，详见项目源码
+- ``secretary::PrintCenter`` 模块单头文件改造完成
+- 修复错误，优化代码
 
 ## update lib.beta.1.2.0
 

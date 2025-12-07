@@ -46,11 +46,11 @@ namespace HYDRA15::Union::archivist
         private:
             void transport(ID target) const // 移动到指定行，同时转移锁状态
             {
-                if (locked)tableRef.rowMtxs[rowID].unlock();
-                if (lockShared)tableRef.rowMtxs[rowID].unlock_shared();
+                if (locked && rowID < tableRef.recordCount.load(std::memory_order::relaxed))tableRef.rowMtxs[rowID].unlock();
+                if (lockShared && rowID < tableRef.recordCount.load(std::memory_order::relaxed))tableRef.rowMtxs[rowID].unlock_shared();
                 rowID = target;
-                if (locked)tableRef.rowMtxs[rowID].lock();
-                if (lockShared)tableRef.rowMtxs[rowID].lock_shared();
+                if (locked && rowID < tableRef.recordCount.load(std::memory_order::relaxed))tableRef.rowMtxs[rowID].lock();
+                if (lockShared && rowID < tableRef.recordCount.load(std::memory_order::relaxed))tableRef.rowMtxs[rowID].lock_shared();
             }
 
             INT get_row_mark() const
@@ -88,6 +88,8 @@ namespace HYDRA15::Union::archivist
                 return *this;
             }
 
+            virtual bool valid() const {return !(get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)); } // 返回 当前记录是否有效
+
             // 获取、写入记录项
             virtual const field& at(const std::string& fieldName) const override  // 返回 指定字段的数据
             {
@@ -119,7 +121,7 @@ namespace HYDRA15::Union::archivist
                     (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
                     transport(rowID + 1);
                 if (rowID >= currentRecordCount)
-                    rowID = tableRef.end()->id();
+                    transport(tableRef.end()->id());
                 return *this; 
             }
 
@@ -133,7 +135,7 @@ namespace HYDRA15::Union::archivist
                     transport(rowID - 1);
                 if (rowID == 0 &&
                     (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
-                    rowID = tableRef.end()->id();
+                    transport(tableRef.end()->id());
                 return *this; 
             }
 
@@ -147,7 +149,7 @@ namespace HYDRA15::Union::archivist
                     (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
                     transport(rowID + 1);
                 if (rowID >= currentRecordCount)
-                    rowID = tableRef.end()->id();
+                    transport(tableRef.end()->id());
                 return *this;
             }
 
@@ -161,7 +163,7 @@ namespace HYDRA15::Union::archivist
                     transport(rowID - 1);
                 if (rowID == 0 &&
                     (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
-                    rowID = tableRef.end()->id();
+                    transport(tableRef.end()->id());
                 return *this;
             }
 
@@ -176,17 +178,17 @@ namespace HYDRA15::Union::archivist
             virtual bool operator==(const entry& oth) const override { return rowID == oth.id(); }
 
         public:     // 行锁
-            virtual void lock() override { init(); tableRef.rowMtxs[rowID].lock(); locked = true; }
+            virtual void lock() override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) tableRef.rowMtxs[rowID].lock(); locked = true; }
 
-            virtual void unlock() override { init(); tableRef.rowMtxs[rowID].unlock(); locked = false; }
+            virtual void unlock() override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) tableRef.rowMtxs[rowID].unlock(); locked = false; }
 
-            virtual bool try_lock() override { init(); locked = tableRef.rowMtxs[rowID].try_lock(); return locked; }
+            virtual bool try_lock() override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) locked = tableRef.rowMtxs[rowID].try_lock(); return locked; }
 
-            virtual void lock_shared() const override { init(); tableRef.rowMtxs[rowID].lock_shared(); lockShared = true; }
+            virtual void lock_shared() const override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) tableRef.rowMtxs[rowID].lock_shared(); lockShared = true; }
 
-            virtual void unlock_shared() const override { init(); tableRef.rowMtxs[rowID].unlock_shared(); lockShared = false; }
+            virtual void unlock_shared() const override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) tableRef.rowMtxs[rowID].unlock_shared(); lockShared = false; }
 
-            virtual bool try_lock_shared() const override { init(); lockShared = tableRef.rowMtxs[rowID].try_lock_shared(); return lockShared; }
+            virtual bool try_lock_shared() const override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) lockShared = tableRef.rowMtxs[rowID].try_lock_shared(); return lockShared; }
 
         public:
             simple_memory_table& get_table() const { return tableRef; }
@@ -215,6 +217,7 @@ namespace HYDRA15::Union::archivist
             virtual ID id() const override { return std::numeric_limits<ID>::max(); }
             virtual const field_specs& fields() const override                      { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "fields"); }
             virtual entry& erase() override                                         { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "erase"); }
+            virtual bool valid() const override { return true; }
 
             // 获取、写入记录项
             virtual const field& at(const std::string& fieldName) const override  // 返回 指定字段的数据
@@ -234,7 +237,7 @@ namespace HYDRA15::Union::archivist
             virtual const entry& operator++() const override                        { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "operator++ const"); }
             virtual const entry& operator--() const override                        { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "operator-- const"); }
             virtual std::strong_ordering operator<=>(const entry&) const override   { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "operator<=>"); }
-            virtual bool operator==(const entry&) const override                    { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "operator=="); }
+            virtual bool operator==(const entry& e) const override { return e.id() == std::numeric_limits<ID>::max(); }
 
             // 行锁
             virtual void lock() override                                            { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "lock"); }
@@ -449,6 +452,7 @@ namespace HYDRA15::Union::archivist
             tabData.clear(); rowMtxs.clear();
             ID currentRecordCount = loader->tab_size();
             recordCount.store(currentRecordCount, std::memory_order::relaxed);
+            fakeRecordCount.store(currentRecordCount, std::memory_order::relaxed);
             if (currentRecordCount > 0)
             {
                 ID pageSize = loader->page_size();
@@ -499,6 +503,8 @@ namespace HYDRA15::Union::archivist
                 i.data = idx->to_deque();
                 loader->index_tab(i);
             }
+
+            
         }
 
         void resize_data_storage(ID newRowSize)
@@ -530,8 +536,8 @@ namespace HYDRA15::Union::archivist
                 ID writePos = 0;
                 for (ID readPos = 0; readPos < recordCount.load(std::memory_order::relaxed); ++readPos)
                 {
-                    if (!(std::get<INT>(tabData[readPos * fieldTab.size() + fieldNameTab.at(sysfldRowMark)])
-                        & row_bit_mark::deleted_bit))
+                    if ((std::get<INT>(tabData[readPos * fieldTab.size() + fieldNameTab.at(sysfldRowMark)])
+                        & row_bit_mark::deleted_bit) == 0)
                     {
                         if (writePos != readPos)
                             for (size_t fidx = 0; fidx < fieldTab.size(); fidx++)
@@ -540,6 +546,7 @@ namespace HYDRA15::Union::archivist
                     }
                 }
                 recordCount.store(writePos, std::memory_order::relaxed);
+                fakeRecordCount.store(writePos, std::memory_order::relaxed);
             }
             ID currentRecordCount = recordCount.load(std::memory_order::relaxed);
             resize_data_storage(currentRecordCount);
@@ -690,7 +697,7 @@ namespace HYDRA15::Union::archivist
             while (!opers.empty())
             {
                 auto icdt = std::move(opers.front());
-                opers.pop();
+                opers.pop_front();
 
                 switch (icdt.type)
                 {
@@ -766,7 +773,7 @@ namespace HYDRA15::Union::archivist
                         }
                         while (!opers.empty() && opers.front().type == incident::incident_type::search)
                         {
-                            auto nxt = std::move(opers.front()); opers.pop();
+                            auto nxt = std::move(opers.front()); opers.pop_front();
                             {
                                 incident::condition_param cond = std::get<incident::condition_param>(nxt.param);
                                 condParamsByField[cond.targetField].push_back(cond);
@@ -876,7 +883,7 @@ namespace HYDRA15::Union::archivist
                         for (const auto& [fieldName, fsc] : condByField)
                         {
                             if (hasEqual && !fsc.hasEqual)continue;
-                            if (!hasEqual && fsc.hasEqual)
+                            if (!hasEqual && fsc.hasEqual && indexTab[fieldNameTab.at(fieldName)])
                             {
                                 perfectIdx = indexTab[fieldNameTab.at(fieldName)].get();
                                 perfectIdxField = fieldName;
@@ -951,6 +958,15 @@ namespace HYDRA15::Union::archivist
                     }
 
                     if (impossiable) break;
+                    break;
+                }
+                case incident::incident_type::filter:
+                {
+                    std::function<bool(const entry&)> filter = std::get<std::function<bool(const entry&)>>(icdt.param);
+                    for (auto it = currentResult.begin(); it != currentResult.end();)
+                        if (filter(*get_entry(*it)))
+                            it++;
+                        else it = currentResult.erase(it);
                 }
                 default:
                     break;
@@ -990,8 +1006,16 @@ namespace HYDRA15::Union::archivist
             indexTab[fieldNameTab.at(name)].reset();
         }
 
+        virtual index_specs index_tab() const override
+        {
+            index_specs res;
+            for (const auto& idx : indexTab)
+                if (idx) res.push_back(index_spec{ .name = idx->fieldSpec, .comment = "", .fieldSpecs = {idx->fieldSpec} });
+            return res;
+        }
+
     private:// 由派生类实现：返回指向首条记录的迭代器 / 尾后迭代器
-        virtual std::unique_ptr<entry> begin_impl() { return get_entry(0); }
+        virtual std::unique_ptr<entry> begin_impl() { return recordCount.load(std::memory_order::relaxed) > 0 ? get_entry(0) : end_impl(); }
 
         virtual std::unique_ptr<entry> end_impl() { return std::make_unique<data_entry_impl>(*this); }
 
@@ -1007,6 +1031,8 @@ namespace HYDRA15::Union::archivist
             std::unique_lock ul{ tableMtx };
             resize_data_storage(recCount);
         }
+
+        void flush() { std::unique_lock ul{ tableMtx }; flush_all(); }
 
     public: // 表始终从 loader 构造
         simple_memory_table(std::unique_ptr<archivist::loader>&& ld)

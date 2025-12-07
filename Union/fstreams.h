@@ -135,9 +135,9 @@ namespace HYDRA15::Union::assistant
     public:     // 信息和管理接口
         void resize(size_t size)    // 修改文件大小
         {
-            file.close();
+            close();
             std::filesystem::resize_file(path, size);
-            file.open(path);
+            open();
         }
 
         size_t size() const { file.seekg(0, std::ios::end); return file.tellg(); }

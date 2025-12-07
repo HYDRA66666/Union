@@ -101,9 +101,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="PrintCenter.cpp">
-      <Filter>secretary</Filter>
-    </ClCompile>
     <ClCompile Include="ScanCenter.cpp">
       <Filter>secretary</Filter>
     </ClCompile>

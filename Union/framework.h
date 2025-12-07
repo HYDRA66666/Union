@@ -38,5 +38,11 @@ namespace HYDRA15::Union
     inline bool debug = false;
 #endif
 
+#ifdef _DEBUG
+    static constexpr bool globalDebug = true;
+#else
+    static constexpr bool globalDebug = false;
+#endif // _DEBUG
+
     
 }

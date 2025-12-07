@@ -25,6 +25,18 @@ namespace HYDRA15::Union::archivist
     // 字段
     using field = std::variant<NOTHING, INT, FLOAT, INTS, FLOATS, BYTES>;
 
+    template<typename C = char>
+    std::basic_string<C> extract_string(const field& f)
+    {
+        if (!std::holds_alternative<BYTES>(f))
+            throw exceptions::common("Field does not hold BYTES data.");
+        const auto& bdata = std::get<BYTES>(f);
+        return std::basic_string<C>(bdata.begin(), bdata.end());
+    }
+
+    template<typename C>
+    field create_string_field(const std::basic_string<C>& s) { return BYTES(s.begin(), s.end()); }
+
     // 字段信息
     struct field_spec
     {
@@ -137,6 +149,7 @@ namespace HYDRA15::Union::archivist
         virtual ID id() const = 0;  // 返回 记录 ID
         virtual const field_specs& fields() const = 0; // 返回完整的字段表
         virtual entry& erase() = 0; // 删除当前记录，迭代器移动到下一条有效记录
+        virtual bool valid() const = 0; // 返回 当前记录是否有效
 
         // 获取、写入记录项
         virtual const field& at(const std::string&) const = 0;       // 返回 指定字段的数据
@@ -286,8 +299,8 @@ namespace HYDRA15::Union::archivist
     {
         // 事件类型
         enum class incident_type { 
-            nothing, separate, join, ord_lmt,  // 无操作，分割，联合，排序并限制条数
-            create, drop, modify, search       // 增，删，改，查
+            nothing, separate, join, ord_lmt,       // 无操作，分割，联合，排序并限制条数
+            create, drop, modify, search, filter    // 增，删，改，查，过滤器
         };
         // 事件参数
         struct condition_param  // 条件参数
@@ -313,13 +326,14 @@ namespace HYDRA15::Union::archivist
             std::shared_ptr<entry>, // 用于 增
             condition_param,        // 用于 查
             modify_param,           // 用于 改
-            ord_lmt_param           // 用于排序
+            ord_lmt_param,          // 用于排序
+            std::function<bool(const entry&)>   // 用于过滤器
         >;
 
         incident_type type;
         incident_param param;
     };
-    using incidents = std::queue<incident>;
+    using incidents = std::deque<incident>;
 
     class table
     {
@@ -341,8 +355,9 @@ namespace HYDRA15::Union::archivist
         virtual std::list<ID> excute(const incidents&) = 0;                     // 执行一系列事件，按照 ID 顺序返回执行结果
 
         // 索引接口
-        virtual void create_index(const std::string&, const field_specs&) = 0; // 创建指定名称、基于指定字段的索引
-        virtual void drop_index(const std::string&) = 0;                // 删除索引
+        virtual void create_index(const std::string&, const field_specs&) = 0;  // 创建指定名称、基于指定字段的索引
+        virtual void drop_index(const std::string&) = 0;                        // 删除索引
+        virtual index_specs index_tab() const = 0;                              // 返回所有索引的 spec
         
     private:// 由派生类实现：返回指向首条记录的迭代器 / 尾后迭代器
         virtual std::unique_ptr<entry> begin_impl() = 0;
