@@ -99,11 +99,14 @@ namespace HYDRA15::Union::secretary
     public:
         ~PrintCenter()
         {
-            // 恢复 cout
-            std::cout.rdbuf(pSysOutStream->rdbuf());
-            print = [](const std::string& str) {if (enableAnsi)std::cout << str; else std::cout << assistant::strip_ansi_secquence(str); };
-            pSysOutStream = nullptr;
-            pPCOutBuf = nullptr;
+            {
+                std::unique_lock ul{ systemLock };
+                // 恢复 cout
+                std::cout.rdbuf(pSysOutStream->rdbuf());
+                print = [](const std::string& str) {if (enableAnsi)std::cout << str; else std::cout << assistant::strip_ansi_secquence(str); };
+                pSysOutStream = nullptr;
+                pPCOutBuf = nullptr;
+            }
 
             working.store(false, std::memory_order_release);
             sleepcv.notify_all();

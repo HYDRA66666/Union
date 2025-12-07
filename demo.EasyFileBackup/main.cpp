@@ -108,7 +108,7 @@ void set_handler(std::list<std::string>& params)
         state = static_cast<archivist::INT>(file_states::normal);
 
     if (param == "updated")
-        state = static_cast<archivist::INT>(file_states::normal);
+        state = static_cast<archivist::INT>(file_states::updated);
 
     if (state)
     {
@@ -119,7 +119,7 @@ void set_handler(std::list<std::string>& params)
         }
         params.pop_front();
         database_service::get_instance().flush();
-        secretary::PrintCenter::println("All file states set to {}", param);
+        secretary::PrintCenter::println("All file states set to ", param);
         return;
     }
     else
@@ -161,33 +161,19 @@ void sync_handler(std::list<std::string>& params)
             syncDeled = true;
             syncUpdated = true;
         }
-        else break;
+        else
+        {
+            syncDeled = true;
+            syncUpdated = true;
+            break;
+        }
+        params.pop_front();
+        break;
     }
 
-    auto doWork = [param](file_states state) {
-        sync_service ss{ param, state };
-        secretary::PrintCenter& pc{ secretary::PrintCenter::get_instance() };
-
-        sync_count lastCnt = ss.count();
-        int i = 0;
-        auto btmID = pc.set("start synchronization");
-        while (true)
-        {
-            sync_count nowCnt = ss.count();
-            pc.update(btmID, std::format("synchronized {}/{} files of state 0x{:04X}", nowCnt.synced, nowCnt.total, static_cast<archivist::INT>(state)));
-            if (lastCnt.synced == nowCnt.synced) i++;
-            else i = 0;
-            if (i > 4) break;
-            lastCnt = nowCnt;
-            std::this_thread::sleep_for(std::chrono::milliseconds(250));
-        }
-        pc.remove(btmID);
-        return;
-        };
-
-    if (syncNormal)doWork(file_states::normal);
-    if (syncDeled) doWork(file_states::deleted);
-    if (syncUpdated)doWork(file_states::updated);
+    if (syncNormal) { sync_service ss(param, file_states::normal); std::this_thread::sleep_for(std::chrono::seconds(1)); }
+    if (syncDeled) { sync_service ss(param, file_states::deleted); std::this_thread::sleep_for(std::chrono::seconds(1)); }
+    if (syncUpdated) { sync_service ss(param, file_states::updated); std::this_thread::sleep_for(std::chrono::seconds(1)); }
 }
 
 void get_handler(std::list<std::string>& params)
@@ -257,6 +243,16 @@ void get_handler(std::list<std::string>& params)
 
 void help_handler() { secretary::PrintCenter::println(help_str); }
 
+void trim_handler() 
+{
+    secretary::logger lgr = UNION_CREATE_LOGGER();
+    database_service& db{ database_service::get_instance() };
+    size_t beforeCount = db.size();
+    db.trim();
+    size_t afterCount = db.size();
+    lgr.info("Trimmed database, removed {} records", beforeCount - afterCount);
+}
+
 
 class initializer
 {
@@ -267,7 +263,7 @@ public:
         referee::iExceptionBase::enableDebug = true;
         secretary::PrintCenter::enableAnsi = false;
 
-        secretary::log::print = [](const std::string& msg) {static secretary::PrintCenter& pc = secretary::PrintCenter::get_instance(); pc.rolling(msg); };
+        secretary::log::print = [](const std::string& msg) {secretary::PrintCenter::println(msg); };
 
         if (params.empty() || params.front().front() == '-')
         {
@@ -346,6 +342,8 @@ int main(int argc, char* argv[])
                     get_handler(params);
                 if (cmd == "help")
                     help_handler();
+                if (cmd == "trim")
+                    trim_handler();
                 if (cmd == "quit")
                 {
                     exit = true;
@@ -380,6 +378,8 @@ int main(int argc, char* argv[])
                     get_handler(params);
                 if (cmd == "help")
                     help_handler();
+                if (cmd == "trim")
+                    trim_handler();
                 if (cmd == "quit")
                     return 0;
             }

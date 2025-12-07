@@ -46,11 +46,11 @@ namespace HYDRA15::Union::archivist
         private:
             void transport(ID target) const // 移动到指定行，同时转移锁状态
             {
-                if (locked)tableRef.rowMtxs[rowID].unlock();
-                if (lockShared)tableRef.rowMtxs[rowID].unlock_shared();
+                if (locked && rowID < tableRef.recordCount.load(std::memory_order::relaxed))tableRef.rowMtxs[rowID].unlock();
+                if (lockShared && rowID < tableRef.recordCount.load(std::memory_order::relaxed))tableRef.rowMtxs[rowID].unlock_shared();
                 rowID = target;
-                if (locked)tableRef.rowMtxs[rowID].lock();
-                if (lockShared)tableRef.rowMtxs[rowID].lock_shared();
+                if (locked && rowID < tableRef.recordCount.load(std::memory_order::relaxed))tableRef.rowMtxs[rowID].lock();
+                if (lockShared && rowID < tableRef.recordCount.load(std::memory_order::relaxed))tableRef.rowMtxs[rowID].lock_shared();
             }
 
             INT get_row_mark() const
@@ -121,7 +121,7 @@ namespace HYDRA15::Union::archivist
                     (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
                     transport(rowID + 1);
                 if (rowID >= currentRecordCount)
-                    rowID = tableRef.end()->id();
+                    transport(tableRef.end()->id());
                 return *this; 
             }
 
@@ -135,7 +135,7 @@ namespace HYDRA15::Union::archivist
                     transport(rowID - 1);
                 if (rowID == 0 &&
                     (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
-                    rowID = tableRef.end()->id();
+                    transport(tableRef.end()->id());
                 return *this; 
             }
 
@@ -149,7 +149,7 @@ namespace HYDRA15::Union::archivist
                     (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
                     transport(rowID + 1);
                 if (rowID >= currentRecordCount)
-                    rowID = tableRef.end()->id();
+                    transport(tableRef.end()->id());
                 return *this;
             }
 
@@ -163,7 +163,7 @@ namespace HYDRA15::Union::archivist
                     transport(rowID - 1);
                 if (rowID == 0 &&
                     (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
-                    rowID = tableRef.end()->id();
+                    transport(tableRef.end()->id());
                 return *this;
             }
 
@@ -178,17 +178,17 @@ namespace HYDRA15::Union::archivist
             virtual bool operator==(const entry& oth) const override { return rowID == oth.id(); }
 
         public:     // 行锁
-            virtual void lock() override { init(); tableRef.rowMtxs[rowID].lock(); locked = true; }
+            virtual void lock() override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) tableRef.rowMtxs[rowID].lock(); locked = true; }
 
-            virtual void unlock() override { init(); tableRef.rowMtxs[rowID].unlock(); locked = false; }
+            virtual void unlock() override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) tableRef.rowMtxs[rowID].unlock(); locked = false; }
 
-            virtual bool try_lock() override { init(); locked = tableRef.rowMtxs[rowID].try_lock(); return locked; }
+            virtual bool try_lock() override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) locked = tableRef.rowMtxs[rowID].try_lock(); return locked; }
 
-            virtual void lock_shared() const override { init(); tableRef.rowMtxs[rowID].lock_shared(); lockShared = true; }
+            virtual void lock_shared() const override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) tableRef.rowMtxs[rowID].lock_shared(); lockShared = true; }
 
-            virtual void unlock_shared() const override { init(); tableRef.rowMtxs[rowID].unlock_shared(); lockShared = false; }
+            virtual void unlock_shared() const override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) tableRef.rowMtxs[rowID].unlock_shared(); lockShared = false; }
 
-            virtual bool try_lock_shared() const override { init(); lockShared = tableRef.rowMtxs[rowID].try_lock_shared(); return lockShared; }
+            virtual bool try_lock_shared() const override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) lockShared = tableRef.rowMtxs[rowID].try_lock_shared(); return lockShared; }
 
         public:
             simple_memory_table& get_table() const { return tableRef; }
@@ -536,8 +536,8 @@ namespace HYDRA15::Union::archivist
                 ID writePos = 0;
                 for (ID readPos = 0; readPos < recordCount.load(std::memory_order::relaxed); ++readPos)
                 {
-                    if (!(std::get<INT>(tabData[readPos * fieldTab.size() + fieldNameTab.at(sysfldRowMark)])
-                        & row_bit_mark::deleted_bit))
+                    if ((std::get<INT>(tabData[readPos * fieldTab.size() + fieldNameTab.at(sysfldRowMark)])
+                        & row_bit_mark::deleted_bit) == 0)
                     {
                         if (writePos != readPos)
                             for (size_t fidx = 0; fidx < fieldTab.size(); fidx++)

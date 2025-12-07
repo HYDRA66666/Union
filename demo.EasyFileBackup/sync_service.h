@@ -41,6 +41,7 @@ private:
         std::list<archivist::ID>::const_iterator it;
         database_service& db{ database_service::get_instance() };
         secretary::logger lgr{ "sync service thread" };
+        file_states state;
         while(true)
         {
             {
@@ -56,7 +57,7 @@ private:
 
                 std::filesystem::path srcPath = archivist::extract_string<char8_t>(pety->at(dbFields[2]));
                 std::filesystem::path destPath = path / std::filesystem::relative(srcPath);
-                file_states state = static_cast<file_states>(std::get<archivist::INT>(pety->at(dbFields[5])));
+                state = static_cast<file_states>(std::get<archivist::INT>(pety->at(dbFields[5])));
 
                 if (!std::filesystem::exists(destPath.parent_path()))
                     std::filesystem::create_directories(destPath.parent_path());
@@ -85,6 +86,7 @@ private:
             }
             catch (const std::exception& e) { lgr.error("failed to parse record {}: ", *it, e.what()); }
             parsed.fetch_add(1, std::memory_order::relaxed);
+            lgr.info("synced {}/{} files of state {:04X}", parsed.load(std::memory_order::relaxed), targets.size(), static_cast<archivist::INT>(state));
         }
     }
 
