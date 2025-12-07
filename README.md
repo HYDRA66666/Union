@@ -1,6 +1,6 @@
 ﻿# Union
 
-> HYDRA15.Union ver.lib.beta.1.2.0 @HYDRA15 MIT
+> HYDRA15.Union ver.lib.beta.1.2.1 @HYDRA15 MIT
 
 提供应用中常用的工具和模块。    
 
@@ -25,7 +25,7 @@
 1. 包含 Union 目录下你想要的头文件，或者直接包含单头文件 Union.h
 1. 链接对应版本的静态库 Union.lib
 
-## update lib.release.1.2.1
+## update lib.beta.1.2.1
 
 > 剩余未完成单头文件改造的模块还有：``secretary::ScanCenter``
 
