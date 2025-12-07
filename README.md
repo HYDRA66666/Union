@@ -32,6 +32,7 @@
 更新内容：
 - 新增示例程序 demo.EasyFileBackup，演示本库部分常用模块的用法，详见项目源码
 - ``secretary::PrintCenter`` 模块单头文件改造完成
+- 修复错误，优化代码
 
 ## update lib.beta.1.2.0
 
