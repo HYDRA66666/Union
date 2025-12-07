@@ -142,6 +142,12 @@ namespace HYDRA15::Union
     inline bool debug = false;
 #endif
 
+#ifdef _DEBUG
+    static constexpr bool globalDebug = true;
+#else
+    static constexpr bool globalDebug = false;
+#endif // _DEBUG
+
     
 }
 
@@ -321,6 +327,12 @@ namespace HYDRA15::Union::framework
         { t.unlock_shared() } -> std::same_as<void>;
     };
 
+    template<typename T>
+    concept upgrade_lockable = shared_lockable<T> && requires(T t) {
+        { t.upgrade() } -> std::same_as<void>;
+        { t.downgrade() } -> std::same_as<void>;
+    };
+
     // 去除修饰符后真实类型
     template<typename T, typename RT>
     concept is_really_same_v = std::is_same_v<std::remove_cvref_t<T>, std::remove_cvref_t<RT>>;
@@ -371,7 +383,7 @@ namespace HYDRA15::Union::referee
         std::unordered_map<std::string, std::string> info;  // 错误信息 / 参数
         std::list<std::string> stackTrace;  // 调用栈
     public:     // 数据配置
-        bool enableDebug = debug;
+        static inline bool enableDebug = debug;
 
     private:    // 工具函数
 #ifdef UNION_IEXPT_STACKTRACE_ENABLE
@@ -537,489 +549,6 @@ namespace HYDRA15::Union::referee
 
 
 
-/*************** 合并自 iMutexies.h ***************/
-// #pragma once
-// #include "pch.h"
-// #include "framework.h"
-
-namespace HYDRA15::Union::labourer
-{
-    template<size_t retreatFreq = 32>
-    class basic_atomic_mutex
-    {
-    private:
-        std::atomic_bool lck = false;
-
-    public:
-        void lock()
-        {
-            while (true)
-            {
-                for (size_t i = 0; i < retreatFreq; i++)
-                    if (try_lock())return;
-                std::this_thread::yield();
-            }
-        }
-
-        void unlock() { lck.store(false, std::memory_order::release); }
-
-        bool try_lock()
-        {
-            bool expected = false;
-            return lck.compare_exchange_strong(expected, true, std::memory_order::acquire);
-        }
-    };
-
-    using atomic_mutex = basic_atomic_mutex<>;
-
-
-    // 使用原子变量实现的读写锁，自旋等待，适用于短临界区或读多写少
-    // 支持锁升级，此特性对于一般读写锁操作几乎没有额外开销
-    // 限制总读锁数量为 0xFFFFFFFF
-    // 
-    // 性能测试：
-    //                           debug       release
-    //  无锁（纯原子计数器）  4450w tps     6360w tps
-    //  std::shared_mutex      480w tps      670w tps
-    //  atomic_shared_mutex    920w tps     1470w tps
-    template<size_t retreatFreq = 32>
-    class basic_atomic_shared_mutex
-    {
-    private:
-        std::atomic_bool writer = false;
-        std::atomic_bool upgraded = false;
-        std::atomic<size_t> readers = 0;
-
-    public:
-        void lock()
-        {
-            size_t i = 0;
-            while (true)
-            {
-                bool expected = false;
-                if (writer.compare_exchange_weak(
-                    expected, true,
-                    std::memory_order::acquire, std::memory_order::relaxed
-                ))break;
-                i++;
-                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
-            }
-            while (true)
-            {
-                if (readers.load(std::memory_order::acquire) == 0)break;
-                i++;
-                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
-            }
-        }
-
-        void unlock() { writer.store(false, std::memory_order::release); }
-
-        bool try_lock()
-        {
-            bool expected = writer.load(std::memory_order::acquire);
-            if (expected)return false;  // 已有写锁
-            if (!readers.load(std::memory_order::acquire) == 0)
-                return false;           // 有读锁
-            if(!writer.compare_exchange_strong(
-                expected, true,
-                std::memory_order::acquire, std::memory_order::relaxed
-            ))return false;             // 获取写锁失败
-            return true;
-        }
-        
-        void lock_shared()
-        {
-            size_t i = 0;
-            while (true)
-            {
-                if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))
-                {
-                    readers.fetch_add(1, std::memory_order::acquire);
-                    if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))return;
-                    readers.fetch_sub(1, std::memory_order::relaxed);
-                }
-                i++;
-                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
-            }
-        }
-
-        void unlock_shared() { readers.fetch_sub(1, std::memory_order::release); }
-
-        bool try_lock_shared()
-        {
-            if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))
-            {
-                readers.fetch_add(1, std::memory_order::acquire);
-                if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))return true;
-                readers.fetch_sub(1, std::memory_order::relaxed);
-            }
-            return false;
-        }
-
-        // 升级和降级。upgrade 的返回值应当传递给 downgrade 的 before 参数。
-        void upgrade()
-        {
-            readers.fetch_add(0xFFFFFFFF, std::memory_order::acquire);
-            size_t i = 0;
-            while (true)
-            {
-                bool expected = false;
-                if(upgraded.compare_exchange_strong(
-                    expected, true,
-                    std::memory_order::acq_rel, std::memory_order::relaxed
-                ))break;
-                i++;
-                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
-            }
-            while (true)
-            {
-                if ((readers.load(std::memory_order_acquire) & 0xFFFFFFFF) == 0)break;
-                i++;
-                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
-            }
-        }
-
-        void downgrade()
-        {
-            readers.fetch_sub(0xFFFFFFFF, std::memory_order::release);
-            upgraded.store(false, std::memory_order::release);
-        }
-
-        bool try_upgrade()
-        {
-            readers.fetch_add(0xFFFFFFFF, std::memory_order::acquire);
-
-            bool expected = false;
-            if (!upgraded.compare_exchange_strong(
-                expected, true,
-                std::memory_order::acq_rel, std::memory_order::relaxed))
-            {
-                readers.fetch_sub(0xFFFFFFFF, std::memory_order::relaxed);
-                return false;
-            }
-
-            if ((readers.load(std::memory_order::relaxed) & 0xFFFFFFFFu) != 1u)
-            {
-                upgraded.store(false, std::memory_order::relaxed);
-                readers.fetch_sub(0xFFFFFFFF, std::memory_order::relaxed);
-                return false;
-            }
-
-            return true;
-        }
-    };
-
-    using atomic_shared_mutex = basic_atomic_shared_mutex<>;
-
-
-    // 将在多次失败之后回退到系统调度的混合型互斥锁
-    template<size_t retreatFreq = 32>
-    class mixed_mutex_temp
-    {
-    private:
-        std::atomic_bool lck = false;
-
-    public:
-        void lock()
-        {
-            while (true)
-            {
-                for (size_t i = 0; i < retreatFreq; i++)
-                    if (try_lock())return;
-                lck.wait(true, std::memory_order::relaxed);
-            }
-        }
-
-        void unlock() { lck.store(false, std::memory_order::release); lck.notify_one(); }
-
-        bool try_lock()
-        {
-            bool expected = false;
-            return lck.compare_exchange_strong(expected, true, std::memory_order::acquire);
-        }
-    };
-
-    using mixed_mutex = mixed_mutex_temp<>;
-
-    template<size_t retreatFreq = 32>
-    class mixed_shared_mutex_temp
-    {
-    private:
-        std::atomic_bool writer = false;
-        std::atomic_bool upgraded = false;
-        std::atomic<size_t> readers = 0;
-
-    public:
-        void lock()
-        {
-            size_t i = 0;
-            while (true)
-            {
-                bool expected = false;
-                if (writer.compare_exchange_weak(
-                    expected, true,
-                    std::memory_order::acquire, std::memory_order::relaxed
-                ))break;
-                i++;
-                if (i >= retreatFreq)
-                    writer.wait(true, std::memory_order::relaxed);
-            }
-            i = 0;
-            while (true)
-            {
-                size_t old;
-                if ((old = readers.load(std::memory_order::acquire)) == 0)break;
-                i++;
-                if (i >= retreatFreq)
-                    readers.wait(old, std::memory_order::relaxed);
-            }
-        }
-
-        void unlock() { writer.store(false, std::memory_order::release); writer.notify_all(); }
-
-        bool try_lock()
-        {
-            bool expected = writer.load(std::memory_order::acquire);
-            if (expected)return false;  // 已有写锁
-            if (!readers.load(std::memory_order::acquire) == 0)
-                return false;           // 有读锁
-            if (!writer.compare_exchange_strong(
-                expected, true,
-                std::memory_order::acquire, std::memory_order::relaxed
-            ))return false;             // 获取写锁失败
-            return true;
-        }
-
-        void lock_shared()
-        {
-            size_t i = 0;
-            while (true)
-            {
-                if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))
-                {
-                    readers.fetch_add(1, std::memory_order::acquire);
-                    if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))return;
-                    readers.fetch_sub(1, std::memory_order::relaxed);
-                    readers.notify_all();
-                }
-                i++;
-                if (i > retreatFreq)
-                {
-                    writer.wait(true, std::memory_order::relaxed);
-                    upgraded.wait(true, std::memory_order::relaxed);
-                }
-            }
-        }
-
-        void unlock_shared() { readers.fetch_sub(1, std::memory_order::release); readers.notify_all(); }
-
-        bool try_lock_shared()
-        {
-            if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))
-            {
-                readers.fetch_add(1, std::memory_order::acquire);
-                if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))return true;
-                readers.fetch_sub(1, std::memory_order::relaxed);
-                readers.notify_all();
-            }
-            return false;
-        }
-
-        // 升级和降级。upgrade 的返回值应当传递给 downgrade 的 before 参数。
-        void upgrade()
-        {
-            readers.fetch_add(0xFFFFFFFF, std::memory_order::acquire);
-            size_t i = 0;
-            while (true)
-            {
-                bool expected = false;
-                if (upgraded.compare_exchange_strong(
-                    expected, true,
-                    std::memory_order::acquire, std::memory_order::relaxed
-                ))break;
-                i++;
-                if (i >= retreatFreq)
-                    upgraded.wait(true, std::memory_order::relaxed);
-            }
-            i = 0;
-            while (true)
-            {
-                size_t old;
-                if (((old = readers.load(std::memory_order_acquire)) & 0xFFFFFFFF) == 0)break;
-                i++;
-                if (i >= retreatFreq)
-                    readers.wait(old, std::memory_order::relaxed);
-            }
-        }
-
-        void downgrade()
-        {
-            readers.fetch_sub(0xFFFFFFFF, std::memory_order::release);
-            upgraded.store(false, std::memory_order::release);
-            readers.notify_all();
-            upgraded.notify_all();
-        }
-    };
-
-    using mixed_shared_mutex = mixed_shared_mutex_temp<>;
-
-
-    // 在同一线程重复上锁时不会重复操作底层锁的读写锁
-    // 有效解决读写锁在重入时的性能和死锁问题
-    // 要求解锁必须按照上锁的逆序进行，与标准库一致，否则行为未定义
-    template<typename L>
-    class thread_mutex
-    {
-    private:
-        struct state
-        {
-            size_t readers = 0;
-            size_t writer = 0;
-            bool upgraded = 0;
-        };
-
-    private:
-        static thread_local std::unordered_map<const void*, state> states;
-
-        L mtx;
-
-    private:
-        state& state() { return states[static_cast<const void*>(this)]; }
-
-    public:
-        void lock()
-        {
-            auto& s = state();
-            if (s.writers++ > 0) return; // 已持有写锁，重入仅计数
-
-            if (s.readers > 0)
-            {
-                // 有本线程的读锁：需要升级到写锁（阻塞式）
-                mtx.upgrade();
-                s.upgraded = true;
-                // 升级后底层已成为写锁（并保留了本线程的读计数语义）
-            }
-            else
-            {
-                mtx.lock();
-            }
-        }
-
-        void unlock()
-        {
-            auto& s = state();
-            if (--s.writers > 0) return; // 仍有重入写锁，延迟释放
-
-            // 最后一个写锁释放：根据是否通过 upgrade 获得决定降级或直接释放
-            if (s.upgraded)
-            {
-                // 之前由读升级到写：降级恢复为读（底层会处理 readers 计数）
-                mtx.downgrade();
-                s.upgraded = false;
-                // 保留 s.readers 原来的计数（调用者可能还持有读锁）
-            }
-            else
-            {
-                mtx.unlock();
-            }
-        }
-
-        bool try_lock()
-        {
-            auto& s = state();
-            if (s.writers > 0)
-            {
-                ++s.writers;
-                return true;
-            }
-            if (s.readers > 0)
-            {
-                if (mtx.try_upgrade())
-                {
-                    ++s.writers;
-                    s.upgraded = true;
-                    return true;
-                }
-                else return false;
-            }
-            if (mtx.try_lock())
-            {
-                ++s.writers;
-                return true;
-            }
-            return false;
-        }
-
-        void lock_shared()
-        {
-            auto& s = state();
-            if (s.writers > 0)
-            {
-                // 已持有写锁，本次 shared 只是逻辑计数
-                ++s.readers;
-                return;
-            }
-            if (s.readers++ == 0)
-                mtx.lock_shared(); // 真正第一次读时申请底层读锁
-        }
-
-        void unlock_shared()
-        {
-            auto& s = state();
-            if (s.writers > 0)
-            {
-                // 在写锁下的读只是局部计数
-                if (s.readers > 0) --s.readers;
-                return;
-            }
-            if (s.readers == 0) return; // 防御性：多余的 unlock 忽略（或可断言）
-            if (--s.readers == 0)
-                mtx.unlock_shared(); // 最后一个本线程的读释放底层读锁
-        }
-
-        bool try_lock_shared()
-        {
-            auto& s = state();
-            if (s.writers > 0)
-            {
-                ++s.readers;
-                return true;
-            }
-            if (s.readers == 0)
-            {
-                if (mtx.try_lock_shared())
-                {
-                    ++s.readers;
-                    return true;
-                }
-                return false;
-            }
-            else
-            {
-                // 已有本线程读锁，重入直接成功
-                ++s.readers;
-                return true;
-            }
-        }
-    };
-
-
-    template<typename L>
-        requires requires(L l) { l.upgrade(); l.downgrade(); }
-    class upgrade_lock
-    {
-    private:
-        L& smtx;
-
-    public:
-        upgrade_lock(L& m) :smtx(m) { smtx.upgrade(); }
-        ~upgrade_lock() { smtx.downgrade(); }
-    };
-}
-
-
-
-
 /*************** 合并自 lib_info.h ***************/
 // #pragma once
 // #include "pch.h"
@@ -1031,7 +560,7 @@ namespace HYDRA15::Union::labourer
 namespace HYDRA15::Union::framework
 {
     static_string libName = "HYDRA15.Union";
-    static_string version = "ver.lib.beta.1.2.0";
+    static_string version = "ver.lib.beta.1.2.1";
 
     // 子系统代码
     static struct libID
@@ -1224,7 +753,7 @@ namespace HYDRA15::Union::assistant
         {
             fast = str.find('\x1b', fast);
             if (fast == str.npos)fast = str.size();
-            res.append(str.substr(slow, fast));
+            res.append(str.substr(slow, fast - slow));
             for (; fast < str.size(); fast++)
                 if (is_charactor(str[fast]))
                     break;
@@ -1289,498 +818,34 @@ namespace HYDRA15::Union::assistant
         requires requires(const C& c) {
             { c.begin() } -> std::input_or_output_iterator;
             { c.end() } -> std::sentinel_for<decltype(c.begin())>;
-            { std::to_string(*(c.begin())) }->std::convertible_to<std::string>;
+            { std::stringstream{} << (*(c.begin())) }->std::convertible_to<std::stringstream>;
             { c.empty() }->std::convertible_to<bool>;
     }
     std::string container_to_string(const C& c)
     {
         if (c.empty())return {};
-        std::string res;
+        std::stringstream res;
+        res << "[ ";
         for (const auto& i : c)
-            res += std::to_string(i) + ", ";
-        res.pop_back(); res.pop_back();
+            res << i << ", ";
+        res << " ]";
+        return res.str();
+    }
+
+    // 仅为按位拷贝，不涉及字符集转换
+    // 模板类型为字符类型，调用时只需指定目标字符类型
+    template<typename C, typename S>
+    std::basic_string<C> string_type_cvt(const std::basic_string<S>& src)
+    {
+        size_t resSize = src.size() * sizeof(S) / sizeof(C);
+        std::basic_string<C> res;
+        res.resize(resSize);
+        const C* pSrc = reinterpret_cast<const C*>(src.data());
+        C* pRes = res.data();
+        for (size_t i = 0; i < resSize; i++)
+            pRes[i] = pSrc[i];
         return res;
     }
-}
-
-
-
-/*************** 合并自 background.h ***************/
-// #pragma once
-// #include "pch.h"
-// #include "framework.h"
-
-// #include "iMutexies.h"
-namespace HYDRA15::Union::labourer
-{
-    // 继承此类的子类将在初始化时自动根据设定的参数启动后台线程
-    // 使用方法：
-    //   - 重写 work() 方法
-    //   - 构造函数中指定线程参数
-    //   - 子类初始化完成后调用 start() 方法启动线程
-    //   - 结束工作后，需要自行通知工作线程结束任务并返回
-    //   - 结束工作后调用 stop() 方法等待线程返回，所有线程都返回后此函数将返回
-    // 线程的数量一经初始化后不可更改，需要动态调整线程数量建议创建多个 Background 实例
-    class background
-    {
-    private:
-        std::barrier<> checkpoint;  //启动和结束同步
-        std::list<std::thread> threads; // 异步线程组
-
-        void work_shell() // 封装了启动与结束同步的工作函数
-        {
-            // 等待启动信号
-            checkpoint.arrive_and_wait();
-            // 执行工作
-            work();
-            // 等待所有线程完成工作
-            auto t = checkpoint.arrive();
-        }
-
-    protected:
-        virtual void work() noexcept = 0;  // 重写此方法以异步执行
-
-        // 启动同步和结束同步
-    protected:
-        void start() { checkpoint.arrive_and_wait(); }  // 某些系统依赖后台线程初始化完成才能正常工作
-
-        void detach() { auto t = checkpoint.arrive(); } // 无需等待后台线程初始化完成可以使用此接口
-
-        void wait_for_end() { checkpoint.arrive_and_wait(); }
-
-        // 构造函数，参数为异步线程数量，默认为1
-    protected:
-        background(unsigned int bkgThrCount)
-            : checkpoint(bkgThrCount + 1)
-        {
-            for (unsigned int i = 0; i < bkgThrCount; i++)
-                threads.emplace_back(&background::work_shell, this);
-        }
-
-        background() :background(1) {}
-
-        virtual ~background() { for (auto& i : threads)if (i.joinable())i.detach(); }
-
-        background(background&&) = delete;
-        background(const background&) = delete;
-        background& operator=(const background&) = delete;
-    };
-
-}
-
-
-
-
-/*************** 合并自 secretary_streambuf.h ***************/
-// #pragma once
-// #include "pch.h"
-// #include "framework.h"
-
-// #include "iMutexies.h"
-
-
-namespace HYDRA15::Union::secretary
-{
-    // AI 生成的代码
-    // 自定义输出流缓冲区，自动将缓冲区内容传递给PrintCenter，用于重定向 std::cout
-    class ostreambuf : public std::streambuf {
-    public:
-        explicit ostreambuf(std::function<void(const std::string&)> c, std::size_t initial_size = 256, std::size_t max_size = 65536)
-            : buffer_(initial_size), max_size_(max_size), callback(c)
-        {
-            setp(buffer_.data(), buffer_.data() + buffer_.size());
-        }
-
-    protected:
-        int_type overflow(int_type ch) override
-        {
-            std::lock_guard lg(mtx_);
-            if (ch == traits_type::eof()) return traits_type::not_eof(ch);
-
-            if (pptr() == epptr()) {
-                if (buffer_.size() < max_size_) {
-                    expand_buffer();
-                }
-                else {
-                    flush_buffer();
-                }
-            }
-            *pptr() = ch;
-            pbump(1);
-
-            if (ch == '\n') {
-                flush_buffer();
-            }
-            return ch;
-        }
-
-        std::streamsize xsputn(const char* s, std::streamsize n) override
-        {
-            std::lock_guard lg(mtx_);
-            std::streamsize written = 0;
-            while (written < n) {
-                std::size_t space_left = epptr() - pptr();
-                if (space_left == 0) {
-                    if (buffer_.size() < max_size_) {
-                        expand_buffer();
-                        space_left = epptr() - pptr();
-                    }
-                    else {
-                        flush_buffer();
-                        space_left = epptr() - pptr();
-                    }
-                }
-                std::size_t to_write = std::min<std::size_t>(space_left, n - written);
-
-                const char* nl = static_cast<const char*>(memchr(s + written, '\n', to_write));
-                if (nl) {
-                    std::size_t nl_pos = nl - (s + written);
-                    std::memcpy(pptr(), s + written, nl_pos + 1);
-                    pbump(static_cast<int>(nl_pos + 1));
-                    written += nl_pos + 1;
-                    flush_buffer();
-                }
-                else {
-                    std::memcpy(pptr(), s + written, to_write);
-                    pbump(static_cast<int>(to_write));
-                    written += to_write;
-                }
-            }
-            return written;
-        }
-
-        int sync() override
-        {
-            std::lock_guard lg(mtx_);
-            flush_buffer();
-            return 0;
-        }
-
-    private:
-        std::vector<char> buffer_;
-        std::size_t max_size_;
-        labourer::atomic_mutex mtx_;
-        std::function<void(const std::string&)> callback;
-
-        void expand_buffer()
-        {
-            std::lock_guard lg(mtx_);
-            std::size_t current_size = buffer_.size();
-            std::size_t new_size = std::min(current_size * 2, max_size_);
-            std::ptrdiff_t offset = pptr() - pbase();
-            buffer_.resize(new_size);
-            setp(buffer_.data(), buffer_.data() + buffer_.size());
-            pbump(static_cast<int>(offset));
-        }
-
-        void flush_buffer()
-        {
-            std::ptrdiff_t n = pptr() - pbase();
-            if (n > 0) {
-                callback(std::string(pbase(), n));
-                pbump(static_cast<int>(-n));
-            }
-        }
-    };
-
-    // AI生成的代码
-    // 自定义输入流缓冲区，用于将输入重定向至 Command 类，用于重定向 std::cin
-    class istreambuf : public std::streambuf 
-    {
-    private:
-        std::string buffer_;   // 使用 std::string 作为缓冲区（自动管理内存）
-        bool eof_ = false;     // 是否已到逻辑 EOF
-        std::mutex mtx_;
-
-        // 回调函数：用于获取一行输入
-        std::function<std::string()> getline_callback;
-
-        // 从 Command::getline() 获取一行并加载到 buffer_
-        bool refill()
-        {
-            if (eof_) return false;
-
-            buffer_ = std::move(getline_callback());
-            if (buffer_.empty()) {
-                // 假设返回空字符串表示输入结束（EOF）
-                eof_ = true;
-                return false;
-            }
-
-            // 将整行 + 换行符存入 buffer_
-            // 注意：即使原输入无 '\n'，我们也添加一个，以模拟标准输入行为
-            buffer_ += '\n';
-
-            // 设置 get area: [begin, end)
-            char* beg = &buffer_[0];
-            char* end = beg + buffer_.size();
-            setg(beg, beg, end);
-
-            return true;
-        }
-
-    public:
-        // 构造时传入回调
-        explicit istreambuf(std::function<std::string()> callback)
-            : getline_callback(std::move(callback))
-        {
-            setg(nullptr, nullptr, nullptr); // 初始化 get area
-        }
-
-        // 重写 underflow：单字符读取时调用
-        int underflow() override
-        {
-            std::unique_lock ul{ mtx_ };
-            if (gptr() < egptr()) {
-                return traits_type::to_int_type(*gptr());
-            }
-            if (!refill()) {
-                return traits_type::eof();
-            }
-            return traits_type::to_int_type(*gptr());
-        }
-
-        // 1. 优化批量读取：重写 xsgetn
-        std::streamsize xsgetn(char* s, std::streamsize count) override
-        {
-            std::unique_lock ul{ mtx_ };
-            std::streamsize total = 0;
-
-            while (total < count) {
-                // 当前缓冲区中可用字符数
-                std::streamsize avail = egptr() - gptr();
-                if (avail > 0) {
-                    std::streamsize to_copy = std::min(avail, count - total);
-                    std::copy(gptr(), gptr() + to_copy, s + total);
-                    gbump(static_cast<int>(to_copy)); // 移动 get 指针
-                    total += to_copy;
-                }
-                else {
-                    // 缓冲区为空，尝试 refill
-                    if (!refill()) {
-                        // EOF：返回已读取的字节数（可能为 0）
-                        break;
-                    }
-                    // refill 成功后，下一轮循环会复制数据
-                }
-            }
-
-            return total;
-        }
-
-        // 2. 支持 cin.getline()：确保换行符被正确消费
-        //    标准要求：getline 会读取直到 '\n' 或缓冲区满，并丢弃 '\n'
-        //    我们的 underflow/xsgetn 已提供 '\n'，因此无需额外处理
-        //    但需确保：当遇到 EOF 且无 '\n' 时，仍能正确终止
-        //    —— 这由标准库的 istream::getline 逻辑处理，我们只需提供字符流
-
-        // 可选：重写 showmanyc() 以提示可用字符数（非必需，但可优化）
-        std::streamsize showmanyc() override
-        {
-            std::unique_lock ul{ mtx_ };
-            if (gptr() < egptr()) {
-                return egptr() - gptr();
-            }
-            return eof_ ? -1 : 0; // -1 表示 EOF
-        }
-
-    };
-}
-
-
-
-/*************** 合并自 shared_containers.h ***************/
-// #pragma once
-// #include "pch.h"
-// #include "framework.h"
-
-// #include "concepts.h"
-// #include "iMutexies.h"
-
-namespace HYDRA15::Union::labourer
-{
-    // 基于 std::queue std::mutex std::conditional_variable 的基本阻塞队列
-    template<typename T>
-    class basic_blockable_queue
-    {
-        std::queue<T> queue;
-        std::mutex mtx;
-        std::condition_variable cv;
-        std::atomic_bool working = true;
-
-    public:
-        template<typename U>
-            requires framework::is_really_same_v<T, U>
-        void push(U&& item)
-        {
-            if (!working.load(std::memory_order_acquire))return;
-            std::unique_lock ul{ mtx };
-            queue.push(std::forward<U>(item));
-            cv.notify_one();
-            return;
-        }
-
-        T pop()
-        {
-            std::unique_lock ul{ mtx };
-            while (working.load(std::memory_order_acquire) && queue.empty())cv.wait(ul);
-            if (!working.load(std::memory_order_acquire))return T{};
-            if constexpr (std::is_move_constructible_v<T>)
-            {
-                T t = std::move(queue.front());
-                queue.pop();
-                return std::move(t);
-            }
-            else
-            {
-                T t = queue.front();
-                queue.pop();
-                return t;
-            }
-        }
-
-        size_t size() const { return queue.size(); }
-        bool empty() const { return queue.empty(); }
-
-        void notify_exit()
-        {
-            working.store(false, std::memory_order_release);
-            cv.notify_all();
-        }
-
-    };
-
-
-
-    // 无锁队列采用环形缓冲区 + 序号标记实现
-    // 定长缓冲区
-    // 可能存在忙等问题。要求元素有空构造
-    // 性能测试：
-    //                           debug       release
-    //  std::queue + std::mutex 20w tps     100w tps
-    //  lockless_queue<1M>     250w tps     300w tps
-    template<typename T, size_t bufSize, size_t maxRetreatFreq = 32>
-    class lockless_queue
-    {
-        struct cell { std::atomic<size_t> seqNo{}; T data{}; };
-    private:
-        alignas(64) std::unique_ptr<cell[]> buffer = std::make_unique<cell[]>(bufSize);
-        alignas(64) std::atomic<size_t> pNextEnque = 0;
-        alignas(64) std::atomic<size_t> pNextDeque = 0;
-        std::atomic_bool working = true;
-
-    public:
-        lockless_queue() { for (size_t i = 0; i < bufSize; i++)buffer[i].seqNo = i; }
-        lockless_queue(const lockless_queue&) = delete;
-        lockless_queue(lockless_queue&&) = default;
-
-        // 入出队
-        template<typename U>
-            requires framework::is_really_same_v<T, U>
-        void push(U&& item)
-        {
-            size_t retreatFreq = maxRetreatFreq;
-            while (working.load(std::memory_order_acquire))
-            {
-                for (size_t i = 0; i < retreatFreq; i++)
-                    if (try_push(std::forward<U>(item)))
-                        return;
-                if (retreatFreq > 1)retreatFreq /= 2;
-                std::this_thread::yield();
-            }
-        }
-
-        T pop()
-        {
-            size_t retreatFreq = maxRetreatFreq;
-            while (working.load(std::memory_order_acquire))
-            {
-                for (size_t i = 0; i < retreatFreq; i++)
-                    if (auto [success, item] = try_pop(); success)
-                        if constexpr (std::is_move_constructible_v<T>) return std::move(item);
-                        else return item;
-                if (retreatFreq > 1)retreatFreq /= 2;
-                std::this_thread::yield();
-            }
-            return T{};
-        }
-
-        template<typename U>
-            requires framework::is_really_same_v<T, U>
-        bool try_push(U&& item)
-        {
-            size_t seq = pNextEnque.load(std::memory_order_relaxed);
-            size_t p = seq % bufSize;
-            if (buffer[p].seqNo.load(std::memory_order_acquire) != seq)
-                return false;
-            if (!pNextEnque.compare_exchange_strong(seq, seq + 1, std::memory_order_relaxed))
-                return false;
-            buffer[p].data = std::forward<U>(item);
-            buffer[p].seqNo.store(seq + 1, std::memory_order_release);
-            return true;
-        }
-
-        std::pair<bool, T> try_pop()
-        {
-            size_t seq = pNextDeque.load(std::memory_order_relaxed);
-            size_t p = seq % bufSize;
-            if (buffer[p].seqNo.load(std::memory_order_acquire) != seq + 1)
-                return { false,T{} };
-            if (!pNextDeque.compare_exchange_strong(seq, seq + 1, std::memory_order_relaxed))
-                return { false,T{} };
-            if constexpr (std::is_move_constructible_v<T>)
-            {
-                T item = std::move(buffer[p].data);
-                buffer[p].seqNo.store(seq + bufSize, std::memory_order_release);
-                return { true, std::move(item) };
-            }
-            else
-            {
-                T item = buffer[p].data;
-                buffer[p].seqNo.store(seq + bufSize, std::memory_order_release);
-                return { true,item };
-            }
-
-        }
-
-        // 信息和控制
-        size_t size() const
-        {
-            const size_t enq = pNextEnque.load(std::memory_order_acquire);
-            const size_t deq = pNextDeque.load(std::memory_order_acquire);
-            return (enq >= deq) ? (enq - deq) : std::numeric_limits<size_t>::max() - deq + enq;
-        }
-
-        size_t empty() const 
-        {  
-            return pNextDeque.load(std::memory_order_acquire) ==
-                pNextEnque.load(std::memory_order_acquire);
-        }
-
-        void notify_exit() { working.store(false, std::memory_order_release); }
-
-    };
-
-
-    // 基于 atomic_mutex 的共享 set
-    template<typename T>
-    class basic_shared_set
-    {
-        atomic_mutex mtx;
-        std::set<T> set;
-
-    public:
-        template<typename U>
-        auto insert(U&& t) { std::unique_lock ul{ mtx }; return set.insert(std::forward<U>(t)); }
-
-        template<typename U>
-        auto lower_bound(U&& t) { std::unique_lock ul{ mtx }; return set.lower_bound(std::forward<U>(t)); }
-
-        template<typename U>
-        auto upper_bound(U&& t) { std::unique_lock ul{ mtx }; return set.upper_bound(std::forward<U>(t)); }
-
-        auto clear() { std::unique_lock ul{ mtx }; return set.clear(); }
-    };
 }
 
 
@@ -2206,166 +1271,6 @@ namespace HYDRA15::Union::assistant
 
 
 
-/*************** 合并自 ThreadLake.h ***************/
-// #pragma once
-// #include "pch.h"
-// #include "framework.h"
-
-// #include "background.h"
-// #include "concepts.h"
-// #include "shared_containers.h"
-
-
-namespace HYDRA15::Union::labourer
-{
-    /***************************** 线程池基础 *****************************/
-    // 预留任务调度策略的改造空间
-
-    // 定义任务工作的接口，任务细节存储在派生类中
-    class mission_base
-    {
-    public:
-        virtual ~mission_base() = default;
-
-        virtual void operator()() noexcept = 0;
-    };
-    using mission = std::unique_ptr<mission_base>;
-
-    // 定义线程池的基本行为：提交任务、线程执行任务
-    template<typename queue_t>
-        requires requires(queue_t q, mission pkg)
-    {
-        { q.push(pkg) };                            // 应当是阻塞式
-        { q.pop() }-> std::convertible_to<mission>; // 应当是阻塞式
-        { q.empty() }->std::convertible_to<bool>;
-        { q.notify_exit() };                        // 用于结束时使用，通知等待线程应该退出
-    }
-    class thread_pool : public background
-    {
-    protected: // 数据
-        queue_t queue;
-    private:
-        std::atomic_bool working = true;
-        std::atomic<unsigned int> activeCount = 0;
-        std::mutex gexptrMtx;
-        std::exception_ptr gexptr = nullptr;
-
-    private: // 后台任务
-        virtual void work() noexcept override
-        {
-            try
-            {
-                mission mis;
-                while (working.load(std::memory_order::relaxed) || !queue.empty())
-                {
-                    // 取任务
-                    mis = queue.pop();
-                    // 执行任务
-                    activeCount.fetch_add(1, std::memory_order::relaxed);
-                    (*mis)();
-                    activeCount.fetch_add(-1, std::memory_order::relaxed);
-                }
-            }
-            catch (...) { std::unique_lock ul{ gexptrMtx }; gexptr = std::current_exception(); }
-        }
-
-    public: // 提交接口
-        void submit(mission&& mis) { queue.push(std::move(mis)); }
-
-    public: // 构造
-        thread_pool() = delete;
-        thread_pool(const thread_pool&) = delete;
-        thread_pool(thread_pool&&) = delete;
-        thread_pool(unsigned int threadCount) :background(threadCount) { background::start(); }
-        virtual ~thread_pool()
-        {
-            working.store(false, std::memory_order_release);
-            queue.notify_exit();
-            background::wait_for_end();
-        }
-
-    public: // 管理接口
-        size_t size() const { return queue.size(); }
-        unsigned int active() const { return activeCount.load(std::memory_order::relaxed); }
-        bool alive() const  // 任意一个线程出错则抛出最后一个异常，否则返回 true
-        { 
-            std::unique_lock ul{ gexptrMtx }; 
-            if (gexptr)std::rethrow_exception(gexptr); 
-            return true; 
-        } 
-    };
-
-    /***************************** 基本线程池实现 *****************************/
-    // 专用于 ThreadLake 的任务实现
-    template<typename ret>
-    class lake_mission : public mission_base
-    {
-        std::function<ret()> tsk;
-        std::function<void(const ret&)> cb;
-        std::promise<ret> prms;
-    public:
-        virtual ~lake_mission() = default;
-        lake_mission(const std::function<ret()>& task, const std::function<void(const ret&)>& callback)
-            :tsk(task), cb(callback) {
-        }
-
-        virtual void operator()() noexcept override
-        {
-            try
-            {
-                if (!tsk)return;
-                if constexpr (std::is_void_v<ret>) { tsk(); if (cb)cb(); prms.set_value(); }
-                else { 
-                    ret t = tsk(); if (cb)cb(t); 
-                    if constexpr (std::is_move_constructible_v<ret>)prms.set_value(std::move(t));
-                    else prms.set_value(t);
-                }
-                return;
-            }
-            catch (...) { prms.set_exception(std::current_exception()); }
-        }
-
-        std::future<ret> get_future() { return prms.get_future(); }
-    };
-
-
-    template<template<typename ...> typename queue_t>
-    class thread_lake : public thread_pool<queue_t<mission>>
-    {
-    public: // 构造
-        virtual ~thread_lake() = default;
-        thread_lake(unsigned int threadCount) :thread_pool<queue_t<mission>>(threadCount) {}
-    public: // 提交任务和回调函数
-        template<typename ret>
-        auto submit(
-            const std::function<ret()>& task,
-            const std::function<void(const ret&)>& callback = std::function<void(const ret&)>()
-        ) -> std::future<ret> {
-            auto pmis = std::make_unique<lake_mission<ret>>(task, callback);
-            auto fut = pmis->get_future();
-            thread_pool<queue_t<mission>>::submit(std::move(pmis));
-            return fut;
-        }
-
-        // 提交函数和参数，此方法不支持回调
-        template<typename F, typename ... Args>
-        requires std::invocable<F,Args...>
-        auto submit(F&& f, Args&& ... args)
-            -> std::future<std::invoke_result_t<F, Args...>> 
-        {
-            using ret = std::invoke_result_t<F, Args...>;
-            return submit<ret>(
-                std::function<ret()>(std::bind(std::forward<F>(f), std::forward<Args>(args)...))
-            );
-        }
-    };
-
-    using ThreadLake = thread_lake<basic_blockable_queue>;
-}
-
-
-
-
 /*************** 合并自 archivist_interfaces.h ***************/
 // #pragma once
 // #include "pch.h"
@@ -2393,6 +1298,18 @@ namespace HYDRA15::Union::archivist
 
     // 字段
     using field = std::variant<NOTHING, INT, FLOAT, INTS, FLOATS, BYTES>;
+
+    template<typename C = char>
+    std::basic_string<C> extract_string(const field& f)
+    {
+        if (!std::holds_alternative<BYTES>(f))
+            throw exceptions::common("Field does not hold BYTES data.");
+        const auto& bdata = std::get<BYTES>(f);
+        return std::basic_string<C>(bdata.begin(), bdata.end());
+    }
+
+    template<typename C>
+    field create_string_field(const std::basic_string<C>& s) { return BYTES(s.begin(), s.end()); }
 
     // 字段信息
     struct field_spec
@@ -2506,6 +1423,7 @@ namespace HYDRA15::Union::archivist
         virtual ID id() const = 0;  // 返回 记录 ID
         virtual const field_specs& fields() const = 0; // 返回完整的字段表
         virtual entry& erase() = 0; // 删除当前记录，迭代器移动到下一条有效记录
+        virtual bool valid() const = 0; // 返回 当前记录是否有效
 
         // 获取、写入记录项
         virtual const field& at(const std::string&) const = 0;       // 返回 指定字段的数据
@@ -2655,8 +1573,8 @@ namespace HYDRA15::Union::archivist
     {
         // 事件类型
         enum class incident_type { 
-            nothing, separate, join, ord_lmt,  // 无操作，分割，联合，排序并限制条数
-            create, drop, modify, search       // 增，删，改，查
+            nothing, separate, join, ord_lmt,       // 无操作，分割，联合，排序并限制条数
+            create, drop, modify, search, filter    // 增，删，改，查，过滤器
         };
         // 事件参数
         struct condition_param  // 条件参数
@@ -2682,13 +1600,14 @@ namespace HYDRA15::Union::archivist
             std::shared_ptr<entry>, // 用于 增
             condition_param,        // 用于 查
             modify_param,           // 用于 改
-            ord_lmt_param           // 用于排序
+            ord_lmt_param,          // 用于排序
+            std::function<bool(const entry&)>   // 用于过滤器
         >;
 
         incident_type type;
         incident_param param;
     };
-    using incidents = std::queue<incident>;
+    using incidents = std::deque<incident>;
 
     class table
     {
@@ -2710,8 +1629,9 @@ namespace HYDRA15::Union::archivist
         virtual std::list<ID> excute(const incidents&) = 0;                     // 执行一系列事件，按照 ID 顺序返回执行结果
 
         // 索引接口
-        virtual void create_index(const std::string&, const field_specs&) = 0; // 创建指定名称、基于指定字段的索引
-        virtual void drop_index(const std::string&) = 0;                // 删除索引
+        virtual void create_index(const std::string&, const field_specs&) = 0;  // 创建指定名称、基于指定字段的索引
+        virtual void drop_index(const std::string&) = 0;                        // 删除索引
+        virtual index_specs index_tab() const = 0;                              // 返回所有索引的 spec
         
     private:// 由派生类实现：返回指向首条记录的迭代器 / 尾后迭代器
         virtual std::unique_ptr<entry> begin_impl() = 0;
@@ -2810,6 +1730,1477 @@ namespace HYDRA15::Union::assistant
         }
     };
 }
+
+
+
+/*************** 合并自 iMutexies.h ***************/
+// #pragma once
+// #include "pch.h"
+// #include "framework.h"
+
+// #include "concepts.h"
+// #include "lib_exceptions.h"
+
+namespace HYDRA15::Union::labourer
+{
+    template<size_t retreatFreq = 32>
+    class basic_atomic_mutex
+    {
+    private:
+        std::atomic_bool lck = false;
+
+    public:
+        void lock()
+        {
+            while (true)
+            {
+                for (size_t i = 0; i < retreatFreq; i++)
+                    if (try_lock())return;
+                std::this_thread::yield();
+            }
+        }
+
+        void unlock() { lck.store(false, std::memory_order::release); }
+
+        bool try_lock()
+        {
+            bool expected = false;
+            return lck.compare_exchange_strong(expected, true, std::memory_order::acquire);
+        }
+    };
+
+    using atomic_mutex = basic_atomic_mutex<>;
+
+
+    // 使用原子变量实现的读写锁，自旋等待，适用于短临界区或读多写少
+    // 支持锁升级，此特性对于一般读写锁操作几乎没有额外开销
+    // 限制总读锁数量为 0xFFFFFFFF
+    // 
+    // 性能测试：
+    //                           debug       release
+    //  无锁（纯原子计数器）  4450w tps     6360w tps
+    //  std::shared_mutex      480w tps      670w tps
+    //  atomic_shared_mutex    920w tps     1470w tps
+    template<size_t retreatFreq = 32>
+    class basic_atomic_shared_mutex
+    {
+    private:
+        std::atomic_bool writer = false;
+        std::atomic_bool upgraded = false;
+        std::atomic<size_t> readers = 0;
+
+    public:
+        void lock()
+        {
+            size_t i = 0;
+            while (true)
+            {
+                bool expected = false;
+                if (writer.compare_exchange_weak(
+                    expected, true,
+                    std::memory_order::acquire, std::memory_order::relaxed
+                ))break;
+                i++;
+                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
+            }
+            while (true)
+            {
+                if (readers.load(std::memory_order::acquire) == 0)break;
+                i++;
+                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
+            }
+        }
+
+        void unlock() { writer.store(false, std::memory_order::release); }
+
+        bool try_lock()
+        {
+            bool expected = writer.load(std::memory_order::acquire);
+            if (expected)return false;  // 已有写锁
+            if (!readers.load(std::memory_order::acquire) == 0)
+                return false;           // 有读锁
+            if(!writer.compare_exchange_strong(
+                expected, true,
+                std::memory_order::acquire, std::memory_order::relaxed
+            ))return false;             // 获取写锁失败
+            return true;
+        }
+        
+        void lock_shared()
+        {
+            size_t i = 0;
+            while (true)
+            {
+                if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))
+                {
+                    readers.fetch_add(1, std::memory_order::acquire);
+                    if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))return;
+                    readers.fetch_sub(1, std::memory_order::relaxed);
+                }
+                i++;
+                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
+            }
+        }
+
+        void unlock_shared() { readers.fetch_sub(1, std::memory_order::release); }
+
+        bool try_lock_shared()
+        {
+            if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))
+            {
+                readers.fetch_add(1, std::memory_order::acquire);
+                if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))return true;
+                readers.fetch_sub(1, std::memory_order::relaxed);
+            }
+            return false;
+        }
+
+        // 升级和降级。upgrade 的返回值应当传递给 downgrade 的 before 参数。
+        void upgrade()
+        {
+            readers.fetch_add(0xFFFFFFFF, std::memory_order::acquire);
+            size_t i = 0;
+            while (true)
+            {
+                bool expected = false;
+                if(upgraded.compare_exchange_strong(
+                    expected, true,
+                    std::memory_order::acq_rel, std::memory_order::relaxed
+                ))break;
+                i++;
+                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
+            }
+            while (true)
+            {
+                if ((readers.load(std::memory_order_acquire) & 0xFFFFFFFF) == 0)break;
+                i++;
+                if (i >= retreatFreq) { i = 0; std::this_thread::yield(); }
+            }
+        }
+
+        void downgrade()
+        {
+            readers.fetch_sub(0xFFFFFFFF, std::memory_order::release);
+            upgraded.store(false, std::memory_order::release);
+        }
+
+        bool try_upgrade()
+        {
+            readers.fetch_add(0xFFFFFFFF, std::memory_order::acquire);
+
+            bool expected = false;
+            if (!upgraded.compare_exchange_strong(
+                expected, true,
+                std::memory_order::acq_rel, std::memory_order::relaxed))
+            {
+                readers.fetch_sub(0xFFFFFFFF, std::memory_order::relaxed);
+                return false;
+            }
+
+            if ((readers.load(std::memory_order::relaxed) & 0xFFFFFFFFu) != 1u)
+            {
+                upgraded.store(false, std::memory_order::relaxed);
+                readers.fetch_sub(0xFFFFFFFF, std::memory_order::relaxed);
+                return false;
+            }
+
+            return true;
+        }
+    };
+
+    using atomic_shared_mutex = basic_atomic_shared_mutex<>;
+
+
+    // 将在多次失败之后回退到系统调度的混合型互斥锁
+    template<size_t retreatFreq = 32>
+    class mixed_mutex_temp
+    {
+    private:
+        std::atomic_bool lck = false;
+
+    public:
+        void lock()
+        {
+            while (true)
+            {
+                for (size_t i = 0; i < retreatFreq; i++)
+                    if (try_lock())return;
+                lck.wait(true, std::memory_order::relaxed);
+            }
+        }
+
+        void unlock() { lck.store(false, std::memory_order::release); lck.notify_one(); }
+
+        bool try_lock()
+        {
+            bool expected = false;
+            return lck.compare_exchange_strong(expected, true, std::memory_order::acquire);
+        }
+    };
+
+    using mixed_mutex = mixed_mutex_temp<>;
+
+    template<size_t retreatFreq = 32>
+    class mixed_shared_mutex_temp
+    {
+    private:
+        std::atomic_bool writer = false;
+        std::atomic_bool upgraded = false;
+        std::atomic<size_t> readers = 0;
+
+    public:
+        void lock()
+        {
+            size_t i = 0;
+            while (true)
+            {
+                bool expected = false;
+                if (writer.compare_exchange_weak(
+                    expected, true,
+                    std::memory_order::acquire, std::memory_order::relaxed
+                ))break;
+                i++;
+                if (i >= retreatFreq)
+                    writer.wait(true, std::memory_order::relaxed);
+            }
+            i = 0;
+            while (true)
+            {
+                size_t old;
+                if ((old = readers.load(std::memory_order::acquire)) == 0)break;
+                i++;
+                if (i >= retreatFreq)
+                    readers.wait(old, std::memory_order::relaxed);
+            }
+        }
+
+        void unlock() { writer.store(false, std::memory_order::release); writer.notify_all(); }
+
+        bool try_lock()
+        {
+            bool expected = writer.load(std::memory_order::acquire);
+            if (expected)return false;  // 已有写锁
+            if (!readers.load(std::memory_order::acquire) == 0)
+                return false;           // 有读锁
+            if (!writer.compare_exchange_strong(
+                expected, true,
+                std::memory_order::acquire, std::memory_order::relaxed
+            ))return false;             // 获取写锁失败
+            return true;
+        }
+
+        void lock_shared()
+        {
+            size_t i = 0;
+            while (true)
+            {
+                if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))
+                {
+                    readers.fetch_add(1, std::memory_order::acquire);
+                    if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))return;
+                    readers.fetch_sub(1, std::memory_order::relaxed);
+                    readers.notify_all();
+                }
+                i++;
+                if (i > retreatFreq)
+                {
+                    writer.wait(true, std::memory_order::relaxed);
+                    upgraded.wait(true, std::memory_order::relaxed);
+                }
+            }
+        }
+
+        void unlock_shared() { readers.fetch_sub(1, std::memory_order::release); readers.notify_all(); }
+
+        bool try_lock_shared()
+        {
+            if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))
+            {
+                readers.fetch_add(1, std::memory_order::acquire);
+                if (!writer.load(std::memory_order::acquire) && !upgraded.load(std::memory_order::acquire))return true;
+                readers.fetch_sub(1, std::memory_order::relaxed);
+                readers.notify_all();
+            }
+            return false;
+        }
+
+        // 升级和降级。upgrade 的返回值应当传递给 downgrade 的 before 参数。
+        void upgrade()
+        {
+            readers.fetch_add(0xFFFFFFFF, std::memory_order::acquire);
+            size_t i = 0;
+            while (true)
+            {
+                bool expected = false;
+                if (upgraded.compare_exchange_strong(
+                    expected, true,
+                    std::memory_order::acquire, std::memory_order::relaxed
+                ))break;
+                i++;
+                if (i >= retreatFreq)
+                    upgraded.wait(true, std::memory_order::relaxed);
+            }
+            i = 0;
+            while (true)
+            {
+                size_t old;
+                if (((old = readers.load(std::memory_order_acquire)) & 0xFFFFFFFF) == 0)break;
+                i++;
+                if (i >= retreatFreq)
+                    readers.wait(old, std::memory_order::relaxed);
+            }
+        }
+
+        void downgrade()
+        {
+            readers.fetch_sub(0xFFFFFFFF, std::memory_order::release);
+            upgraded.store(false, std::memory_order::release);
+            readers.notify_all();
+            upgraded.notify_all();
+        }
+    };
+
+    using mixed_shared_mutex = mixed_shared_mutex_temp<>;
+
+
+    // 在同一线程重复上锁时不会重复操作底层锁的读写锁
+    // 有效解决读写锁在重入时的性能和死锁问题
+    // 要求解锁必须按照上锁的逆序进行，否则行为未定义
+    template<typename L>
+    class thread_mutex
+    {
+    private:
+        struct local_state
+        {
+            std::weak_ptr<void> ctrl;   // 用于锁实例销毁时清理线程局部状态
+            size_t readers = 0;
+            size_t writers = 0;
+            bool upgraded = 0;
+            local_state(const std::shared_ptr<void>& c) :ctrl(c) {}
+        };
+
+    private:
+        static thread_local inline std::unordered_map<const void*, local_state> states{};
+
+        L mtx;
+
+        std::shared_ptr<void> ctrl;
+
+    private:
+        local_state& state() 
+        { 
+            if (!states.contains(static_cast<const void*>(this)))
+            {
+                states.emplace(static_cast<const void*>(this), ctrl);
+                // 每次新建状态时清理已过期的状态
+                for (auto it = states.begin(); it != states.end(); )
+                {
+                    if (it->second.ctrl.expired())
+                        it = states.erase(it);
+                    else
+                        ++it;
+                }
+            }
+            return states.at(static_cast<const void*>(this));
+        }
+
+    public:
+        void lock()
+        {
+            auto& s = state();
+            auto beforeWriters = s.writers;
+            s.writers++;
+
+            if (beforeWriters > 0) return; // 已持有写锁，重入仅计数
+
+            if (s.readers > 0)
+                if constexpr (framework::upgrade_lockable<L>)
+                {
+                    // 有本线程的读锁：需要升级到写锁（阻塞式）
+                    mtx.upgrade();
+                    s.upgraded = true;
+                    return;
+                }
+                else throw exceptions::common("operation requires upgradeable lock");
+            
+            // 首次上锁
+            mtx.lock();
+            return;
+        }
+
+        void unlock()
+        {
+            auto& s = state();
+            s.writers--;
+
+            if (s.writers > 0) return; // 仍有重入写锁，延迟释放
+
+            // 最后一个写锁释放：根据是否通过 upgrade 获得决定降级或直接释放
+            if (s.upgraded)
+                if constexpr (framework::upgrade_lockable<L>)
+                {
+                    // 之前由读升级到写：降级恢复为读（底层会处理 readers 计数）
+                    mtx.downgrade();
+                    s.upgraded = false;
+                    return;
+                }
+
+            mtx.unlock();
+        }
+
+        bool try_lock()
+        {
+            auto& s = state();
+
+            if (s.writers > 0)
+            {
+                ++s.writers;
+                return true;
+            }
+
+            if (s.readers > 0)
+                if constexpr (requires(L l) { { l.try_upgrade() }->std::same_as<bool>; })
+                {
+                    if (mtx.try_upgrade())
+                    {
+                        s.writers++;
+                        s.upgraded = true;
+                        return true;
+                    }
+                    else return false;
+                }
+                else return false;
+
+            if (mtx.try_lock())
+            {
+                s.writers++;
+                return true;
+            }
+            return false;
+        }
+
+        void lock_shared()
+        {
+            auto& s = state();
+            auto beforeReaders = s.readers;
+            s.readers++;
+
+            if (s.writers > 0)
+                // 已持有写锁，本次 shared 只是逻辑计数
+                return;
+
+            // 首次上锁
+            if (beforeReaders == 0)
+                mtx.lock_shared(); 
+        }
+
+        void unlock_shared()
+        {
+            auto& s = state();
+            s.readers--;
+
+            if (s.writers > 0)
+                // 在写锁下的读只是局部计数
+                return;
+
+            if (s.readers == 0)
+                // 最后一个本线程的读释放底层读锁
+                mtx.unlock_shared();
+        }
+
+        bool try_lock_shared()
+        {
+            auto& s = state();
+
+            if (s.writers > 0)
+            {
+                s.readers++;
+                return true;
+            }
+
+            if (s.readers == 0)
+            {
+                if (mtx.try_lock_shared())
+                {
+                    s.readers++;
+                    return true;
+                }
+                return false;
+            }
+
+            // 已有本线程读锁，重入直接成功
+            s.readers++;
+            return true;
+        }
+    
+    public:
+        thread_mutex() :ctrl(std::make_shared<char>(0)) {}
+    };
+
+
+    template<typename L>
+        requires framework::upgrade_lockable<L>
+    class upgrade_lock
+    {
+    private:
+        L& smtx;
+
+    public:
+        upgrade_lock(L& m) :smtx(m) { smtx.upgrade(); }
+        ~upgrade_lock() { smtx.downgrade(); }
+    };
+}
+
+
+
+
+/*************** 合并自 background.h ***************/
+// #pragma once
+// #include "pch.h"
+// #include "framework.h"
+
+// #include "iMutexies.h"
+namespace HYDRA15::Union::labourer
+{
+    // 继承此类的子类将在初始化时自动根据设定的参数启动后台线程
+    // 使用方法：
+    //   - 重写 work() 方法
+    //   - 构造函数中指定线程参数
+    //   - 子类初始化完成后调用 start() 方法启动线程
+    //   - 结束工作后，需要自行通知工作线程结束任务并返回
+    //   - 结束工作后调用 stop() 方法等待线程返回，所有线程都返回后此函数将返回
+    // 线程的数量一经初始化后不可更改，需要动态调整线程数量建议创建多个 Background 实例
+    class background
+    {
+    private:
+        std::barrier<> checkpoint;  //启动和结束同步
+        std::list<std::thread> threads; // 异步线程组
+
+        void work_shell() // 封装了启动与结束同步的工作函数
+        {
+            // 等待启动信号
+            checkpoint.arrive_and_wait();
+            // 执行工作
+            work();
+            // 等待所有线程完成工作
+            auto t = checkpoint.arrive();
+        }
+
+    protected:
+        virtual void work() noexcept = 0;  // 重写此方法以异步执行
+
+        // 启动同步和结束同步
+    protected:
+        void start() { checkpoint.arrive_and_wait(); }  // 某些系统依赖后台线程初始化完成才能正常工作
+
+        void detach() { auto t = checkpoint.arrive(); } // 无需等待后台线程初始化完成可以使用此接口
+
+        void wait_for_end() { checkpoint.arrive_and_wait(); }
+
+        // 构造函数，参数为异步线程数量，默认为1
+    protected:
+        background(unsigned int bkgThrCount)
+            : checkpoint(bkgThrCount + 1)
+        {
+            for (unsigned int i = 0; i < bkgThrCount; i++)
+                threads.emplace_back(&background::work_shell, this);
+        }
+
+        background() :background(1) {}
+
+        virtual ~background() { for (auto& i : threads)if (i.joinable())i.detach(); }
+
+        background(background&&) = delete;
+        background(const background&) = delete;
+        background& operator=(const background&) = delete;
+    };
+
+}
+
+
+
+
+/*************** 合并自 secretary_streambuf.h ***************/
+// #pragma once
+// #include "pch.h"
+// #include "framework.h"
+
+// #include "iMutexies.h"
+
+
+namespace HYDRA15::Union::secretary
+{
+    // AI 生成的代码
+    // 自定义输出流缓冲区，自动将缓冲区内容传递给PrintCenter，用于重定向 std::cout
+    class ostreambuf : public std::streambuf {
+    public:
+        explicit ostreambuf(std::function<void(const std::string&)> c, std::size_t initial_size = 256, std::size_t max_size = 65536)
+            : buffer_(initial_size), max_size_(max_size), callback(c)
+        {
+            setp(buffer_.data(), buffer_.data() + buffer_.size());
+        }
+
+        ~ostreambuf()
+        {
+            sync();
+        }
+
+    protected:
+        int_type overflow(int_type ch) override
+        {
+            std::lock_guard lg(mtx_);
+            if (ch == traits_type::eof()) return traits_type::not_eof(ch);
+
+            if (pptr() == epptr()) {
+                if (buffer_.size() < max_size_) {
+                    expand_buffer();
+                }
+                else {
+                    flush_buffer();
+                }
+            }
+            *pptr() = ch;
+            pbump(1);
+
+            if (ch == '\n') {
+                flush_buffer();
+            }
+            return ch;
+        }
+
+        std::streamsize xsputn(const char* s, std::streamsize n) override
+        {
+            std::lock_guard lg(mtx_);
+            std::streamsize written = 0;
+            while (written < n) {
+                std::size_t space_left = epptr() - pptr();
+                if (space_left == 0) {
+                    if (buffer_.size() < max_size_) {
+                        expand_buffer();
+                        space_left = epptr() - pptr();
+                    }
+                    else {
+                        flush_buffer();
+                        space_left = epptr() - pptr();
+                    }
+                }
+                std::size_t to_write = std::min<std::size_t>(space_left, n - written);
+
+                const char* nl = static_cast<const char*>(memchr(s + written, '\n', to_write));
+                if (nl) {
+                    std::size_t nl_pos = nl - (s + written);
+                    std::memcpy(pptr(), s + written, nl_pos + 1);
+                    pbump(static_cast<int>(nl_pos + 1));
+                    written += nl_pos + 1;
+                    flush_buffer();
+                }
+                else {
+                    std::memcpy(pptr(), s + written, to_write);
+                    pbump(static_cast<int>(to_write));
+                    written += to_write;
+                }
+            }
+            return written;
+        }
+
+        int sync() override
+        {
+            std::lock_guard lg(mtx_);
+            flush_buffer();
+            return 0;
+        }
+
+    private:
+        std::vector<char> buffer_;
+        std::size_t max_size_;
+        labourer::atomic_mutex mtx_;
+        std::function<void(const std::string&)> callback;
+
+        void expand_buffer()
+        {
+            std::lock_guard lg(mtx_);
+            std::size_t current_size = buffer_.size();
+            std::size_t new_size = std::min(current_size * 2, max_size_);
+            std::ptrdiff_t offset = pptr() - pbase();
+            buffer_.resize(new_size);
+            setp(buffer_.data(), buffer_.data() + buffer_.size());
+            pbump(static_cast<int>(offset));
+        }
+
+        void flush_buffer()
+        {
+            std::ptrdiff_t n = pptr() - pbase();
+            if (n > 0) {
+                callback(std::string(pbase(), n));
+                pbump(static_cast<int>(-n));
+            }
+        }
+    };
+
+    // AI生成的代码
+    // 自定义输入流缓冲区，用于将输入重定向至 Command 类，用于重定向 std::cin
+    class istreambuf : public std::streambuf 
+    {
+    private:
+        std::string buffer_;   // 使用 std::string 作为缓冲区（自动管理内存）
+        bool eof_ = false;     // 是否已到逻辑 EOF
+        std::mutex mtx_;
+
+        // 回调函数：用于获取一行输入
+        std::function<std::string()> getline_callback;
+
+        // 从 Command::getline() 获取一行并加载到 buffer_
+        bool refill()
+        {
+            if (eof_) return false;
+
+            buffer_ = std::move(getline_callback());
+            if (buffer_.empty()) {
+                // 假设返回空字符串表示输入结束（EOF）
+                eof_ = true;
+                return false;
+            }
+
+            // 将整行 + 换行符存入 buffer_
+            // 注意：即使原输入无 '\n'，我们也添加一个，以模拟标准输入行为
+            buffer_ += '\n';
+
+            // 设置 get area: [begin, end)
+            char* beg = &buffer_[0];
+            char* end = beg + buffer_.size();
+            setg(beg, beg, end);
+
+            return true;
+        }
+
+    public:
+        // 构造时传入回调
+        explicit istreambuf(std::function<std::string()> callback)
+            : getline_callback(std::move(callback))
+        {
+            setg(nullptr, nullptr, nullptr); // 初始化 get area
+        }
+
+        // 重写 underflow：单字符读取时调用
+        int underflow() override
+        {
+            std::unique_lock ul{ mtx_ };
+            if (gptr() < egptr()) {
+                return traits_type::to_int_type(*gptr());
+            }
+            if (!refill()) {
+                return traits_type::eof();
+            }
+            return traits_type::to_int_type(*gptr());
+        }
+
+        // 1. 优化批量读取：重写 xsgetn
+        std::streamsize xsgetn(char* s, std::streamsize count) override
+        {
+            std::unique_lock ul{ mtx_ };
+            std::streamsize total = 0;
+
+            while (total < count) {
+                // 当前缓冲区中可用字符数
+                std::streamsize avail = egptr() - gptr();
+                if (avail > 0) {
+                    std::streamsize to_copy = std::min(avail, count - total);
+                    std::copy(gptr(), gptr() + to_copy, s + total);
+                    gbump(static_cast<int>(to_copy)); // 移动 get 指针
+                    total += to_copy;
+                }
+                else {
+                    // 缓冲区为空，尝试 refill
+                    if (!refill()) {
+                        // EOF：返回已读取的字节数（可能为 0）
+                        break;
+                    }
+                    // refill 成功后，下一轮循环会复制数据
+                }
+            }
+
+            return total;
+        }
+
+        // 2. 支持 cin.getline()：确保换行符被正确消费
+        //    标准要求：getline 会读取直到 '\n' 或缓冲区满，并丢弃 '\n'
+        //    我们的 underflow/xsgetn 已提供 '\n'，因此无需额外处理
+        //    但需确保：当遇到 EOF 且无 '\n' 时，仍能正确终止
+        //    —— 这由标准库的 istream::getline 逻辑处理，我们只需提供字符流
+
+        // 可选：重写 showmanyc() 以提示可用字符数（非必需，但可优化）
+        std::streamsize showmanyc() override
+        {
+            std::unique_lock ul{ mtx_ };
+            if (gptr() < egptr()) {
+                return egptr() - gptr();
+            }
+            return eof_ ? -1 : 0; // -1 表示 EOF
+        }
+
+    };
+}
+
+
+
+/*************** 合并自 shared_containers.h ***************/
+// #pragma once
+// #include "pch.h"
+// #include "framework.h"
+
+// #include "concepts.h"
+// #include "iMutexies.h"
+
+namespace HYDRA15::Union::labourer
+{
+    // 基于 std::queue std::conditional_variable 的基本阻塞队列
+    template<typename T, typename L = std::mutex>
+        requires framework::lockable<L>
+    class basic_blockable_queue
+    {
+        std::queue<T> queue;
+        L mtx;
+        std::condition_variable_any cv;
+        std::atomic_bool working = true;
+
+    public:
+        template<typename U>
+            requires framework::is_really_same_v<T, U>
+        void push(U&& item)
+        {
+            std::unique_lock ul{ mtx };
+            queue.push(std::forward<U>(item));
+            cv.notify_one();
+            return;
+        }
+
+        T pop()
+        {
+            std::unique_lock ul{ mtx };
+            while (working.load(std::memory_order_acquire) && queue.empty())cv.wait(ul);
+            if (!working.load(std::memory_order_acquire) && queue.empty())return T{};
+            if constexpr (std::is_move_constructible_v<T>)
+            {
+                T t = std::move(queue.front());
+                queue.pop();
+                return std::move(t);
+            }
+            else
+            {
+                T t = queue.front();
+                queue.pop();
+                return t;
+            }
+        }
+
+        size_t size() const { return queue.size(); }
+        bool empty() const { return queue.empty(); }
+
+        void notify_exit()
+        {
+            working.store(false, std::memory_order_release);
+            cv.notify_all();
+        }
+
+    };
+
+
+
+    // 无锁队列采用环形缓冲区 + 序号标记实现
+    // 定长缓冲区
+    // 可能存在忙等问题。要求元素有空构造
+    // 性能测试：
+    //                           debug       release
+    //  std::queue + std::mutex 20w tps     100w tps
+    //  lockless_queue<1M>     250w tps     300w tps
+    template<typename T, size_t bufSize, size_t maxRetreatFreq = 32>
+    class lockless_queue
+    {
+        struct cell { std::atomic<size_t> seqNo{}; T data{}; };
+    private:
+        alignas(64) std::unique_ptr<cell[]> buffer = std::make_unique<cell[]>(bufSize);
+        alignas(64) std::atomic<size_t> pNextEnque = 0;
+        alignas(64) std::atomic<size_t> pNextDeque = 0;
+        std::atomic_bool working = true;
+
+    public:
+        lockless_queue() { for (size_t i = 0; i < bufSize; i++)buffer[i].seqNo = i; }
+        lockless_queue(const lockless_queue&) = delete;
+        lockless_queue(lockless_queue&&) = default;
+
+        // 入出队
+        template<typename U>
+            requires framework::is_really_same_v<T, U>
+        void push(U&& item)
+        {
+            size_t retreatFreq = maxRetreatFreq;
+            while (working.load(std::memory_order_acquire))
+            {
+                for (size_t i = 0; i < retreatFreq; i++)
+                    if (try_push(std::forward<U>(item)))
+                        return;
+                if (retreatFreq > 1)retreatFreq /= 2;
+                std::this_thread::yield();
+            }
+        }
+
+        T pop()
+        {
+            size_t retreatFreq = maxRetreatFreq;
+            while (working.load(std::memory_order_acquire))
+            {
+                for (size_t i = 0; i < retreatFreq; i++)
+                    if (auto [success, item] = try_pop(); success)
+                        if constexpr (std::is_move_constructible_v<T>) return std::move(item);
+                        else return item;
+                if (retreatFreq > 1)retreatFreq /= 2;
+                std::this_thread::yield();
+            }
+            return T{};
+        }
+
+        template<typename U>
+            requires framework::is_really_same_v<T, U>
+        bool try_push(U&& item)
+        {
+            size_t seq = pNextEnque.load(std::memory_order_relaxed);
+            size_t p = seq % bufSize;
+            if (buffer[p].seqNo.load(std::memory_order_acquire) != seq)
+                return false;
+            if (!pNextEnque.compare_exchange_strong(seq, seq + 1, std::memory_order_relaxed))
+                return false;
+            buffer[p].data = std::forward<U>(item);
+            buffer[p].seqNo.store(seq + 1, std::memory_order_release);
+            return true;
+        }
+
+        std::pair<bool, T> try_pop()
+        {
+            size_t seq = pNextDeque.load(std::memory_order_relaxed);
+            size_t p = seq % bufSize;
+            if (buffer[p].seqNo.load(std::memory_order_acquire) != seq + 1)
+                return { false,T{} };
+            if (!pNextDeque.compare_exchange_strong(seq, seq + 1, std::memory_order_relaxed))
+                return { false,T{} };
+            if constexpr (std::is_move_constructible_v<T>)
+            {
+                T item = std::move(buffer[p].data);
+                buffer[p].seqNo.store(seq + bufSize, std::memory_order_release);
+                return { true, std::move(item) };
+            }
+            else
+            {
+                T item = buffer[p].data;
+                buffer[p].seqNo.store(seq + bufSize, std::memory_order_release);
+                return { true,item };
+            }
+
+        }
+
+        // 信息和控制
+        size_t size() const
+        {
+            const size_t enq = pNextEnque.load(std::memory_order_acquire);
+            const size_t deq = pNextDeque.load(std::memory_order_acquire);
+            return (enq >= deq) ? (enq - deq) : std::numeric_limits<size_t>::max() - deq + enq;
+        }
+
+        size_t empty() const 
+        {  
+            return pNextDeque.load(std::memory_order_acquire) ==
+                pNextEnque.load(std::memory_order_acquire);
+        }
+
+        void notify_exit() { working.store(false, std::memory_order_release); }
+
+    };
+
+
+    // 基于 atomic_mutex 的共享 set
+    template<typename T>
+    class basic_shared_set
+    {
+        atomic_mutex mtx;
+        std::set<T> set;
+
+    public:
+        template<typename U>
+        auto insert(U&& t) { std::unique_lock ul{ mtx }; return set.insert(std::forward<U>(t)); }
+
+        template<typename U>
+        auto lower_bound(U&& t) { std::unique_lock ul{ mtx }; return set.lower_bound(std::forward<U>(t)); }
+
+        template<typename U>
+        auto upper_bound(U&& t) { std::unique_lock ul{ mtx }; return set.upper_bound(std::forward<U>(t)); }
+
+        auto clear() { std::unique_lock ul{ mtx }; return set.clear(); }
+    };
+}
+
+
+
+/*************** 合并自 PrintCenter.h ***************/
+// #pragma once
+// #include "framework.h"
+// #include "pch.h"
+
+// #include "background.h"
+// #include "datetime.h"
+// #include "string_utilities.h"
+// #include "secretary_streambuf.h"
+
+namespace HYDRA15::Union::secretary
+{
+    // 统一输出接口
+    // 提供滚动消息、底部消息和写入文件三种输出方式
+    // 提交消息之后，调用 notify() 方法通知后台线程处理，这在连续提交消息时可以解约开销
+    class PrintCenter final :protected labourer::background
+    {
+        /***************************** 快速接口 *****************************/
+    public:
+        template<typename ...Args>
+        static size_t println(Args ... args)
+        {
+            PrintCenter& instance = get_instance();
+            std::stringstream ss;
+            (ss << ... << args);
+            size_t ret = instance.rolling(ss.str());
+            instance.flush();
+            return ret;
+        }
+
+        template<typename ... Args>
+        static size_t printf(const std::string& fstr, Args...args) { return println(std::vformat(fstr, std::make_format_args(args...))); }
+
+        static unsigned long long set(const std::string& str, bool forceDisplay = false, bool neverExpire = false)
+        {
+            PrintCenter& instance = get_instance();
+            ID ret = instance.new_bottom(forceDisplay, neverExpire);
+            instance.update_bottom(ret, str);
+            instance.flush();
+            return ret;
+        }
+
+        static void update(unsigned long long id, const std::string& str)
+        {
+            PrintCenter& instance = get_instance();
+            instance.update_bottom(id, str);
+            instance.flush();
+        }
+
+        static void remove(unsigned long long id) { get_instance().remove_bottom(id); }
+
+        static void set_stick_btm(const std::string& str)
+        {
+            get_instance().stick_btm(str);
+            get_instance().sync_flush();
+        }
+
+        static size_t fprint(const std::string& str)
+        {
+            PrintCenter& instance = PrintCenter::get_instance();
+            size_t ret = instance.file(str);
+            instance.flush();
+            return ret;
+        }
+
+        PrintCenter& operator<<(const std::string& content)    // 快速输出，滚动消息+文件+刷新
+        {
+            if (print)
+                rolling(content);
+            if (printFile)
+                file(assistant::strip_color(content));
+            flush();
+            return *this;
+        }
+
+        /***************************** 公有单例 *****************************/
+    protected:
+        // 禁止外部构造
+        PrintCenter()
+            :labourer::background(1)
+        {
+            // 重定向 cout
+            pPCOutBuf = std::make_shared<ostreambuf>([this](const std::string& str) {*this << str; });
+            std::streambuf* pSysOstreamBuf = std::cout.rdbuf(pPCOutBuf.get());
+            pSysOutStream = std::make_shared<std::ostream>(pSysOstreamBuf);
+            print = [this](const std::string& str) { if (enableAnsi) *pSysOutStream << str; else *pSysOutStream << assistant::strip_ansi_secquence(str); };
+
+            // 启动清屏
+            print("\0x1B[2J\0x1B[H");
+
+            start();
+        }
+
+        PrintCenter(const PrintCenter&) = delete;
+
+        // 获取接口
+    public:
+        static PrintCenter& get_instance() { static PrintCenter instance; return instance; }
+
+    public:
+        ~PrintCenter()
+        {
+            {
+                std::unique_lock ul{ systemLock };
+                // 恢复 cout
+                std::cout.rdbuf(pSysOutStream->rdbuf());
+                print = [](const std::string& str) {if (enableAnsi)std::cout << str; else std::cout << assistant::strip_ansi_secquence(str); };
+                pSysOutStream = nullptr;
+                pPCOutBuf = nullptr;
+            }
+
+            working.store(false, std::memory_order_release);
+            sleepcv.notify_all();
+            wait_for_end();
+
+            // 结束清除末尾行
+            print(clear_bottom_msg());
+        }
+
+        /***************************** 公 用 *****************************/
+        // 类型
+    private:
+        using time_point = std::chrono::steady_clock::time_point;
+        using milliseconds = std::chrono::milliseconds;
+
+        // 全局配置
+    private:
+        static struct Config
+        {
+            static constexpr milliseconds refreshInterval = milliseconds(30000); // 最短刷新间隔
+
+            static_uint btmMaxLines = 3;
+            static constexpr milliseconds btmDispTimeout = milliseconds(1000);
+            static constexpr milliseconds btmExpireTimeout = milliseconds(30000);
+            
+        }cfg;
+        std::function<bool(char)> is_valid_with_ansi = [](char c) {return (c > 0x20 && c < 0x7F) || c == 0x1B; };
+
+
+        // 辅助函数
+    private:
+        std::string clear_bottom_msg()    // 清除底部消息
+        {
+            using namespace HYDRA15::Union::assistant;
+
+            std::string str = "\r\033[2K";
+            if (lastBtmLines > 1)
+                str += std::string("\033[1A\033[2K") * (lastBtmLines - 1);
+            lastBtmLines = 0;
+            return str;
+        }
+
+        std::string print_rolling_msg() // 输出滚动消息
+        {
+            {   // 交换缓冲区
+                std::lock_guard lg(rollMsgLock);
+                rollmsg_list* temp = pRollMsgLstFront;
+                pRollMsgLstFront = pRollMsgLstBack;
+                pRollMsgLstBack = temp;
+            }
+
+            std::string str;
+            for (auto& msg : *pRollMsgLstBack)
+                str.append(msg + "\n");
+            //if (enableAnsiColor)
+            //    str.append(assistant::strip(msg, is_valid_with_ansi) + "\n");
+            //else
+            //    str.append(assistant::strip_color(assistant::strip(msg, is_valid_with_ansi) + "\n"));
+            pRollMsgLstBack->clear();
+
+            return str;
+        }
+
+        std::string print_bottom_msg()  // 输出底部消息
+        {
+            size_t more = 0;
+            std::list<ID> expires;
+            std::string str;
+            bool first = true;
+
+            std::lock_guard lk(btmMsgTabLock);
+            time_point now = time_point::clock::now();
+            for (auto& [id, i] : btmMsgTab)
+            {
+                if (i.msg.empty())
+                    continue;
+                if (!i.neverExpire && now - i.lastUpdate > cfg.btmExpireTimeout)
+                {
+                    expires.push_back(id);
+                    continue;
+                }
+                if (!i.forceDisplay && (now - i.lastUpdate > cfg.btmDispTimeout || lastBtmLines >= cfg.btmMaxLines))
+                {
+                    more++;
+                    continue;
+                }
+                if (!first)
+                    str.append("\n");
+                else
+                    first = false;
+                str.append(assistant::strip(i.msg, is_valid_with_ansi));
+                lastBtmLines++;
+            }
+            if (more > 0)
+            {
+                if (lastBtmLines > 0)
+                    str.append("\n");
+                str.append(std::format(" ... and {0} more", more));
+                lastBtmLines++;
+            }
+
+            for (const auto& id : expires)
+                btmMsgTab.erase(id);
+
+            if (!stickBtmMsg.empty())
+            {
+                if (!first)
+                    str.append("\n");
+                else
+                    first = false;
+                str.append(stickBtmMsg);
+                lastBtmLines++;
+            }
+
+            return str;
+        }
+
+        std::string print_file_msg()    // 输出文件消息
+        {
+            {
+                std::lock_guard lg(fileMsgLock);
+                filemsg_list* temp = pFMsgLstBack;
+                pFMsgLstBack = pFMsgLstFront;
+                pFMsgLstFront = temp;
+            }
+
+            std::string str;
+
+            for (const auto& msg : *pFMsgLstBack)
+                str.append(assistant::strip(msg) + "\n");
+            pFMsgLstBack->clear();
+
+            return str;
+        }
+
+
+        // 重定向时修改此变量
+        std::shared_ptr<ostreambuf> pPCOutBuf;
+        std::shared_ptr<std::ostream> pSysOutStream;
+        std::function<void(const std::string&)> print;
+        std::function<void(const std::string&)> printFile;
+
+        // 是否启用 ansi 控制串
+        // 由于代码中大量使用 ansi 控制串进行光标控制和清屏等操作，禁用可能会导致输出不符合预期，建议仅在不支持 ansi 控制串的终端中禁用
+    public:
+        static inline bool enableAnsi = true;
+
+        // 工作
+    private:
+        std::condition_variable sleepcv;
+        std::mutex systemLock;
+        std::atomic<bool> working = true;
+        std::atomic<bool> forceRefresh = false;
+        time_point lastRefresh = time_point::clock::now();
+        virtual void work() noexcept override
+        {
+            while (
+                working.load(std::memory_order_acquire) || // 工作中
+                ((!pRollMsgLstBack->empty() || !pRollMsgLstFront->empty()) && print) || // 滚动消息不为空且可打印
+                (btmMsgTab.size() > 0 && print) || // 底部消息不为空且可打印
+                ((!pFMsgLstBack->empty() || !pFMsgLstFront->empty()) && printFile) // 文件消息不为空且可打印
+                )
+            {
+                std::unique_lock lg(systemLock);
+
+                // 无工作，等待
+                while (
+                    working.load(std::memory_order_acquire) && // 工作中
+                    ((pRollMsgLstFront->empty() && pRollMsgLstBack->empty()) || !print) && // 滚动消息为空
+                    ((pFMsgLstBack->empty() && pFMsgLstFront->empty()) || !printFile) && // 文件消息为空
+                    (time_point::clock::now() - lastRefresh < cfg.refreshInterval) && // 未到刷新时间
+                    !forceRefresh   // 未被强制刷新
+                    )
+                    sleepcv.wait_for(lg, cfg.refreshInterval);
+
+                // 清除底部消息
+                if (print)
+                    print(clear_bottom_msg());
+
+                // 输出滚动消息
+                if (!pRollMsgLstFront->empty())
+                    if (print)
+                        print(print_rolling_msg());
+
+                // 输出底部消息
+                if (btmMsgTab.size() > 0 || !stickBtmMsg.empty())
+                    if (print)
+                        print(print_bottom_msg());
+
+                // 输出文件消息
+                if (printFile)
+                    if (!pFMsgLstFront->empty())
+                        printFile(print_file_msg());
+
+                // 计时
+                lastRefresh = time_point::clock::now();
+
+                // 通知等待
+                forceRefresh = false;
+                sleepcv.notify_all();
+            }
+        }
+
+        // 高级接口
+    public:
+        void flush()  // 刷新
+        {
+            std::unique_lock ul(systemLock);
+            forceRefresh = true;
+            sleepcv.notify_all();
+        }
+
+        void sync_flush()  // 同步刷新，后台线程刷新完成后才会返回
+        {
+            std::unique_lock ul(systemLock);
+            forceRefresh = true;
+            sleepcv.notify_all();
+            while (forceRefresh)
+                sleepcv.wait(ul);
+        }
+
+        void lock() { systemLock.lock(); }   // 锁定，防止刷新
+
+        void unlock() { systemLock.unlock(); } // 解锁，允许刷新
+
+        void fredirect(std::function<void(const std::string&)> fprintFunc) { printFile = fprintFunc; }
+
+
+        /***************************** 滚动消息相关 *****************************/
+        // 类型定义
+    private:
+        using rollmsg_list = std::list<std::string>;
+
+        // 数据
+    private:
+        rollmsg_list* pRollMsgLstFront = new rollmsg_list();
+        rollmsg_list* pRollMsgLstBack = new rollmsg_list();
+        std::mutex rollMsgLock;
+        size_t rollMsgCount = 0;
+
+        // 接口
+    public:
+        size_t rolling(const std::string& content)
+        {
+            std::lock_guard lg(rollMsgLock);
+            pRollMsgLstFront->push_back(content);
+            return rollMsgCount++;
+        }
+
+
+        /***************************** 底部消息相关 *****************************/
+       // 类型定义
+    private:
+        struct btmmsg_ctrlblock
+        {
+            time_point lastUpdate = time_point::clock::now();
+            bool forceDisplay = false;
+            bool neverExpire = false;
+            std::string msg;
+        };
+
+    public:
+        using ID = unsigned long long;
+    private:
+        using btmmsg_tab = std::unordered_map<ID, btmmsg_ctrlblock>;
+        
+
+        // 数据
+    private:
+        std::string stickBtmMsg;
+        btmmsg_tab btmMsgTab;
+        ID btmMsgNextID = 0;
+        std::mutex btmMsgTabLock;
+        size_t lastBtmLines = 0;
+
+        // 工具函数
+    private:
+        ID find_next_ID()
+        {
+            if (!btmMsgTab.contains(btmMsgNextID))
+                return btmMsgNextID;
+            while (btmMsgTab.contains(btmMsgNextID) && btmMsgNextID != std::numeric_limits<ID>::max())
+                btmMsgNextID++;
+            if (btmMsgTab.contains(btmMsgNextID) && btmMsgNextID == std::numeric_limits<ID>::max()) // 若达到最大值，则重新扫描整整表，查找是否有空缺位置
+                btmMsgNextID = 0;
+            while (btmMsgTab.contains(btmMsgNextID) && btmMsgNextID != std::numeric_limits<ID>::max())
+                btmMsgNextID++;
+            return btmMsgNextID;
+        }
+
+        // 接口
+    public:
+        ID new_bottom(bool forceDisplay = false, bool neverExpire = false)
+        {
+            std::lock_guard lk(btmMsgTabLock);
+            ID id = find_next_ID();
+            btmMsgTab.emplace(std::pair<ID, btmmsg_ctrlblock>{
+                id,
+                    btmmsg_ctrlblock{
+                        time_point::clock::now(),
+                        forceDisplay,
+                        neverExpire,
+                        std::string()
+                }
+            });
+            btmMsgNextID++;
+            return id;
+
+        }
+
+        void update_bottom(ID id, const std::string& content)
+        {
+            btmmsg_ctrlblock* pMsgCtrl;
+            std::lock_guard lk(btmMsgTabLock);
+
+            pMsgCtrl = &btmMsgTab.at(id);
+            pMsgCtrl->msg = content;
+            pMsgCtrl->lastUpdate = time_point::clock::now();
+        }
+
+        bool check_bottom(ID id) { std::lock_guard lk(btmMsgTabLock); return btmMsgTab.contains(id); }
+
+        void remove_bottom(ID id) { std::lock_guard lk(btmMsgTabLock); btmMsgTab.erase(id); }
+
+        void stick_btm(const std::string& str = std::string()) { std::lock_guard lk(btmMsgTabLock); stickBtmMsg = str; }
+
+
+
+        /***************************** 写入文件相关 *****************************/
+        // 类型定义
+    private:
+        using filemsg_list = std::list<std::string>;
+
+        // 数据
+    private:
+        filemsg_list* pFMsgLstFront = new filemsg_list();
+        filemsg_list* pFMsgLstBack = new filemsg_list();
+        std::mutex fileMsgLock;
+        size_t fileMsgCount = 0;
+
+        // 接口
+    public:
+        size_t file(const std::string& content)
+        {
+            std::lock_guard lg(fileMsgLock);
+
+            pFMsgLstFront->push_back(content);
+            return fileMsgCount++;
+        }
+    };
+}
+
 
 
 
@@ -2951,9 +3342,9 @@ namespace HYDRA15::Union::assistant
     public:     // 信息和管理接口
         void resize(size_t size)    // 修改文件大小
         {
-            file.close();
+            close();
             std::filesystem::resize_file(path, size);
-            file.open(path);
+            open();
         }
 
         size_t size() const { file.seekg(0, std::ios::end); return file.tellg(); }
@@ -3316,11 +3707,11 @@ namespace HYDRA15::Union::archivist
         private:
             void transport(ID target) const // 移动到指定行，同时转移锁状态
             {
-                if (locked)tableRef.rowMtxs[rowID].unlock();
-                if (lockShared)tableRef.rowMtxs[rowID].unlock_shared();
+                if (locked && rowID < tableRef.recordCount.load(std::memory_order::relaxed))tableRef.rowMtxs[rowID].unlock();
+                if (lockShared && rowID < tableRef.recordCount.load(std::memory_order::relaxed))tableRef.rowMtxs[rowID].unlock_shared();
                 rowID = target;
-                if (locked)tableRef.rowMtxs[rowID].lock();
-                if (lockShared)tableRef.rowMtxs[rowID].lock_shared();
+                if (locked && rowID < tableRef.recordCount.load(std::memory_order::relaxed))tableRef.rowMtxs[rowID].lock();
+                if (lockShared && rowID < tableRef.recordCount.load(std::memory_order::relaxed))tableRef.rowMtxs[rowID].lock_shared();
             }
 
             INT get_row_mark() const
@@ -3358,6 +3749,8 @@ namespace HYDRA15::Union::archivist
                 return *this;
             }
 
+            virtual bool valid() const {return !(get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)); } // 返回 当前记录是否有效
+
             // 获取、写入记录项
             virtual const field& at(const std::string& fieldName) const override  // 返回 指定字段的数据
             {
@@ -3389,7 +3782,7 @@ namespace HYDRA15::Union::archivist
                     (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
                     transport(rowID + 1);
                 if (rowID >= currentRecordCount)
-                    rowID = tableRef.end()->id();
+                    transport(tableRef.end()->id());
                 return *this; 
             }
 
@@ -3403,7 +3796,7 @@ namespace HYDRA15::Union::archivist
                     transport(rowID - 1);
                 if (rowID == 0 &&
                     (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
-                    rowID = tableRef.end()->id();
+                    transport(tableRef.end()->id());
                 return *this; 
             }
 
@@ -3417,7 +3810,7 @@ namespace HYDRA15::Union::archivist
                     (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
                     transport(rowID + 1);
                 if (rowID >= currentRecordCount)
-                    rowID = tableRef.end()->id();
+                    transport(tableRef.end()->id());
                 return *this;
             }
 
@@ -3431,7 +3824,7 @@ namespace HYDRA15::Union::archivist
                     transport(rowID - 1);
                 if (rowID == 0 &&
                     (get_row_mark() & (simple_memory_table::row_bit_mark::deleted_bit | simple_memory_table::row_bit_mark::invalid_bit)))
-                    rowID = tableRef.end()->id();
+                    transport(tableRef.end()->id());
                 return *this;
             }
 
@@ -3446,17 +3839,17 @@ namespace HYDRA15::Union::archivist
             virtual bool operator==(const entry& oth) const override { return rowID == oth.id(); }
 
         public:     // 行锁
-            virtual void lock() override { init(); tableRef.rowMtxs[rowID].lock(); locked = true; }
+            virtual void lock() override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) tableRef.rowMtxs[rowID].lock(); locked = true; }
 
-            virtual void unlock() override { init(); tableRef.rowMtxs[rowID].unlock(); locked = false; }
+            virtual void unlock() override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) tableRef.rowMtxs[rowID].unlock(); locked = false; }
 
-            virtual bool try_lock() override { init(); locked = tableRef.rowMtxs[rowID].try_lock(); return locked; }
+            virtual bool try_lock() override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) locked = tableRef.rowMtxs[rowID].try_lock(); return locked; }
 
-            virtual void lock_shared() const override { init(); tableRef.rowMtxs[rowID].lock_shared(); lockShared = true; }
+            virtual void lock_shared() const override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) tableRef.rowMtxs[rowID].lock_shared(); lockShared = true; }
 
-            virtual void unlock_shared() const override { init(); tableRef.rowMtxs[rowID].unlock_shared(); lockShared = false; }
+            virtual void unlock_shared() const override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) tableRef.rowMtxs[rowID].unlock_shared(); lockShared = false; }
 
-            virtual bool try_lock_shared() const override { init(); lockShared = tableRef.rowMtxs[rowID].try_lock_shared(); return lockShared; }
+            virtual bool try_lock_shared() const override { init(); if (rowID < tableRef.recordCount.load(std::memory_order::relaxed)) lockShared = tableRef.rowMtxs[rowID].try_lock_shared(); return lockShared; }
 
         public:
             simple_memory_table& get_table() const { return tableRef; }
@@ -3485,6 +3878,7 @@ namespace HYDRA15::Union::archivist
             virtual ID id() const override { return std::numeric_limits<ID>::max(); }
             virtual const field_specs& fields() const override                      { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "fields"); }
             virtual entry& erase() override                                         { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "erase"); }
+            virtual bool valid() const override { return true; }
 
             // 获取、写入记录项
             virtual const field& at(const std::string& fieldName) const override  // 返回 指定字段的数据
@@ -3504,7 +3898,7 @@ namespace HYDRA15::Union::archivist
             virtual const entry& operator++() const override                        { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "operator++ const"); }
             virtual const entry& operator--() const override                        { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "operator-- const"); }
             virtual std::strong_ordering operator<=>(const entry&) const override   { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "operator<=>"); }
-            virtual bool operator==(const entry&) const override                    { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "operator=="); }
+            virtual bool operator==(const entry& e) const override { return e.id() == std::numeric_limits<ID>::max(); }
 
             // 行锁
             virtual void lock() override                                            { throw exceptions::common::UnsupportedInterface("HYDRA15::Union::archivist::entry", "HYDRA15::Union::archivist::simple_memory_table::data_entry_impl", "lock"); }
@@ -3719,6 +4113,7 @@ namespace HYDRA15::Union::archivist
             tabData.clear(); rowMtxs.clear();
             ID currentRecordCount = loader->tab_size();
             recordCount.store(currentRecordCount, std::memory_order::relaxed);
+            fakeRecordCount.store(currentRecordCount, std::memory_order::relaxed);
             if (currentRecordCount > 0)
             {
                 ID pageSize = loader->page_size();
@@ -3769,6 +4164,8 @@ namespace HYDRA15::Union::archivist
                 i.data = idx->to_deque();
                 loader->index_tab(i);
             }
+
+            
         }
 
         void resize_data_storage(ID newRowSize)
@@ -3800,8 +4197,8 @@ namespace HYDRA15::Union::archivist
                 ID writePos = 0;
                 for (ID readPos = 0; readPos < recordCount.load(std::memory_order::relaxed); ++readPos)
                 {
-                    if (!(std::get<INT>(tabData[readPos * fieldTab.size() + fieldNameTab.at(sysfldRowMark)])
-                        & row_bit_mark::deleted_bit))
+                    if ((std::get<INT>(tabData[readPos * fieldTab.size() + fieldNameTab.at(sysfldRowMark)])
+                        & row_bit_mark::deleted_bit) == 0)
                     {
                         if (writePos != readPos)
                             for (size_t fidx = 0; fidx < fieldTab.size(); fidx++)
@@ -3810,6 +4207,7 @@ namespace HYDRA15::Union::archivist
                     }
                 }
                 recordCount.store(writePos, std::memory_order::relaxed);
+                fakeRecordCount.store(writePos, std::memory_order::relaxed);
             }
             ID currentRecordCount = recordCount.load(std::memory_order::relaxed);
             resize_data_storage(currentRecordCount);
@@ -3960,7 +4358,7 @@ namespace HYDRA15::Union::archivist
             while (!opers.empty())
             {
                 auto icdt = std::move(opers.front());
-                opers.pop();
+                opers.pop_front();
 
                 switch (icdt.type)
                 {
@@ -4036,7 +4434,7 @@ namespace HYDRA15::Union::archivist
                         }
                         while (!opers.empty() && opers.front().type == incident::incident_type::search)
                         {
-                            auto nxt = std::move(opers.front()); opers.pop();
+                            auto nxt = std::move(opers.front()); opers.pop_front();
                             {
                                 incident::condition_param cond = std::get<incident::condition_param>(nxt.param);
                                 condParamsByField[cond.targetField].push_back(cond);
@@ -4146,7 +4544,7 @@ namespace HYDRA15::Union::archivist
                         for (const auto& [fieldName, fsc] : condByField)
                         {
                             if (hasEqual && !fsc.hasEqual)continue;
-                            if (!hasEqual && fsc.hasEqual)
+                            if (!hasEqual && fsc.hasEqual && indexTab[fieldNameTab.at(fieldName)])
                             {
                                 perfectIdx = indexTab[fieldNameTab.at(fieldName)].get();
                                 perfectIdxField = fieldName;
@@ -4221,6 +4619,15 @@ namespace HYDRA15::Union::archivist
                     }
 
                     if (impossiable) break;
+                    break;
+                }
+                case incident::incident_type::filter:
+                {
+                    std::function<bool(const entry&)> filter = std::get<std::function<bool(const entry&)>>(icdt.param);
+                    for (auto it = currentResult.begin(); it != currentResult.end();)
+                        if (filter(*get_entry(*it)))
+                            it++;
+                        else it = currentResult.erase(it);
                 }
                 default:
                     break;
@@ -4260,8 +4667,16 @@ namespace HYDRA15::Union::archivist
             indexTab[fieldNameTab.at(name)].reset();
         }
 
+        virtual index_specs index_tab() const override
+        {
+            index_specs res;
+            for (const auto& idx : indexTab)
+                if (idx) res.push_back(index_spec{ .name = idx->fieldSpec, .comment = "", .fieldSpecs = {idx->fieldSpec} });
+            return res;
+        }
+
     private:// 由派生类实现：返回指向首条记录的迭代器 / 尾后迭代器
-        virtual std::unique_ptr<entry> begin_impl() { return get_entry(0); }
+        virtual std::unique_ptr<entry> begin_impl() { return recordCount.load(std::memory_order::relaxed) > 0 ? get_entry(0) : end_impl(); }
 
         virtual std::unique_ptr<entry> end_impl() { return std::make_unique<data_entry_impl>(*this); }
 
@@ -4277,6 +4692,8 @@ namespace HYDRA15::Union::archivist
             std::unique_lock ul{ tableMtx };
             resize_data_storage(recCount);
         }
+
+        void flush() { std::unique_lock ul{ tableMtx }; flush_all(); }
 
     public: // 表始终从 loader 构造
         simple_memory_table(std::unique_ptr<archivist::loader>&& ld)
@@ -4294,184 +4711,277 @@ namespace HYDRA15::Union::archivist
 
 
 
-/*************** 合并自 PrintCenter.h ***************/
+/*************** 合并自 ThreadLake.h ***************/
+// #pragma once
+// #include "pch.h"
+// #include "framework.h"
+
+// #include "background.h"
+// #include "concepts.h"
+// #include "shared_containers.h"
+
+
+namespace HYDRA15::Union::labourer
+{
+    /***************************** 线程池基础 *****************************/
+    // 预留任务调度策略的改造空间
+
+    // 定义任务工作的接口，任务细节存储在派生类中
+    class mission_base
+    {
+    public:
+        virtual ~mission_base() = default;
+
+        virtual void operator()() noexcept = 0;
+    };
+    using mission = std::unique_ptr<mission_base>;
+
+    // 定义线程池的基本行为：提交任务、线程执行任务
+    template<typename queue_t>
+        requires requires(queue_t q, mission pkg)
+    {
+        { q.push(pkg) };                            // 应当是阻塞式
+        { q.pop() }-> std::convertible_to<mission>; // 应当是阻塞式
+        { q.empty() }->std::convertible_to<bool>;
+        { q.notify_exit() };                        // 用于结束时使用，通知等待线程应该退出
+    }
+    class thread_pool : public background
+    {
+    protected: // 数据
+        queue_t queue;
+    private:
+        std::atomic_bool working = true;
+        std::atomic<unsigned int> activeCount = 0;
+        std::mutex gexptrMtx;
+        std::exception_ptr gexptr = nullptr;
+
+    private: // 后台任务
+        virtual void work() noexcept override
+        {
+            try
+            {
+                mission mis;
+                while (working.load(std::memory_order::relaxed) || !queue.empty())
+                {
+                    // 取任务
+                    mis = queue.pop();
+                    // 执行任务
+                    activeCount.fetch_add(1, std::memory_order::relaxed);
+                    if (mis)
+                        (*mis)();
+                    activeCount.fetch_add(-1, std::memory_order::relaxed);
+                }
+            }
+            catch (...) { std::unique_lock ul{ gexptrMtx }; gexptr = std::current_exception(); }
+        }
+
+    public: // 提交接口
+        void submit(mission&& mis) { queue.push(std::move(mis)); }
+
+    public: // 构造
+        thread_pool() = delete;
+        thread_pool(const thread_pool&) = delete;
+        thread_pool(thread_pool&&) = delete;
+        thread_pool(unsigned int threadCount) :background(threadCount) { background::start(); }
+        virtual ~thread_pool()
+        {
+            working.store(false, std::memory_order_release);
+            queue.notify_exit();
+            background::wait_for_end();
+        }
+
+    public: // 管理接口
+        size_t size() const { return queue.size(); }
+        unsigned int active() const { return activeCount.load(std::memory_order::relaxed); }
+        bool alive() const  // 任意一个线程出错则抛出最后一个异常，否则返回 true
+        { 
+            std::unique_lock ul{ gexptrMtx }; 
+            if (gexptr)std::rethrow_exception(gexptr); 
+            return true; 
+        } 
+    };
+
+    /***************************** 基本线程池实现 *****************************/
+    // 专用于 ThreadLake 的任务实现
+    template<typename ret>
+    class lake_mission : public mission_base
+    {
+        std::function<ret()> tsk;
+        std::function<void(const ret&)> cb;
+        std::promise<ret> prms;
+    public:
+        virtual ~lake_mission() = default;
+        lake_mission(const std::function<ret()>& task, const std::function<void(const ret&)>& callback)
+            :tsk(task), cb(callback) {
+        }
+
+        virtual void operator()() noexcept override
+        {
+            try
+            {
+                if (!tsk)return;
+                if constexpr (std::is_void_v<ret>) { tsk(); if (cb)cb(); prms.set_value(); }
+                else { 
+                    ret t = tsk(); if (cb)cb(t); 
+                    if constexpr (std::is_move_constructible_v<ret>)prms.set_value(std::move(t));
+                    else prms.set_value(t);
+                }
+                return;
+            }
+            catch (...) { prms.set_exception(std::current_exception()); }
+        }
+
+        std::future<ret> get_future() { return prms.get_future(); }
+    };
+
+
+    template<template<typename ...> typename queue_t>
+    class thread_lake : public thread_pool<queue_t<mission>>
+    {
+    public: // 构造
+        virtual ~thread_lake() = default;
+        thread_lake(unsigned int threadCount) :thread_pool<queue_t<mission>>(threadCount) {}
+    public: // 提交任务和回调函数
+        template<typename ret>
+        auto submit(
+            const std::function<ret()>& task,
+            const std::function<void(const ret&)>& callback = std::function<void(const ret&)>()
+        ) -> std::future<ret> {
+            auto pmis = std::make_unique<lake_mission<ret>>(task, callback);
+            auto fut = pmis->get_future();
+            thread_pool<queue_t<mission>>::submit(std::move(pmis));
+            return fut;
+        }
+
+        // 提交函数和参数，此方法不支持回调
+        template<typename F, typename ... Args>
+        requires std::invocable<F,Args...>
+        auto submit(F&& f, Args&& ... args)
+            -> std::future<std::invoke_result_t<F, Args...>> 
+        {
+            using ret = std::invoke_result_t<F, Args...>;
+            return submit<ret>(
+                std::function<ret()>(std::bind(std::forward<F>(f), std::forward<Args>(args)...))
+            );
+        }
+    };
+
+    using ThreadLake = thread_lake<basic_blockable_queue>;
+}
+
+
+
+
+/*************** 合并自 log.h ***************/
 // #pragma once
 // #include "framework.h"
 // #include "pch.h"
 
-// #include "background.h"
-// #include "datetime.h"
-// #include "string_utilities.h"
-// #include "secretary_streambuf.h"
+// #include "PrintCenter.h"
 
 namespace HYDRA15::Union::secretary
 {
-    // 统一输出接口
-    // 提供滚动消息、底部消息和写入文件三种输出方式
-    // 提交消息之后，调用 notify() 方法通知后台线程处理，这在连续提交消息时可以解约开销
-    class PrintCenter final :protected labourer::background
+    // 格式化日志字符串
+    // 返回格式化后的字符串，用户需要自行处理输出
+    class log
     {
-        /***************************** 快速接口 *****************************/
-    public:
-        template<typename ...Args>
-        static size_t println(Args ... args)
+        // 禁止构造
+    private:
+        log() = delete;
+        log(const log&) = delete;
+        ~log() = delete;
+
+        // 私有数据
+    private:
+        static struct visualize
         {
-            PrintCenter& instance = get_instance();
-            std::stringstream ss;
-            (ss << ... << args);
-            size_t ret = instance.rolling(ss.str());
-            instance.flush();
-            return ret;
-        }
-        template<typename ... Args>
-        static size_t printf(const std::string& fstr, Args...args) { return println(std::vformat(fstr, std::make_format_args(args...))); }
-        static unsigned long long set(const std::string& str, bool forceDisplay = false, bool neverExpire = false);
-        static void update(unsigned long long id, const std::string& str);
-        static void remove(unsigned long long id);
-        static void set_stick_btm(const std::string& str);
-        static size_t fprint(const std::string& str);
-        PrintCenter& operator<<(const std::string& content);    // 快速输出，滚动消息+文件+刷新
+            static_string info = "[ {0} | INFO ] [ {1} ] {2}";
+            static_string warn = "[ {0} | WARN ] [ {1} ] {2}";
+            static_string error = "[ {0} | ERROR ][ {1} ] {2}";
+            static_string fatal = "[ {0} | FATAL ][ {1} ] {2}";
+            static_string debug = "[ {0} | DEBUG ][ {1} ] {2}";
+            static_string trace = "[ {0} | TRACE ][ {1} ] {2}";
+        }vslz;
 
-        /***************************** 公有单例 *****************************/
-    protected:
-        // 禁止外部构造
-        PrintCenter();
-        PrintCenter(const PrintCenter&) = delete;
-
-        // 获取接口
-    public:
-        static PrintCenter& get_instance();
-
-    public:
-        ~PrintCenter();
-
-        /***************************** 公 用 *****************************/
-        // 类型
-    private:
-        using time_point = std::chrono::steady_clock::time_point;
-        using milliseconds = std::chrono::milliseconds;
-
-        // 全局配置
-    private:
-        static struct Config
+        static struct visualize_color
         {
-            static constexpr milliseconds refreshInterval = milliseconds(30000); // 最短刷新间隔
-
-            static_uint btmMaxLines = 3;
-            static constexpr milliseconds btmDispTimeout = milliseconds(1000);
-            static constexpr milliseconds btmExpireTimeout = milliseconds(30000);
-            
-        }cfg;
-        std::function<bool(char)> is_valid_with_ansi = [](char c) {return (c > 0x20 && c < 0x7F) || c == 0x1B; };
-
-
-        // 辅助函数
-    private:
-        std::string clear_bottom_msg();    // 清除底部消息
-        std::string print_rolling_msg(); // 输出滚动消息
-        std::string print_bottom_msg();  // 输出底部消息
-        std::string print_file_msg();    // 输出文件消息
-
-        // 重定向时修改此变量
-        std::shared_ptr<ostreambuf> pPCOutBuf;
-        std::shared_ptr<std::ostream> pSysOutStream;
-        std::function<void(const std::string&)> print;
-        std::function<void(const std::string&)> printFile;
-
-        // 是否启用ansi颜色
-        bool enableAnsiColor = true;
-
-        // 工作
-    private:
-        std::condition_variable sleepcv;
-        std::mutex systemLock;
-        std::atomic<bool> working = true;
-        std::atomic<bool> forceRefresh = false;
-        time_point lastRefresh = time_point::clock::now();
-        virtual void work() noexcept override;
-
-        // 高级接口
-    public:
-        void flush();  // 刷新
-        void sync_flush();  // 同步刷新，后台线程刷新完成后才会返回
-        void lock();   // 锁定，防止刷新
-        void unlock(); // 解锁，允许刷新
-        void fredirect(std::function<void(const std::string&)> fprintFunc);
-        void enable_ansi_color(bool c);
-
-        /***************************** 滚动消息相关 *****************************/
-        // 类型定义
-    private:
-        using rollmsg_list = std::list<std::string>;
-
-        // 数据
-    private:
-        rollmsg_list* pRollMsgLstFront = new rollmsg_list();
-        rollmsg_list* pRollMsgLstBack = new rollmsg_list();
-        std::mutex rollMsgLock;
-        size_t rollMsgCount = 0;
-
-        // 接口
-    public:
-        size_t rolling(const std::string& content);
-
-
-        /***************************** 底部消息相关 *****************************/
-       // 类型定义
-    private:
-        struct btmmsg_ctrlblock
-        {
-            time_point lastUpdate = time_point::clock::now();
-            bool forceDisplay = false;
-            bool neverExpire = false;
-            std::string msg;
-        };
-
-    public:
-        using ID = unsigned long long;
-    private:
-        using btmmsg_tab = std::unordered_map<ID, btmmsg_ctrlblock>;
+            static_string info = "\033[0m[ {0} | INFO ] [ {1} ] {2}\033[0m";
+            static_string warn = "\033[0m[ {0} | \033[33mWARN\033[0m ] [ {1} ] {2}\033[0m";
+            static_string error = "\033[0m[ {0} | \033[35mERROR\033[0m ][ {1} ] {2}\033[0m";
+            static_string fatal = "\033[0m[ {0} | \033[31mFATAL\033[0m ][ {1} ] \033[31m{2}\033[0m";
+            static_string debug = "\033[0m[ {0} | \033[2mDEBUG\033[0m ][ {1} ] {2}\033[0m";
+            static_string trace = "\033[0m[ {0} | \033[34mTRACE\033[0m ][ {1} ] {2}\033[0m";
+        }vslzclr;
         
-
-        // 数据
-    private:
-        std::string stickBtmMsg;
-        btmmsg_tab btmMsgTab;
-        ID btmMsgNextID = 0;
-        std::mutex btmMsgTabLock;
-        size_t lastBtmLines = 0;
-
-        // 工具函数
-    private:
-        ID find_next_ID();
-
-        // 接口
+        // 公有接口
     public:
-        ID new_bottom(bool forceDisplay = false, bool neverExpire = false);
-        void update_bottom(ID id, const std::string& content);
-        bool check_bottom(ID id);
-        void remove_bottom(ID id);
-        void stick_btm(const std::string& str = std::string());
+        static std::string info(const std::string& title, const std::string& content)
+        {
+            std::string str;
+            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
+            if (colourful)str = std::format(vslzclr.info.data(), date, title, content);
+            else str = std::format(vslz.info.data(), date, title, content);
+            if (print)print(str);
+            return str;
+        }
 
+        static std::string warn(const std::string& title, const std::string& content)
+        {
+            std::string str;
+            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
+            if (colourful)str = std::format(vslzclr.warn.data(), date, title, content);
+            else str = std::format(vslz.warn.data(), date, title, content);
+            if (print)print(str);
+            return str;
+        }
 
-        /***************************** 写入文件相关 *****************************/
-        // 类型定义
-    private:
-        using filemsg_list = std::list<std::string>;
+        static std::string error(const std::string& title, const std::string& content)
+        {
+            std::string str;
+            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
+            if (colourful)str = std::format(vslzclr.error.data(), date, title, content);
+            else str = std::format(vslz.error.data(), date, title, content);
+            if (print)print(str);
+            return str;
+        }
 
-        // 数据
-    private:
-        filemsg_list* pFMsgLstFront = new filemsg_list();
-        filemsg_list* pFMsgLstBack = new filemsg_list();
-        std::mutex fileMsgLock;
-        size_t fileMsgCount = 0;
+        static std::string fatal(const std::string& title, const std::string& content)
+        {
+            std::string str;
+            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
+            if (colourful)str = std::format(vslzclr.fatal.data(), date, title, content);
+            else str = std::format(vslz.fatal.data(), date, title, content);
+            if (print)print(str);
+            return str;
+        }
 
-        // 接口
+        static std::string debug(const std::string& title, const std::string& content)
+        {
+            std::string str;
+            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
+            if (colourful)str = std::format(vslzclr.debug.data(), date, title, content);
+            else str = std::format(vslz.debug.data(), date, title, content);
+            if (print && enableDebug)print(str);
+            return str;
+        }
+
+        static std::string trace(const std::string& title, const std::string& content)
+        {
+            std::string str;
+            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
+            if (colourful)str = std::format(vslzclr.trace.data(), date, title, content);
+            else str = std::format(vslz.trace.data(), date, title, content);
+            if (print && enableDebug)print(str);
+            return str;
+        }
+
+        // 配置项
     public:
-        size_t file(const std::string& content);
+        inline static std::function<void(const std::string&)> print;
+        static inline bool enableDebug = HYDRA15::Union::debug;
+        static inline bool colourful = true;
     };
 }
-
 
 
 
@@ -4916,116 +5426,43 @@ namespace HYDRA15::Union::archivist
 
 
 
-/*************** 合并自 log.h ***************/
+/*************** 合并自 logger.h ***************/
 // #pragma once
 // #include "framework.h"
 // #include "pch.h"
 
-// #include "PrintCenter.h"
+// #include "log.h"
 
 namespace HYDRA15::Union::secretary
 {
-    // 格式化日志字符串
-    // 返回格式化后的字符串，用户需要自行处理输出
-    class log
+    // 日志输出代理
+    class logger
     {
-        // 禁止构造
-    private:
-        log() = delete;
-        log(const log&) = delete;
-        ~log() = delete;
+        const std::string title;
 
-        // 私有数据
-    private:
-        static struct visualize
-        {
-            static_string info = "[ {0} | INFO ] [ {1} ] {2}";
-            static_string warn = "[ {0} | WARN ] [ {1} ] {2}";
-            static_string error = "[ {0} | ERROR ][ {1} ] {2}";
-            static_string fatal = "[ {0} | FATAL ][ {1} ] {2}";
-            static_string debug = "[ {0} | DEBUG ][ {1} ] {2}";
-            static_string trace = "[ {0} | TRACE ][ {1} ] {2}";
-        }vslz;
-
-        static struct visualize_color
-        {
-            static_string info = "\033[0m[ {0} | INFO ] [ {1} ] {2}\033[0m";
-            static_string warn = "\033[0m[ {0} | \033[33mWARN\033[0m ] [ {1} ] {2}\033[0m";
-            static_string error = "\033[0m[ {0} | \033[35mERROR\033[0m ][ {1} ] {2}\033[0m";
-            static_string fatal = "\033[0m[ {0} | \033[31mFATAL\033[0m ][ {1} ] \033[31m{2}\033[0m";
-            static_string debug = "\033[0m[ {0} | \033[2mDEBUG\033[0m ][ {1} ] {2}\033[0m";
-            static_string trace = "\033[0m[ {0} | \033[34mTRACE\033[0m ][ {1} ] {2}\033[0m";
-        }vslzclr;
-        
-        // 公有接口
     public:
-        static std::string info(const std::string& title, const std::string& content)
-        {
-            std::string str;
-            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
-            if (colourful)str = std::format(vslzclr.info.data(), date, title, content);
-            else str = std::format(vslz.info.data(), date, title, content);
-            if (print)print(str);
-            return str;
-        }
+        logger() = delete;
+        logger(const logger&) = default;
+        logger(const std::string& title) :title(title) {}
 
-        static std::string warn(const std::string& title, const std::string& content)
-        {
-            std::string str;
-            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
-            if (colourful)str = std::format(vslzclr.warn.data(), date, title, content);
-            else str = std::format(vslz.warn.data(), date, title, content);
-            if (print)print(str);
-            return str;
-        }
+#define logf(type) template<typename ... Args> std::string type(const std::string& fstr, Args...args) { return log::type(title, std::vformat(fstr, std::make_format_args(args...))); }
 
-        static std::string error(const std::string& title, const std::string& content)
-        {
-            std::string str;
-            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
-            if (colourful)str = std::format(vslzclr.error.data(), date, title, content);
-            else str = std::format(vslz.error.data(), date, title, content);
-            if (print)print(str);
-            return str;
-        }
+        logf(info);
+        logf(warn);
+        logf(error);
+        logf(fatal);
+        logf(debug);
+        logf(trace);
 
-        static std::string fatal(const std::string& title, const std::string& content)
-        {
-            std::string str;
-            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
-            if (colourful)str = std::format(vslzclr.fatal.data(), date, title, content);
-            else str = std::format(vslz.fatal.data(), date, title, content);
-            if (print)print(str);
-            return str;
-        }
-
-        static std::string debug(const std::string& title, const std::string& content)
-        {
-            std::string str;
-            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
-            if (colourful)str = std::format(vslzclr.debug.data(), date, title, content);
-            else str = std::format(vslz.debug.data(), date, title, content);
-            if (print && enableDebug)print(str);
-            return str;
-        }
-
-        static std::string trace(const std::string& title, const std::string& content)
-        {
-            std::string str;
-            std::string date = assistant::datetime::now_date_time("%Y-%m-%d %H:%M:%S");
-            if (colourful)str = std::format(vslzclr.trace.data(), date, title, content);
-            else str = std::format(vslz.trace.data(), date, title, content);
-            if (print && enableDebug)print(str);
-            return str;
-        }
-
-        // 配置项
-    public:
-        inline static std::function<void(const std::string&)> print;
-        static inline bool enableDebug = HYDRA15::Union::debug;
-        static inline bool colourful = true;
+#undef logf
     };
+
+#ifndef UNION_CREATE_LOGGER
+#define UNION_CREATE_LOGGER() HYDRA15::Union::secretary::logger{__func__}
+#endif // !UNION_CREATE_LOGGER
+
 }
+
 
 
 
@@ -5160,7 +5597,7 @@ namespace HYDRA15::Union::archivist
         {   // 行和节以最小公倍数对齐
             uint64_t rowSize = assistant::multiple_m_not_less_than_n(32, (fieldSpecs.size() + 1) * 8);
             uint64_t pageByteSize = std::lcm(rowSize, segSize);
-            return pageByteSize / segSize;
+            return pageByteSize / fieldSpecs.size();
         }
 
         static uint64_t caculate_field_spec_tab_size(const field_specs& fieldSpecs)
@@ -5600,6 +6037,8 @@ namespace HYDRA15::Union::archivist
             // 更新当前数据包已用大小
             sfs.write<uint32_t>(std::format(dataSectionFmt.data(), currentPackID), 0,
                 std::vector<uint32_t>{ assistant::byteswap::to_big_endian(currentPackUsedSize) });
+
+            flush_header();
         }
 
         // 索引相关
@@ -5632,6 +6071,8 @@ namespace HYDRA15::Union::archivist
                     idx.data.begin() + i + std::min(pageSize, static_cast<ID>(idx.data.size() - i)));
                 sfs.write<ID>(std::format(indexSectionFmt.data(), idx.spec.name), idxDatStartOffset + i * sizeof(ID), idxPage);
             }
+
+            flush_header();
         }
 
         virtual index index_tab(const std::string& idxName) const override  // 加载索引表
@@ -5729,46 +6170,6 @@ namespace HYDRA15::Union::archivist
     
 
 }
-
-
-
-/*************** 合并自 logger.h ***************/
-// #pragma once
-// #include "framework.h"
-// #include "pch.h"
-
-// #include "log.h"
-
-namespace HYDRA15::Union::secretary
-{
-    // 日志输出代理
-    class logger
-    {
-        const std::string title;
-
-    public:
-        logger() = delete;
-        logger(const logger&) = default;
-        logger(const std::string& title) :title(title) {}
-
-#define logf(type) template<typename ... Args> std::string type(const std::string& fstr, Args...args) { return log::type(title, std::vformat(fstr, std::make_format_args(args...))); }
-
-        logf(info);
-        logf(warn);
-        logf(error);
-        logf(fatal);
-        logf(debug);
-        logf(trace);
-
-#undef logf
-    };
-
-#ifndef UNION_CREATE_LOGGER
-#define UNION_CREATE_LOGGER() HYDRA15::Union::secretary::logger{__func__}
-#endif // !UNION_CREATE_LOGGER
-
-}
-
 
 
 
