@@ -46,7 +46,8 @@ private:
                     for (const auto& entry : std::filesystem::directory_iterator(path))
                     {
                         submit(std::make_unique<scan_mission>(entry.path(), submit, add_count));
-                        lgr.debug("Dispatched scan task for path: {}", entry.path().string());
+                        if constexpr (globalDebug)
+                            lgr.debug("Dispatched scan task for path: {}", entry.path().string());
                     }
                 else if (std::filesystem::is_regular_file(path))
                 {
@@ -82,7 +83,8 @@ private:
                         newEntry->set(dbFields[4], size);
                         newEntry->set(dbFields[5], static_cast<archivist::INT>(file_states::updated)); // 初始状态为未备份
                         add_count(true);
-                        lgr.debug("New file record created for path: {}", path.string());
+                        if constexpr (globalDebug)
+                            lgr.debug("New file record created for path: {}", path.string());
                     }
                     else
                     {
@@ -105,7 +107,8 @@ private:
                         if (modified)
                         {
                             entry->set(dbFields[5], static_cast<archivist::INT>(file_states::updated));
-                            lgr.debug("File {} updated", path.string());
+                            if constexpr (globalDebug)
+                                lgr.debug("File {} updated", path.string());
                         }
 
                         entry->set(dbFields[1], updateTime);
@@ -192,7 +195,8 @@ private:
                     std::unique_lock rul{ *entry };
                     entry->set(dbFields[5], static_cast<archivist::INT>(file_states::deleted));
                     updatedFilesCount.fetch_add(1, std::memory_order::relaxed);
-                    lgr.debug("File {} marked as deleted", filepath.string());
+                    if constexpr (globalDebug)
+                        lgr.debug("File {} marked as deleted", filepath.string());
                 }
                 scannedFilesCount.fetch_add(1, std::memory_order::relaxed);
             }

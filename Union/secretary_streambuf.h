@@ -17,6 +17,11 @@ namespace HYDRA15::Union::secretary
             setp(buffer_.data(), buffer_.data() + buffer_.size());
         }
 
+        ~ostreambuf()
+        {
+            sync();
+        }
+
     protected:
         int_type overflow(int_type ch) override
         {

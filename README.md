@@ -27,8 +27,11 @@
 
 ## update lib.release.1.2.1
 
+> 剩余未完成单头文件改造的模块还有：``secretary::ScanCenter``
+
 更新内容：
 - 新增示例程序 demo.EasyFileBackup，演示本库部分常用模块的用法，详见项目源码
+- ``secretary::PrintCenter`` 模块单头文件改造完成
 
 ## update lib.beta.1.2.0
 

@@ -110,7 +110,7 @@ void set_handler(std::list<std::string>& params)
         }
         params.pop_front();
         database_service::get_instance().flush();
-        secretary::log::info("set handler", "set completed");
+        secretary::PrintCenter::println("All file states set to {}", param);
         return;
     }
     else
@@ -228,7 +228,7 @@ void get_handler(std::list<std::string>& params)
     lgr.info("query for {} obtained {} results", param, srhRes.size());
 
 
-    pc.println("|        |  state | last modified time | file path");
+    pc.rolling("|        |  state | last modified time | file path");
     for (const auto& id : srhRes)
     {
         try
@@ -239,10 +239,11 @@ void get_handler(std::list<std::string>& params)
             archivist::INT datetime = std::get<archivist::INT>(pety->at(dbFields[3]));
             std::string filepath = std::filesystem::path(archivist::extract_string<char8_t>(pety->at(dbFields[2]))).string();
 
-            pc.println(std::format("| {:6} | 0x{:04X} | {} | {}", id, state, datetime, filepath));
+            pc.rolling(std::format("| {:6} | 0x{:04X} | {} | {}", id, state, datetime, filepath));
         }
         catch (const std::exception& e) { lgr.error("error while parsing record {} : {} ", id, e.what()); }
     }
+    pc.flush();
 }
 
 void help_handler() { secretary::PrintCenter::println(help_str); }
@@ -257,7 +258,7 @@ public:
         referee::iExceptionBase::enableDebug = true;
         secretary::PrintCenter::enableAnsi = false;
 
-        secretary::log::print = [](const std::string& msg) {static secretary::PrintCenter& pc = secretary::PrintCenter::get_instance(); pc.println(msg); };
+        secretary::log::print = [](const std::string& msg) {static secretary::PrintCenter& pc = secretary::PrintCenter::get_instance(); pc.rolling(msg); };
 
         if (params.empty() || params.front().front() == '-')
         {
@@ -265,10 +266,16 @@ public:
             throw exceptions::common::BadParameter("init params", assistant::container_to_string(params), "see help infomation");
         }
 
-        lgr.debug("init with params: {}", assistant::container_to_string(params));
+        if constexpr (globalDebug)
+            lgr.debug("init with params: {}", assistant::container_to_string(params));
 
         database_service::init(params.front());
 
+    }
+
+    ~initializer()
+    {
+        lgr.info("finalizing database...");
     }
 };
 
@@ -282,10 +289,10 @@ int main(int argc, char* argv[])
         std::list<std::string> params;
         for (int i = 1; i < argc; i++)
             params.emplace_back(argv[i]);
+
+        pc << lgr.info("initializing and loading databass...");
+
         initializer init{ params };
-
-        lgr.info("initializing and loading databass...");
-
         database_service& db{ database_service::get_instance() };
 
         std::filesystem::path basePath = std::filesystem::current_path();
@@ -301,6 +308,7 @@ int main(int argc, char* argv[])
 
             lgr.info("record scan completed, scanned {}, updated {}", srres.scanned, srres.updated);
             lgr.info("file scan completed, scanned {}, updated {}", sfres.scanned, sfres.updated);
+            lgr.info("saving database");
             db.flush();
             lgr.info("database saved");
         }

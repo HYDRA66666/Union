@@ -115,7 +115,7 @@ namespace HYDRA15::Union::assistant
         {
             fast = str.find('\x1b', fast);
             if (fast == str.npos)fast = str.size();
-            res.append(str.substr(slow, fast));
+            res.append(str.substr(slow, fast - slow));
             for (; fast < str.size(); fast++)
                 if (is_charactor(str[fast]))
                     break;
