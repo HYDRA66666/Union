@@ -247,6 +247,7 @@ namespace HYDRA15::Union::secretary
         std::function<void(const std::string&)> printFile;
 
         // 是否启用 ansi 控制串
+        // 由于代码中大量使用 ansi 控制串进行光标控制和清屏等操作，禁用可能会导致输出不符合预期，建议仅在不支持 ansi 控制串的终端中禁用
     public:
         static inline bool enableAnsi = true;
 
