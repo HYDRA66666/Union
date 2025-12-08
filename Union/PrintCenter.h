@@ -79,7 +79,7 @@ namespace HYDRA15::Union::secretary
             :labourer::background(1)
         {
             // 重定向 cout
-            pPCOutBuf = std::make_shared<ostreambuf>([this](const std::string& str) {*this << str; });
+            pPCOutBuf = std::make_shared<ostreambuf>([this](const std::string& str) {this->println( str); });
             std::streambuf* pSysOstreamBuf = std::cout.rdbuf(pPCOutBuf.get());
             pSysOutStream = std::make_shared<std::ostream>(pSysOstreamBuf);
             print = [this](const std::string& str) { if (enableAnsi) *pSysOutStream << str; else *pSysOutStream << assistant::strip_ansi_secquence(str); };
@@ -104,9 +104,9 @@ namespace HYDRA15::Union::secretary
                 // 恢复 cout
                 std::cout.rdbuf(pSysOutStream->rdbuf());
                 print = [](const std::string& str) {if (enableAnsi)std::cout << str; else std::cout << assistant::strip_ansi_secquence(str); };
-                pSysOutStream = nullptr;
-                pPCOutBuf = nullptr;
             }
+            pSysOutStream = nullptr;
+            pPCOutBuf = nullptr;
 
             working.store(false, std::memory_order_release);
             sleepcv.notify_all();
