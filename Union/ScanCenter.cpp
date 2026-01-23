@@ -114,7 +114,7 @@ namespace HYDRA15::Union::secretary
                     std::unique_lock ul(sysLock);
                     if (assign)
                     {
-                        std::thread(assign, ln).detach();
+                        assign(ln);
                         continue;
                     }
                 }

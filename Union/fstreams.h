@@ -339,7 +339,7 @@ namespace HYDRA15::Union::assistant
 
                 if (remainSrcSize == 0)continue;    // 没有更多数据
 
-                std::vector<byte> segData(currentTgtSize, 0);
+                std::vector<byte> segData(currentTgtSize, byte{0});
                 assistant::memcpy(
                     reinterpret_cast<const byte*>(data.data()) + currentSrcPos,
                     segData.data(),

@@ -151,6 +151,7 @@
     <ClInclude Include="archivist_interfaces.h" />
     <ClInclude Include="astring.h" />
     <ClInclude Include="background.h" />
+    <ClInclude Include="expressman_interfaces.h" />
     <ClInclude Include="fstreams.h" />
     <ClInclude Include="lib_exceptions.h" />
     <ClInclude Include="iExceptionManager.h" />

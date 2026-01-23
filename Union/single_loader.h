@@ -116,7 +116,7 @@ namespace HYDRA15::Union::archivist
                     std::string(reinterpret_cast<char*>(cstHdr.data() + commPtr)),
                     static_cast<field_spec::field_type>(cstHdr[fieldTabPtr + 32 * i + 16])
                 };
-                assistant::memcpy(cstHdr.data() + fieldTabPtr + 32 * i + 17, fs.mark, 7);
+                assistant::memcpy(reinterpret_cast<const uint8_t*>(cstHdr.data() + fieldTabPtr + 32 * i + 17), fs.mark, 7);
 
                 fieldSpecs[i] = fs;
             }
@@ -192,7 +192,7 @@ namespace HYDRA15::Union::archivist
             size_t fieldSpecTabSize = caculate_field_spec_tab_size(fieldSpecs);
             size_t indexTabSize = caculate_index_tab_size(indexMap);
             size_t cstHdrSize = headerSize + fieldSpecTabSize + indexTabSize;
-            std::vector<byte> cstHdr(cstHdrSize, 0);
+            std::vector<byte> cstHdr(cstHdrSize, byte{0});
 
             {   // 写入标记和版本号
                 assistant::memcpy(reinterpret_cast<const byte*>(headerMark.data()), cstHdr.data(), 16);
@@ -231,7 +231,7 @@ namespace HYDRA15::Union::archivist
 
                     assistant::memcpy(reinterpret_cast<byte*>(entry.data()), cstHdr.data() + headerSize + 32 * i, entry.size() * sizeof(uint64_t));
                     cstHdr[headerSize + 32 * i + 16] = static_cast<byte>(fs.type);
-                    assistant::memcpy(fs.mark, cstHdr.data() + headerSize + 32 * i + 17, 7);
+                    assistant::memcpy(reinterpret_cast<const byte*>(fs.mark), cstHdr.data() + headerSize + 32 * i + 17, 7);
 
                     assistant::memcpy(reinterpret_cast<byte*>(name.data()), cstHdr.data() + currentDataPos, nameSize);
                     assistant::memcpy(reinterpret_cast<byte*>(comment.data()), cstHdr.data() + currentDataPos + nameSize, commSize);

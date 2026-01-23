@@ -18,7 +18,7 @@ namespace HYDRA15::Union::labourer
     public:
         virtual ~mission_base() = default;
 
-        virtual void operator()() noexcept = 0;
+        virtual void operator()() = 0;
     };
     using mission = std::unique_ptr<mission_base>;
 
@@ -38,8 +38,7 @@ namespace HYDRA15::Union::labourer
     private:
         std::atomic_bool working = true;
         std::atomic<unsigned int> activeCount = 0;
-        std::mutex gexptrMtx;
-        std::exception_ptr gexptr = nullptr;
+        const std::function<void(const std::string&)> log;
 
     private: // 后台任务
         virtual void work() noexcept override
@@ -58,7 +57,8 @@ namespace HYDRA15::Union::labourer
                     activeCount.fetch_add(-1, std::memory_order::relaxed);
                 }
             }
-            catch (...) { std::unique_lock ul{ gexptrMtx }; gexptr = std::current_exception(); }
+            catch (const std::exception& e) { if (log) log(e.what());  }
+            catch (...) { if (log) log("unknown exception occured during excuting task"); }
         }
 
     public: // 提交接口
@@ -68,7 +68,7 @@ namespace HYDRA15::Union::labourer
         thread_pool() = delete;
         thread_pool(const thread_pool&) = delete;
         thread_pool(thread_pool&&) = delete;
-        thread_pool(unsigned int threadCount) :background(threadCount) { background::start(); }
+        thread_pool(unsigned int threadCount, const std::function<void(const std::string&)>& logFunc = {}) :background(threadCount), log(logFunc) { background::start(); }
         virtual ~thread_pool()
         {
             working.store(false, std::memory_order_release);
@@ -79,12 +79,6 @@ namespace HYDRA15::Union::labourer
     public: // 管理接口
         size_t size() const { return queue.size(); }
         unsigned int active() const { return activeCount.load(std::memory_order::relaxed); }
-        bool alive() const  // 任意一个线程出错则抛出最后一个异常，否则返回 true
-        { 
-            std::unique_lock ul{ gexptrMtx }; 
-            if (gexptr)std::rethrow_exception(gexptr); 
-            return true; 
-        } 
     };
 
     /***************************** 基本线程池实现 *****************************/
@@ -126,7 +120,7 @@ namespace HYDRA15::Union::labourer
     {
     public: // 构造
         virtual ~thread_lake() = default;
-        thread_lake(unsigned int threadCount) :thread_pool<queue_t<mission>>(threadCount) {}
+        thread_lake(unsigned int threadCount, const std::function<void(const std::string&)>& logFunc = {}) :thread_pool<queue_t<mission>>(threadCount, logFunc) {}
     public: // 提交任务和回调函数
         template<typename ret>
         auto submit(

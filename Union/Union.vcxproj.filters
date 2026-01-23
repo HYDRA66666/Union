@@ -19,6 +19,9 @@
     <Filter Include="secretary">
       <UniqueIdentifier>{c8a6a01b-75fb-43f1-b847-2020421927f4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="expressman">
+      <UniqueIdentifier>{70eabe94-9b1a-40fa-b98e-a85ccca86740}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="background.h">
@@ -98,6 +101,9 @@
     </ClInclude>
     <ClInclude Include="simple_memory_table.h">
       <Filter>archivist</Filter>
+    </ClInclude>
+    <ClInclude Include="expressman_interfaces.h">
+      <Filter>expressman</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

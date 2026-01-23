@@ -1,6 +1,6 @@
 ﻿# Union
 
-> HYDRA15.Union ver.lib.beta.1.2.1 @HYDRA15 MIT
+> HYDRA15.Union ver.lib.beta.1.3.0 @HYDRA15 MIT
 
 提供应用中常用的工具和模块。    
 
@@ -24,6 +24,11 @@
 要使用本库：    
 1. 包含 Union 目录下你想要的头文件，或者直接包含单头文件 Union.h
 1. 链接对应版本的静态库 Union.lib
+
+## unpdate lib.beta.1.3.0
+
+更新内容：
+- 优化 labourer::ThreadLake 实现，现在可以通过设置 logFunc 让线程在捕获到异常时打印日志信息
 
 ## update lib.beta.1.2.1
 

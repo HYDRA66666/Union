@@ -54,8 +54,9 @@ namespace HYDRA15::Union::secretary
 
         // 如果用户输入时后台没有线程等待，系统将自动将输入内容发送至由此指定的接口
         // 如果没有指定，则将输入加入输入队列，等待后续线程认领
+        // assign 函数应当是非阻塞的
     public:
-        void set_assign(std::function<void(const std::string&)> a);
+        void set_assign(std::function<void(const std::string&)> a); 
 
         /***************************** 输入管理 *****************************/
     private:

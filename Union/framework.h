@@ -29,7 +29,7 @@
 namespace HYDRA15::Union
 {
     // 类型定义
-    using byte = uint8_t;   // 字节类型
+    using byte = std::byte;   // 字节类型
 
     // 全局 debug 变量
 #ifdef _DEBUG
