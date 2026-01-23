@@ -34,7 +34,7 @@ namespace HYDRA15::Union::expressman
     };
 
     template<size_t extDatSize>
-    struct parcel_ext
+    struct parcel_ext: parcel
     {
         byte data[extDatSize] = {};
 
