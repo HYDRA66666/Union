@@ -1,12 +1,15 @@
-﻿#include "pch.h"
-#include "Union/iMutexies.h"
-#include "Union/PrintCenter.h"
+﻿import std;
+import HYDRA15.Union.ThreadLake;
+import HYDRA15.Union.log;
+import HYDRA15.Union.PrintCenter;
 
 using namespace HYDRA15::Union;
 
-
 int main()
 {
-    auto& pc = secretary::PrintCenter::get_instance();
-    std::cout << "hello";
+    log::print = [](const std::string& str) { PrintCenter::println(str); };
+    ThreadLake lake(4, "TestLake");
+    lake.submit([]() {
+        log::info("ThreadLake", "Hello from the ThreadLake!");
+    });
 }

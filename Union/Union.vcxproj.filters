@@ -19,91 +19,17 @@
     <Filter Include="secretary">
       <UniqueIdentifier>{c8a6a01b-75fb-43f1-b847-2020421927f4}</UniqueIdentifier>
     </Filter>
+    <Filter Include="expressman">
+      <UniqueIdentifier>{70eabe94-9b1a-40fa-b98e-a85ccca86740}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="background.h">
-      <Filter>labourer</Filter>
-    </ClInclude>
-    <ClInclude Include="concepts.h">
-      <Filter>framework</Filter>
-    </ClInclude>
-    <ClInclude Include="datetime.h">
-      <Filter>assistant</Filter>
-    </ClInclude>
-    <ClInclude Include="framework.h">
-      <Filter>framework</Filter>
-    </ClInclude>
-    <ClInclude Include="iExceptionBase.h">
-      <Filter>referee</Filter>
-    </ClInclude>
-    <ClInclude Include="lib_info.h">
-      <Filter>framework</Filter>
-    </ClInclude>
-    <ClInclude Include="PrintCenter.h">
-      <Filter>secretary</Filter>
-    </ClInclude>
-    <ClInclude Include="log.h">
-      <Filter>secretary</Filter>
-    </ClInclude>
-    <ClInclude Include="progress.h">
-      <Filter>secretary</Filter>
-    </ClInclude>
-    <ClInclude Include="ThreadLake.h">
-      <Filter>labourer</Filter>
-    </ClInclude>
-    <ClInclude Include="utilities.h">
-      <Filter>assistant</Filter>
-    </ClInclude>
-    <ClInclude Include="astring.h">
-      <Filter>framework</Filter>
-    </ClInclude>
-    <ClInclude Include="logger.h">
-      <Filter>secretary</Filter>
-    </ClInclude>
-    <ClInclude Include="ScanCenter.h">
-      <Filter>secretary</Filter>
-    </ClInclude>
-    <ClInclude Include="secretary_streambuf.h">
-      <Filter>secretary</Filter>
-    </ClInclude>
-    <ClInclude Include="archivist_interfaces.h">
-      <Filter>archivist</Filter>
-    </ClInclude>
-    <ClInclude Include="iExceptionManager.h">
-      <Filter>referee</Filter>
-    </ClInclude>
-    <ClInclude Include="string_utilities.h">
-      <Filter>assistant</Filter>
-    </ClInclude>
-    <ClInclude Include="byteswap.h">
-      <Filter>assistant</Filter>
-    </ClInclude>
-    <ClInclude Include="shared_containers.h">
-      <Filter>labourer</Filter>
-    </ClInclude>
-    <ClInclude Include="iMutexies.h">
-      <Filter>labourer</Filter>
-    </ClInclude>
-    <ClInclude Include="lib_exceptions.h">
-      <Filter>framework</Filter>
-    </ClInclude>
-    <ClInclude Include="fstreams.h">
-      <Filter>assistant</Filter>
-    </ClInclude>
-    <ClInclude Include="sfstream.h">
-      <Filter>archivist</Filter>
-    </ClInclude>
-    <ClInclude Include="single_loader.h">
-      <Filter>archivist</Filter>
-    </ClInclude>
-    <ClInclude Include="simple_memory_table.h">
-      <Filter>archivist</Filter>
-    </ClInclude>
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="ScanCenter.cpp">
-      <Filter>secretary</Filter>
-    </ClCompile>
-    <ClCompile Include="..\pch\pch.cpp" />
+    <ClCompile Include="PrintCenter.ixx" />
+    <ClCompile Include="astring.ixx" />
+    <ClCompile Include="exceptions.ixx" />
+    <ClCompile Include="AtomicMutex.ixx" />
+    <ClCompile Include="log.ixx" />
+    <ClCompile Include="utilities.ixx" />
+    <ClCompile Include="ThreadLake.ixx" />
   </ItemGroup>
 </Project>

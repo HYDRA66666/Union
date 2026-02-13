@@ -111,7 +111,7 @@
       <LanguageStandard>stdcpp23</LanguageStandard>
       <LanguageStandard_C>stdc17</LanguageStandard_C>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
@@ -133,7 +133,7 @@
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
       <EnableParallelCodeGeneration>true</EnableParallelCodeGeneration>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
-      <PrecompiledHeader>Use</PrecompiledHeader>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
     </ClCompile>
     <Link>
@@ -142,46 +142,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ProjectReference Include="..\pch\pch.vcxproj">
-      <Project>{e61892c1-e794-454f-a2ac-f93e4b4400c8}</Project>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <ClInclude Include="byteswap.h" />
-    <ClInclude Include="archivist_interfaces.h" />
-    <ClInclude Include="astring.h" />
-    <ClInclude Include="background.h" />
-    <ClInclude Include="fstreams.h" />
-    <ClInclude Include="lib_exceptions.h" />
-    <ClInclude Include="iExceptionManager.h" />
-    <ClInclude Include="iMutexies.h" />
-    <ClInclude Include="simple_memory_table.h" />
-    <ClInclude Include="sfstream.h" />
-    <ClInclude Include="shared_containers.h" />
-    <ClInclude Include="single_loader.h" />
-    <ClInclude Include="string_utilities.h" />
-    <ClInclude Include="secretary_streambuf.h" />
-    <ClInclude Include="concepts.h" />
-    <ClInclude Include="datetime.h" />
-    <ClInclude Include="framework.h" />
-    <ClInclude Include="iExceptionBase.h" />
-    <ClInclude Include="lib_info.h" />
-    <ClInclude Include="log.h" />
-    <ClInclude Include="logger.h" />
-    <ClInclude Include="PrintCenter.h" />
-    <ClInclude Include="progress.h" />
-    <ClInclude Include="ScanCenter.h" />
-    <ClInclude Include="ThreadLake.h" />
-    <ClInclude Include="utilities.h" />
-  </ItemGroup>
-  <ItemGroup>
-    <ClCompile Include="..\pch\pch.cpp">
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
-      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="ScanCenter.cpp" />
+    <ClCompile Include="utilities.ixx" />
+    <ClCompile Include="astring.ixx" />
+    <ClCompile Include="exceptions.ixx" />
+    <ClCompile Include="AtomicMutex.ixx" />
+    <ClCompile Include="ThreadLake.ixx" />
+    <ClCompile Include="log.ixx" />
+    <ClCompile Include="PrintCenter.ixx" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
